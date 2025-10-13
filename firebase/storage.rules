@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // SitRep documents - authenticated users only
+    match /sitrep/documents/{fileName} {
+      // Allow read for all authenticated users (as per user requirement)
+      allow read: if request.auth != null;
+      
+      // Allow write (upload, update, delete) for all authenticated users
+      // This matches the user's requirement that "all users that logs in can access the sitrep and everything in it"
+      allow write: if request.auth != null;
+      
+      // Optional: More restrictive rules if needed in the future
+      // allow write: if request.auth != null && 
+      //   request.resource.metadata.uploadedBy == request.auth.uid;
+    }
+    
+    // Optional: Allow public read for specific documents (if needed)
+    match /sitrep/documents/public/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

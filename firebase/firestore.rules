@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - allow read for all authenticated users, write only for own data
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Resources collection
+    match /resources/{resourceId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Transactions collection
+    match /transactions/{transactionId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Multi-transactions collection
+    match /multiTransactions/{multiTransactionId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Borrowers collection
+    match /borrowers/{borrowerId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Resource history collection
+    match /resourceHistory/{historyId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Agencies collection
+    match /agencies/{agencyId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // SitRep Documents collection - CRITICAL: Added for document management
+    match /sitrep_documents/{documentId} {
+      // Allow read for all authenticated users (as per user requirement)
+      allow read: if request.auth != null;
+      
+      // Allow write (create, update, delete) for all authenticated users
+      // This matches the user's requirement that "all users that logs in can access the sitrep and everything in it"
+      allow write: if request.auth != null;
+      
+      // Optional: More restrictive rules if needed in the future
+      // allow create: if request.auth != null && 
+      //   request.resource.data.uploadedBy == request.auth.uid;
+      // allow update: if request.auth != null && 
+      //   (resource.data.uploadedBy == request.auth.uid || 
+      //    request.resource.data.uploadedBy == request.auth.uid);
+      // allow delete: if request.auth != null && 
+      //   resource.data.uploadedBy == request.auth.uid;
+    }
+  }
+}

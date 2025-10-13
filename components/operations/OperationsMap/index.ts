@@ -1,0 +1,2 @@
+export { DavaoOrientalMap } from './DavaoOrientalMap';
+
