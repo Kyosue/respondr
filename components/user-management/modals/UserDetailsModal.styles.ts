@@ -43,13 +43,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
   largeAvatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -67,18 +70,58 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+  },
+  userInfoHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  userEmail: {
+    fontSize: 16,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
   },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '700',
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#ffffff',
-    marginLeft: 6,
+    marginLeft: 4,
     letterSpacing: 0.5,
   },
   infoSection: {
@@ -119,6 +162,11 @@ export const styles = StyleSheet.create({
   infoValue: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  infoSubtext: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
   },
   actionsSection: {
     borderRadius: 16,

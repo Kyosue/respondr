@@ -19,8 +19,8 @@ import { ResourceCardStats } from './ResourceCardStats';
 interface ResourceCardProps {
   resource: Resource;
   onPress: (resource: Resource) => void;
-  onEdit: (resource: Resource) => void;
-  onDelete: (resource: Resource) => void;
+  onEdit?: (resource: Resource) => void;
+  onDelete?: (resource: Resource) => void;
   onBorrow: (resource: Resource) => void;
   onReturn: (resource: Resource) => void;
   isActionsMenuOpen: boolean;
@@ -161,6 +161,8 @@ export const ResourceCard = memo(function ResourceCard({
             resource={resource}
             onBorrow={onBorrow}
             onReturn={onReturn}
+            onEdit={onEdit}
+            onDelete={onDelete}
             onActionsMenuToggle={handleActionsMenuToggle}
             isActionsMenuOpen={isActionsMenuOpen}
             colors={colors}

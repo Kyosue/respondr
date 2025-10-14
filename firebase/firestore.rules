@@ -1,10 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection - allow read for all authenticated users, write only for own data
+    // Users collection - allow read for all authenticated users
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to update their own data
+      allow update: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow admins and supervisors to manage all users
+      // Note: This requires the user document to have a userType field
+      allow write: if request.auth != null && 
+        (request.auth.uid == userId || 
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType in ['admin', 'supervisor']));
     }
     
     // Resources collection

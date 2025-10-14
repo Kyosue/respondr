@@ -6,21 +6,27 @@ import {
     updateProfile,
     UserCredential
 } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from './config';
-import { checkUsernameExists } from './username';
 
 // User types
 export type UserType = 'admin' | 'supervisor' | 'operator';
+export type UserStatus = 'active' | 'inactive' | 'suspended';
 
 export interface UserData {
   id: string;
-  username: string;
   fullName: string;
+  displayName: string; // First + last name only
   email: string;
   userType: UserType;
+  status?: UserStatus; // Made optional for backward compatibility
+  lastLoginAt?: any;
+  lastActivityAt?: any;
   createdAt?: any;
   updatedAt?: any;
+  createdBy?: string;
+  permissions?: string[];
+  avatarUrl?: string;
 }
 
 // Register a new user
@@ -28,7 +34,7 @@ export const registerUser = async (
   email: string,
   password: string,
   fullName: string,
-  username: string,
+  displayName: string,
   userType: UserType
 ): Promise<UserData> => {
   try {
@@ -41,39 +47,21 @@ export const registerUser = async (
       displayName: fullName
     });
     
-    // Now that user is authenticated, check if username exists
-    try {
-      const usernameExists = await checkUsernameExists(username);
-      if (usernameExists) {
-        // Delete the created user and throw error
-        await user.delete();
-        throw new Error('Username already exists');
-      }
-    } catch (error) {
-      // If we can't check username (permission error), delete user and throw error
-      await user.delete();
-      throw new Error('Unable to verify username availability. Please try again.');
-    }
     
     // Create user document in Firestore
     const userData: UserData = {
       id: user.uid,
-      username,
       fullName,
+      displayName,
       email,
       userType,
+      status: 'active',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
     
     // Save user data to Firestore
     await setDoc(doc(db, 'users', user.uid), userData);
-    
-    // Create username document for uniqueness
-    await setDoc(doc(db, 'usernames', username), {
-      userId: user.uid,
-      createdAt: serverTimestamp()
-    });
     
     return userData;
   } catch (error) {
@@ -159,6 +147,145 @@ export const getAllUsers = async (): Promise<UserData[]> => {
     return users;
   } catch (error) {
     console.error('Error getting all users:', error);
+    throw error;
+  }
+};
+
+// Update user data
+export const updateUser = async (
+  userId: string,
+  userData: Partial<UserData>
+): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const updateData = {
+      ...userData,
+      updatedAt: serverTimestamp()
+    };
+    
+    await updateDoc(userRef, updateData);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+};
+
+// Delete user (soft delete by default)
+export const deleteUser = async (
+  userId: string,
+  hardDelete: boolean = false
+): Promise<void> => {
+  try {
+    if (hardDelete) {
+      // Hard delete - remove from Firebase Auth and Firestore
+      const user = auth.currentUser;
+      if (user && user.uid === userId) {
+        // Can't delete current user
+        throw new Error('Cannot delete current user');
+      }
+      
+      // Delete from Firestore first
+      await deleteDoc(doc(db, 'users', userId));
+      
+      // Note: Firebase Auth user deletion requires admin SDK
+      // This would typically be done via Cloud Functions
+      console.warn('Hard delete requires admin SDK - user document removed from Firestore');
+    } else {
+      // Soft delete - mark as inactive
+      await updateUser(userId, { status: 'inactive' });
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+};
+
+// Toggle user status
+export const toggleUserStatus = async (
+  userId: string,
+  status: UserStatus
+): Promise<void> => {
+  try {
+    await updateUser(userId, { status });
+  } catch (error) {
+    console.error('Error toggling user status:', error);
+    throw error;
+  }
+};
+
+// Get users with filters
+export const getUsersWithFilters = async (filters: {
+  userType?: UserType;
+  status?: UserStatus;
+  searchQuery?: string;
+  limitCount?: number;
+}): Promise<UserData[]> => {
+  try {
+    let q = query(collection(db, 'users'));
+    
+    // Apply filters
+    if (filters.userType) {
+      q = query(q, where('userType', '==', filters.userType));
+    }
+    
+    if (filters.status) {
+      q = query(q, where('status', '==', filters.status));
+    }
+    
+    // Order by creation date
+    q = query(q, orderBy('createdAt', 'desc'));
+    
+    if (filters.limitCount) {
+      q = query(q, limit(filters.limitCount));
+    }
+    
+    const querySnapshot = await getDocs(q);
+    let users: UserData[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const userData = doc.data() as UserData;
+      users.push(userData);
+    });
+    
+    // Apply search filter if provided
+    if (filters.searchQuery) {
+      const searchTerm = filters.searchQuery.toLowerCase();
+      users = users.filter(user => 
+        user.fullName.toLowerCase().includes(searchTerm) ||
+        user.username.toLowerCase().includes(searchTerm) ||
+        user.email.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return users;
+  } catch (error) {
+    console.error('Error getting filtered users:', error);
+    throw error;
+  }
+};
+
+// Bulk update users
+export const bulkUpdateUsers = async (
+  userIds: string[],
+  updates: Partial<UserData>
+): Promise<void> => {
+  try {
+    const promises = userIds.map(userId => updateUser(userId, updates));
+    await Promise.all(promises);
+  } catch (error) {
+    console.error('Error bulk updating users:', error);
+    throw error;
+  }
+};
+
+// Get user activity (placeholder - would need to be implemented based on your activity tracking)
+export const getUserActivity = async (userId: string): Promise<any[]> => {
+  try {
+    // This would typically query an activities collection
+    // For now, return empty array
+    return [];
+  } catch (error) {
+    console.error('Error getting user activity:', error);
     throw error;
   }
 };

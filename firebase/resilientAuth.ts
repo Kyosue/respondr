@@ -1,4 +1,4 @@
-import { isNetworkError, NetworkManager, withRetry } from '@/utils/networkUtils';
+import { NetworkManager, withRetry } from '@/utils/networkUtils';
 import { OfflineStorage } from '@/utils/offlineStorage';
 import { SyncManager } from '@/utils/syncManager';
 import {
@@ -12,7 +12,6 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { UserData, UserType } from './auth';
 import { auth, db } from './config';
-import { checkUsernameExists } from './username';
 
 export class ResilientAuthService {
   private static instance: ResilientAuthService;
@@ -38,7 +37,7 @@ export class ResilientAuthService {
     email: string,
     password: string,
     fullName: string,
-    username: string,
+    displayName: string,
     userType: UserType
   ): Promise<UserData> {
     try {
@@ -57,42 +56,21 @@ export class ResilientAuthService {
         'Update user profile'
       );
       
-      // Check username availability with retry
-      try {
-        const usernameExists = await withRetry(
-          () => checkUsernameExists(username),
-          undefined,
-          'Check username availability'
-        );
-        
-        if (usernameExists) {
-          await user.delete();
-          throw new Error('Username already exists');
-        }
-      } catch (error) {
-        await user.delete();
-        if (isNetworkError(error)) {
-          throw new Error('Unable to verify username availability. Please check your connection and try again.');
-        }
-        throw error;
-      }
       
       // Create user data
       const userData: UserData = {
         id: user.uid,
-        username,
         fullName,
+        displayName,
         email,
         userType,
+        status: 'active',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
       
       // Save user data with offline support
       await this.saveUserData(userData);
-      
-      // Create username document for uniqueness
-      await this.saveUsernameDocument(username, user.uid);
       
       return userData;
     } catch (error) {
@@ -117,6 +95,16 @@ export class ResilientAuthService {
       
       if (!userData) {
         throw new Error('User data not found');
+      }
+      
+      // Check if user is deactivated or suspended
+      if (userData.status === 'inactive' || userData.status === 'suspended') {
+        // Sign out the user immediately since they shouldn't be able to login
+        await signOut(auth);
+        const statusMessage = userData.status === 'suspended' 
+          ? 'This account has been suspended. Please contact an administrator.'
+          : 'This account has been deactivated. Please contact an administrator.';
+        throw new Error(statusMessage);
       }
       
       // Update last login timestamp
@@ -148,7 +136,16 @@ export class ResilientAuthService {
 
   // Get current user data with offline support
   async getCurrentUserData(user: FirebaseUser): Promise<UserData | null> {
-    return await this.getUserData(user.uid);
+    const userData = await this.getUserData(user.uid);
+    
+    // Check if user is deactivated or suspended
+    if (userData && (userData.status === 'inactive' || userData.status === 'suspended')) {
+      // Sign out the user immediately since they shouldn't be able to stay logged in
+      await signOut(auth);
+      return null;
+    }
+    
+    return userData;
   }
 
   // Get user data with offline fallback
@@ -211,33 +208,6 @@ export class ResilientAuthService {
     }
   }
 
-  // Save username document with offline support
-  private async saveUsernameDocument(username: string, userId: string): Promise<void> {
-    try {
-      const usernameData = {
-        userId,
-        createdAt: serverTimestamp()
-      };
-
-      if (this.networkManager.isOnline()) {
-        try {
-          await withRetry(
-            () => setDoc(doc(db, 'usernames', username), usernameData),
-            undefined,
-            'Save username document'
-          );
-        } catch (error) {
-          console.warn('Failed to save username document to Firestore, will sync later:', error);
-          await this.syncManager.queueOperation('create', 'usernames', username, usernameData);
-        }
-      } else {
-        await this.syncManager.queueOperation('create', 'usernames', username, usernameData);
-      }
-    } catch (error) {
-      console.error('Error saving username document:', error);
-      throw error;
-    }
-  }
 
   // Update last login with offline support
   private async updateLastLogin(userId: string): Promise<void> {

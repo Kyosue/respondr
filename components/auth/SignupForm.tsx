@@ -1,22 +1,23 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { Link } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 interface SignupFormProps {
-  onSubmit: (fullName: string, email: string, username: string, password: string, userType: string) => Promise<void>;
+  onSubmit: (fullName: string, displayName: string, email: string, password: string, userType: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -24,21 +25,18 @@ interface SignupFormProps {
 export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [userType, setUserType] = useState('admin');
   
   const [fullNameError, setFullNameError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   
   const [isFocused, setIsFocused] = useState({ 
     fullName: false, 
     email: false, 
-    username: false, 
     password: false, 
     confirmPassword: false,
     userType: false
@@ -61,16 +59,13 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     // Clear previous errors
     setFullNameError('');
     setEmailError('');
-    setUsernameError('');
     setPasswordError('');
     setConfirmPasswordError('');
 
-    // Validate full name
-    if (!fullName.trim()) {
-      setFullNameError('Full name is required');
-      isValid = false;
-    } else if (fullName.trim().length < 2) {
-      setFullNameError('Full name must be at least 2 characters');
+    // Validate full name using utility function
+    const nameValidation = validateFullName(fullName);
+    if (!nameValidation.isValid) {
+      setFullNameError(nameValidation.error || 'Invalid full name');
       isValid = false;
     }
 
@@ -84,15 +79,6 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
       isValid = false;
     }
 
-    // Validate username
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-    if (!username.trim()) {
-      setUsernameError('Username is required');
-      isValid = false;
-    } else if (!usernameRegex.test(username.trim())) {
-      setUsernameError('Username must be 3-20 characters and contain only letters, numbers, and underscores');
-      isValid = false;
-    }
 
     // Validate password
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
@@ -120,7 +106,8 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     if (validateForm()) {
       try {
         // Submit the form - validation will be handled in the backend
-        await onSubmit(fullName.trim(), email.trim(), username.trim(), password, userType);
+        const displayName = generateDisplayName(fullName.trim());
+        await onSubmit(fullName.trim(), displayName, email.trim(), password, userType);
       } catch (err) {
         console.error('Error during signup:', err);
       }
@@ -137,10 +124,6 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     if (emailError) setEmailError('');
   };
 
-  const handleUsernameChange = (text: string) => {
-    setUsername(text);
-    if (usernameError) setUsernameError('');
-  };
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
@@ -250,43 +233,6 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
           ) : null}
         </View>
 
-        {/* Username Input */}
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>Username</ThemedText>
-          <View style={styles.inputWrapper}>
-            <Ionicons 
-              name="at-outline" 
-              size={20} 
-              color={isFocused.username ? colors.primary : colors.icon} 
-              style={styles.inputIcon} 
-            />
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  backgroundColor: colors.inputBackground,
-                  borderColor: isFocused.username ? colors.primary : usernameError ? colors.error : colors.inputBorder,
-                  color: colors.inputText,
-                  paddingLeft: 48,
-                }
-              ]}
-              placeholder="Enter your username"
-              placeholderTextColor={colors.disabledText}
-              value={username}
-              onChangeText={handleUsernameChange}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-              onFocus={() => setIsFocused({...isFocused, username: true})}
-              onBlur={() => setIsFocused({...isFocused, username: false})}
-            />
-          </View>
-          {usernameError ? (
-            <ThemedText style={[styles.errorText, { color: colors.error }]}>
-              {usernameError}
-            </ThemedText>
-          ) : null}
-        </View>
 
         {/* Password Input */}
         <View style={styles.inputContainer}>

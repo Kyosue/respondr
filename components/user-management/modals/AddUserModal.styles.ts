@@ -134,4 +134,34 @@ export const styles = StyleSheet.create({
   buttonIcon: {
     marginLeft: 8,
   },
+  inputRightIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 15,
+    zIndex: 1,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  passwordStrengthContainer: {
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  passwordStrengthBar: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 4,
+  },
+  passwordStrengthSegment: {
+    height: 4,
+    flex: 1,
+    borderRadius: 2,
+  },
+  passwordStrengthText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

@@ -2,22 +2,24 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { UserData, UserStatus } from '@/firebase/auth';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { UserData } from '@/types/UserData';
+import { usePermissions } from '@/hooks/usePermissions';
 import { UserType } from '@/types/UserType';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    View
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  View
 } from 'react-native';
-import { getAllUsers } from '../../firebase/auth';
+import { deleteUser, getAllUsers, toggleUserStatus } from '../../firebase/auth';
 import { UserCard } from './UserCard/UserCard';
 import { UserHeader } from './UserHeader/UserHeader';
-import { AddUserModal, UserDetailsModal } from './modals';
+import { AddUserModal, EditUserModal, UserDetailsModal } from './modals';
 import { styles } from './styles/UserManagement.styles';
 
 const UserManagement: React.FC = () => {
@@ -25,6 +27,7 @@ const UserManagement: React.FC = () => {
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
   const { user, firebaseUser, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { canViewUserManagement, canManageUsers, canCreateUsers, canEditUsers, canDeleteUsers, canToggleUserStatus } = usePermissions();
   
   const [users, setUsers] = useState<UserData[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,9 +35,12 @@ const UserManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [filterType, setFilterType] = useState<UserType | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<UserStatus | 'all'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -50,11 +56,11 @@ const UserManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    // Only load users if user is authenticated
-    if (user && firebaseUser && !authLoading) {
+    // Only load users if user is authenticated and has permission
+    if (user && firebaseUser && !authLoading && canViewUserManagement) {
       fetchUsers();
     }
-  }, [user, firebaseUser, authLoading]);
+  }, [user, firebaseUser, authLoading, canViewUserManagement]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -80,19 +86,25 @@ const UserManagement: React.FC = () => {
     setFilterType(type);
   };
 
+  const handleStatusFilterSelect = (status: UserStatus | 'all') => {
+    setFilterStatus(status);
+  };
+
   // Filter and search users
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesSearch = 
         user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesFilter = filterType === 'all' || user.userType === filterType;
+      const matchesTypeFilter = filterType === 'all' || user.userType === filterType;
+      const userStatus = user.status || 'active'; // Default to 'active' if status is undefined
+      const matchesStatusFilter = filterStatus === 'all' || userStatus === filterStatus;
       
-      return matchesSearch && matchesFilter;
+      return matchesSearch && matchesTypeFilter && matchesStatusFilter;
     });
-  }, [users, searchQuery, filterType]);
+  }, [users, searchQuery, filterType, filterStatus]);
 
   const handleUserPress = (user: UserData) => {
     setSelectedUser(user);
@@ -105,12 +117,12 @@ const UserManagement: React.FC = () => {
   };
 
   const handleEditUser = (user: UserData) => {
-    // TODO: Implement edit user functionality
-    console.log('Edit user:', user);
+    setEditingUser(user);
+    setShowEditUserModal(true);
     handleCloseModal();
   };
 
-  const handleDeleteUser = (user: UserData) => {
+  const handleDeleteUser = async (user: UserData) => {
     Alert.alert(
       'Delete User',
       `Are you sure you want to delete ${user.fullName}? This action cannot be undone.`,
@@ -119,10 +131,43 @@ const UserManagement: React.FC = () => {
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement delete user functionality
-            console.log('Delete user:', user);
-            handleCloseModal();
+          onPress: async () => {
+            try {
+              await deleteUser(user.id, false); // Soft delete
+              await fetchUsers(); // Refresh the list
+              handleCloseModal();
+              Alert.alert('Success', 'User deleted successfully');
+            } catch (error) {
+              console.error('Error deleting user:', error);
+              Alert.alert('Error', 'Failed to delete user. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleToggleUserStatus = async (user: UserData) => {
+    const currentStatus = user.status || 'active'; // Default to 'active' if status is undefined
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const action = newStatus === 'active' ? 'activate' : 'deactivate';
+    
+    Alert.alert(
+      `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
+      `Are you sure you want to ${action} ${user.fullName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: action.charAt(0).toUpperCase() + action.slice(1), 
+          onPress: async () => {
+            try {
+              await toggleUserStatus(user.id, newStatus);
+              await fetchUsers(); // Refresh the list
+              Alert.alert('Success', `User ${action}d successfully`);
+            } catch (error) {
+              console.error(`Error ${action}ing user:`, error);
+              Alert.alert('Error', `Failed to ${action} user. Please try again.`);
+            }
           }
         }
       ]
@@ -142,6 +187,16 @@ const UserManagement: React.FC = () => {
     fetchUsers();
   };
 
+  const handleCloseEditUserModal = () => {
+    setShowEditUserModal(false);
+    setEditingUser(null);
+  };
+
+  const handleUserUpdated = () => {
+    // Refresh the users list when a user is updated
+    fetchUsers();
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <ThemedText style={styles.emptyTitle}>No users found</ThemedText>
@@ -157,6 +212,23 @@ const UserManagement: React.FC = () => {
       <ThemedView style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <ThemedText style={styles.loadingText}>Loading...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  // Check if user has permission to view user management
+  if (!canViewUserManagement) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.accessDeniedContainer}>
+          <Ionicons name="lock-closed" size={64} color={colors.error} style={styles.accessDeniedIcon} />
+          <ThemedText style={[styles.accessDeniedTitle, { color: colors.error }]}>
+            Access Denied
+          </ThemedText>
+          <ThemedText style={[styles.accessDeniedMessage, { color: colors.text }]}>
+            You don't have permission to access user management. This feature is only available to administrators and supervisors.
+          </ThemedText>
+        </View>
       </ThemedView>
     );
   }
@@ -198,7 +270,10 @@ const UserManagement: React.FC = () => {
         onClearSearch={handleClearSearch}
         selectedFilter={filterType}
         onFilterSelect={handleFilterSelect}
-        onSignupPress={handleAddUserPress}
+        selectedStatusFilter={filterStatus}
+        onStatusFilterSelect={handleStatusFilterSelect}
+        onSignupPress={canCreateUsers ? handleAddUserPress : undefined}
+        showAddButton={canCreateUsers}
       />
 
       <ScrollView 
@@ -226,6 +301,9 @@ const UserManagement: React.FC = () => {
                 key={user.id}
                 user={user}
                 onPress={handleUserPress}
+                onEdit={canEditUsers ? handleEditUser : undefined}
+                onDelete={canDeleteUsers ? handleDeleteUser : undefined}
+                onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
                 colors={colors}
               />
             ))
@@ -238,8 +316,9 @@ const UserManagement: React.FC = () => {
         user={selectedUser}
         visible={showUserModal}
         onClose={handleCloseModal}
-        onEdit={handleEditUser}
-        onDelete={handleDeleteUser}
+        onEdit={canEditUsers ? handleEditUser : undefined}
+        onDelete={canDeleteUsers ? handleDeleteUser : undefined}
+        onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
       />
 
       {/* Add User Modal */}
@@ -247,6 +326,14 @@ const UserManagement: React.FC = () => {
         visible={showAddUserModal}
         onClose={handleCloseAddUserModal}
         onUserAdded={handleUserAdded}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        user={editingUser}
+        visible={showEditUserModal}
+        onClose={handleCloseEditUserModal}
+        onUserUpdated={handleUserUpdated}
       />
     </ThemedView>
   );

@@ -1,38 +1,55 @@
 // Navigation configuration for the app
+import { UserType } from '@/types/UserType';
 
-// Define menu items for the hamburger menu
-export const HAMBURGER_MENU_ITEMS = [
+// Define all possible menu items
+const ALL_MENU_ITEMS = [
   {
     id: 'user-management',
     title: 'User Management',
     icon: 'people-outline',
+    requiredRole: ['admin', 'supervisor'] as UserType[],
   },
   {
     id: 'reports',
     title: 'Reports',
     icon: 'bar-chart-outline',
+    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
   {
     id: 'settings',
     title: 'Settings',
     icon: 'settings-outline',
+    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
   {
     id: 'help',
     title: 'Help',
     icon: 'help-circle-outline',
+    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
   {
     id: 'about',
     title: 'About',
     icon: 'information-circle-outline',
+    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
   {
     id: 'logout',
     title: 'Logout',
     icon: 'log-out-outline',
+    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
 ];
+
+// Function to get menu items based on user role
+export const getMenuItems = (userType: UserType) => {
+  return ALL_MENU_ITEMS.filter(item => 
+    item.requiredRole.includes(userType)
+  );
+};
+
+// Legacy export for backward compatibility
+export const HAMBURGER_MENU_ITEMS = ALL_MENU_ITEMS;
 
 // Define bottom navigation tabs
 export const BOTTOM_TABS = [

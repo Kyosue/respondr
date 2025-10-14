@@ -1,17 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  Dimensions,
-  Modal,
-  ScrollView,
-  TouchableOpacity,
-  View
+    Dimensions,
+    Modal,
+    ScrollView,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { UserData } from '@/types/UserData';
+import { UserData, UserStatus } from '@/types/UserData';
 import { UserType } from '@/types/UserType';
 
 import { styles } from './UserDetailsModal.styles';
@@ -24,6 +24,7 @@ interface UserDetailsModalProps {
   onClose: () => void;
   onEdit?: (user: UserData) => void;
   onDelete?: (user: UserData) => void;
+  onToggleStatus?: (user: UserData) => void;
 }
 
 export function UserDetailsModal({
@@ -31,7 +32,8 @@ export function UserDetailsModal({
   visible,
   onClose,
   onEdit,
-  onDelete
+  onDelete,
+  onToggleStatus
 }: UserDetailsModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -56,6 +58,36 @@ export function UserDetailsModal({
     }
   };
 
+  const getStatusColor = (status: UserStatus | undefined) => {
+    if (!status) return '#6B7280';
+    switch (status) {
+      case 'active': return '#10B981';
+      case 'inactive': return '#6B7280';
+      case 'suspended': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
+  const getStatusIcon = (status: UserStatus | undefined) => {
+    if (!status) return 'help-circle';
+    switch (status) {
+      case 'active': return 'checkmark-circle';
+      case 'inactive': return 'pause-circle';
+      case 'suspended': return 'ban';
+      default: return 'help-circle';
+    }
+  };
+
+  const getStatusText = (status: UserStatus | undefined) => {
+    if (!status) return 'Unknown';
+    switch (status) {
+      case 'active': return 'Active';
+      case 'inactive': return 'Inactive';
+      case 'suspended': return 'Suspended';
+      default: return 'Unknown';
+    }
+  };
+
   const formatDate = (timestamp: any): string => {
     if (!timestamp) return 'Unknown';
     try {
@@ -72,7 +104,32 @@ export function UserDetailsModal({
     }
   };
 
+  const formatRelativeTime = (timestamp: any): string => {
+    if (!timestamp) return 'Never';
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+      
+      if (diffInSeconds < 60) return 'Just now';
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+      if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+      
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Unknown';
+    }
+  };
+
   const userTypeColor = getUserTypeColor(user.userType);
+  const statusColor = getStatusColor(user.status);
+  const statusIcon = getStatusIcon(user.status);
+  const userStatus = user.status || 'active';
 
   return (
     <Modal
@@ -98,29 +155,54 @@ export function UserDetailsModal({
         >
           {/* User Avatar Section */}
           <View style={styles.avatarSection}>
-            <View style={[styles.largeAvatar, { backgroundColor: userTypeColor }]}>
-              <ThemedText style={styles.largeAvatarText}>
-                {user.fullName.charAt(0).toUpperCase()}
+            <View style={styles.avatarContainer}>
+              <View style={[styles.largeAvatar, { backgroundColor: userTypeColor }]}>
+                <ThemedText style={styles.largeAvatarText}>
+                  {user.fullName.charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+              {/* Status indicator */}
+              <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
+                <Ionicons name={statusIcon} size={12} color="#fff" />
+              </View>
+            </View>
+            
+            <View style={styles.userInfoHeader}>
+              <ThemedText style={[styles.userName, { color: colors.text }]}>
+                {user.fullName}
+              </ThemedText>
+              <ThemedText style={[styles.userEmail, { color: colors.text + '80' }]}>
+                {user.email}
               </ThemedText>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: userTypeColor }]}>
-              <Ionicons 
-                name={getUserTypeIcon(user.userType)} 
-                size={16} 
-                color="#fff" 
-              />
-              <ThemedText style={styles.statusText}>
-                {user.userType.toUpperCase()}
-              </ThemedText>
+
+            <View style={styles.badgesContainer}>
+              <View style={[styles.roleBadge, { backgroundColor: userTypeColor }]}>
+                <Ionicons 
+                  name={getUserTypeIcon(user.userType)} 
+                  size={14} 
+                  color="#fff" 
+                />
+                <ThemedText style={styles.badgeText}>
+                  {user.userType.toUpperCase()}
+                </ThemedText>
+              </View>
+              
+              <View style={[styles.statusBadge, { backgroundColor: statusColor + '20', borderColor: statusColor }]}>
+                <Ionicons name={statusIcon} size={14} color={statusColor} />
+                <ThemedText style={[styles.badgeText, { color: statusColor }]}>
+                  {getStatusText(user.status)}
+                </ThemedText>
+              </View>
             </View>
           </View>
 
-          {/* User Info Section */}
+          {/* Personal Information Section */}
           <View style={[styles.infoSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</ThemedText>
             
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
                 <Ionicons name="person" size={20} color={userTypeColor} />
               </View>
               <View style={styles.infoContent}>
@@ -129,18 +211,20 @@ export function UserDetailsModal({
               </View>
             </View>
 
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Ionicons name="at" size={20} color={userTypeColor} />
+            {user.displayName && user.displayName !== user.fullName && (
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                  <Ionicons name="at" size={20} color={userTypeColor} />
+                </View>
+                <View style={styles.infoContent}>
+                  <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Display Name</ThemedText>
+                  <ThemedText style={[styles.infoValue, { color: colors.text }]}>{user.displayName}</ThemedText>
+                </View>
               </View>
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Username</ThemedText>
-                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{user.username}</ThemedText>
-              </View>
-            </View>
+            )}
 
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
                 <Ionicons name="mail" size={20} color={userTypeColor} />
               </View>
               <View style={styles.infoContent}>
@@ -150,11 +234,11 @@ export function UserDetailsModal({
             </View>
 
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
                 <Ionicons name="calendar" size={20} color={userTypeColor} />
               </View>
               <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Joined</ThemedText>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Member Since</ThemedText>
                 <ThemedText style={[styles.infoValue, { color: colors.text }]}>
                   {formatDate(user.createdAt)}
                 </ThemedText>
@@ -162,14 +246,70 @@ export function UserDetailsModal({
             </View>
           </View>
 
+          {/* Activity Information Section */}
+          <View style={[styles.infoSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Activity Information</ThemedText>
+            
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: statusColor + '15' }]}>
+                <Ionicons name="time" size={20} color={statusColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Last Login</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>
+                  {formatRelativeTime(user.lastLoginAt)}
+                </ThemedText>
+                {user.lastLoginAt && (
+                  <ThemedText style={[styles.infoSubtext, { color: colors.text + '40' }]}>
+                    {formatDate(user.lastLoginAt)}
+                  </ThemedText>
+                )}
+              </View>
+            </View>
+
+
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                <Ionicons name="refresh" size={20} color={userTypeColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Last Updated</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>
+                  {formatRelativeTime(user.updatedAt)}
+                </ThemedText>
+                {user.updatedAt && (
+                  <ThemedText style={[styles.infoSubtext, { color: colors.text + '40' }]}>
+                    {formatDate(user.updatedAt)}
+                  </ThemedText>
+                )}
+              </View>
+            </View>
+          </View>
+
           {/* Actions Section */}
-          {(onEdit || onDelete) && (
+          {(onEdit || onDelete || onToggleStatus) && (
             <View style={[styles.actionsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Actions</ThemedText>
               
+              {onToggleStatus && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, { borderColor: statusColor }]}
+                  onPress={() => onToggleStatus(user)}
+                >
+                  <Ionicons 
+                    name={userStatus === 'active' ? 'pause' : 'play'} 
+                    size={20} 
+                    color={statusColor} 
+                  />
+                  <ThemedText style={[styles.actionText, { color: statusColor }]}>
+                    {userStatus === 'active' ? 'Deactivate User' : 'Activate User'}
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+
               {onEdit && (
                 <TouchableOpacity 
-                  style={[styles.actionButton, { borderColor: colors.border }]}
+                  style={[styles.actionButton, { borderColor: colors.primary }]}
                   onPress={() => onEdit(user)}
                 >
                   <Ionicons name="create" size={20} color={colors.primary} />
@@ -179,7 +319,7 @@ export function UserDetailsModal({
 
               {onDelete && (
                 <TouchableOpacity 
-                  style={[styles.actionButton, { borderColor: colors.border }]}
+                  style={[styles.actionButton, { borderColor: '#EF4444' }]}
                   onPress={() => onDelete(user)}
                 >
                   <Ionicons name="trash" size={20} color="#EF4444" />

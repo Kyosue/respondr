@@ -14,8 +14,8 @@ interface ResourceActionsMenuProps {
   resource: Resource | null;
   cardPosition?: { x: number; y: number; width: number; height: number };
   onClose: () => void;
-  onEdit: (resource: Resource) => void;
-  onDelete: (resource: Resource) => void;
+  onEdit?: (resource: Resource) => void;
+  onDelete?: (resource: Resource) => void;
 }
 
 export function ResourceActionsMenu({
@@ -103,27 +103,31 @@ export function ResourceActionsMenu({
         onPress={(e) => e.stopPropagation()}
         activeOpacity={1}
       >
-        <TouchableOpacity 
-          style={styles.actionMenuItem}
-          onPress={() => {
-            onClose();
-            onEdit(resource);
-          }}
-        >
-          <Ionicons name="create-outline" size={16} color="#3B82F6" />
-          <ThemedText style={styles.actionMenuText}>Edit</ThemedText>
-        </TouchableOpacity>
+        {onEdit && (
+          <TouchableOpacity 
+            style={styles.actionMenuItem}
+            onPress={() => {
+              onClose();
+              onEdit(resource);
+            }}
+          >
+            <Ionicons name="create-outline" size={16} color="#3B82F6" />
+            <ThemedText style={styles.actionMenuText}>Edit</ThemedText>
+          </TouchableOpacity>
+        )}
         
-        <TouchableOpacity 
-          style={styles.actionMenuItem}
-          onPress={() => {
-            onClose();
-            onDelete(resource);
-          }}
-        >
-          <Ionicons name="trash-outline" size={16} color="#EF4444" />
-          <ThemedText style={styles.actionMenuText}>Delete</ThemedText>
-        </TouchableOpacity>
+        {onDelete && (
+          <TouchableOpacity 
+            style={styles.actionMenuItem}
+            onPress={() => {
+              onClose();
+              onDelete(resource);
+            }}
+          >
+            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+            <ThemedText style={styles.actionMenuText}>Delete</ThemedText>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     </TouchableOpacity>
   );

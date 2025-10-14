@@ -14,17 +14,18 @@ export function useSignup() {
 
   const signup = async (
     fullName: string, 
+    displayName: string,
     email: string, 
-    username: string, 
     password: string, 
-    userType: string
+    userType: string,
+    status: string = 'active'
   ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
       // Validate inputs
-      if (!fullName || !email || !username || !password || !userType) {
+      if (!fullName || !displayName || !email || !password || !userType) {
         throw new Error('All fields are required');
       }
 
@@ -33,8 +34,9 @@ export function useSignup() {
         email,
         password,
         fullName,
-        username,
-        userType as UserType
+        displayName,
+        userType as UserType,
+        status as any // Status will be added to userData
       );
       
       // Update auth context

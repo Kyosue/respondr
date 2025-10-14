@@ -4,6 +4,7 @@ import { TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { UserStatus } from '@/types/UserData';
 import { UserType } from '@/types/UserType';
 
 import { UserFilters } from './UserFilters';
@@ -18,7 +19,10 @@ interface UserHeaderProps {
   onClearSearch: () => void;
   selectedFilter: UserType | 'all';
   onFilterSelect: (filter: UserType | 'all') => void;
+  selectedStatusFilter?: UserStatus | 'all';
+  onStatusFilterSelect?: (filter: UserStatus | 'all') => void;
   onSignupPress?: () => void;
+  showAddButton?: boolean;
 }
 
 export function UserHeader({
@@ -29,7 +33,10 @@ export function UserHeader({
   onClearSearch,
   selectedFilter,
   onFilterSelect,
-  onSignupPress
+  selectedStatusFilter,
+  onStatusFilterSelect,
+  onSignupPress,
+  showAddButton = true,
 }: UserHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -44,16 +51,18 @@ export function UserHeader({
         </View>
         
         <View style={styles.headerActionsSection}>
-          <TouchableOpacity 
-            style={[styles.signupButton, { 
-              backgroundColor: colors.primary,
-            }]}
-            onPress={onSignupPress}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="person-add" size={16} color="white" />
-            <ThemedText style={[styles.signupButtonText, { color: 'white' }]}>Add User</ThemedText>
-          </TouchableOpacity>
+          {showAddButton && (
+            <TouchableOpacity 
+              style={[styles.signupButton, { 
+                backgroundColor: colors.primary,
+              }]}
+              onPress={onSignupPress}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="person-add" size={16} color="white" />
+              <ThemedText style={[styles.signupButtonText, { color: 'white' }]}>Add User</ThemedText>
+            </TouchableOpacity>
+          )}
           
           <TouchableOpacity 
             style={[styles.searchButton, { 
@@ -84,6 +93,8 @@ export function UserHeader({
         <UserFilters 
           selectedFilter={selectedFilter}
           onFilterSelect={onFilterSelect}
+          selectedStatusFilter={selectedStatusFilter}
+          onStatusFilterSelect={onStatusFilterSelect}
         />
       </View>
     </View>

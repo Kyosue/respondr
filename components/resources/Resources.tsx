@@ -12,6 +12,7 @@ import { Colors } from '@/constants/Colors';
 import { useResources } from '@/contexts/ResourceContext';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { usePermissions } from '@/hooks/usePermissions';
 import { usePlatform } from '@/hooks/usePlatform';
 import { Resource } from '@/types/Resource';
 import { AddExternalResourceModal } from './modals/AddExternalResourceModal';
@@ -35,6 +36,7 @@ export function Resources() {
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
   const { isWeb } = usePlatform();
+  const { canCreateResources, canEditResources, canDeleteResources } = usePermissions();
   const { 
     state, 
     getFilteredResources, 
@@ -121,7 +123,16 @@ export function Resources() {
 
   const {
     selectedCategory,
+    selectedAgency,
+    selectedResourceType,
+    selectedStatus,
+    selectedCondition,
     handleCategorySelect,
+    handleAgencySelect,
+    handleResourceTypeSelect,
+    handleStatusSelect,
+    handleConditionSelect,
+    clearFilters,
   } = useResourceFilters();
 
   const {
@@ -209,8 +220,8 @@ export function Resources() {
               key={resource.id}
               resource={resource}
               onPress={handleResourcePress}
-              onEdit={handleEditResource}
-              onDelete={handleDelete}
+              onEdit={canEditResources ? handleEditResource : () => {}}
+              onDelete={canDeleteResources ? handleDelete : () => {}}
               onBorrow={handleBorrowResource}
               onReturn={handleReturnResource}
               isActionsMenuOpen={openActionsMenuId === resource.id}
@@ -228,8 +239,8 @@ export function Resources() {
             key={resource.id}
             resource={resource}
             onPress={handleResourcePress}
-            onEdit={handleEditResource}
-            onDelete={handleDelete}
+            onEdit={canEditResources ? handleEditResource : () => {}}
+            onDelete={canDeleteResources ? handleDelete : () => {}}
             onBorrow={handleBorrowResource}
             onReturn={handleReturnResource}
             isActionsMenuOpen={openActionsMenuId === resource.id}
@@ -247,12 +258,23 @@ export function Resources() {
         searchQuery={searchQuery}
         onSearchChange={handleSearch}
         onSearchToggle={handleSearchToggle}
-        onAddResource={() => setShowResourceTypeModal(true)}
+        onAddResource={canCreateResources ? () => setShowResourceTypeModal(true) : () => {}}
+        showAddButton={canCreateResources}
         onMultiBorrow={handleMultiBorrow}
         onBorrowerDashboard={() => setShowBorrowerDashboard(true)}
         onClearSearch={handleClearSearch}
         selectedCategory={selectedCategory}
+        selectedAgency={selectedAgency}
+        selectedResourceType={selectedResourceType}
+        selectedStatus={selectedStatus}
+        selectedCondition={selectedCondition}
         onCategorySelect={handleCategorySelect}
+        onAgencySelect={handleAgencySelect}
+        onResourceTypeSelect={handleResourceTypeSelect}
+        onStatusSelect={handleStatusSelect}
+        onConditionSelect={handleConditionSelect}
+        onClearFilters={clearFilters}
+        agencies={agencies}
       />
 
       {isWeb ? (

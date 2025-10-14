@@ -50,7 +50,12 @@ export function useLogin() {
             errorMessage = err.message;
         }
       } else if (err instanceof Error) {
-        errorMessage = err.message;
+        // Handle custom errors (like deactivated or suspended account)
+        if (err.message.includes('deactivated') || err.message.includes('suspended')) {
+          errorMessage = err.message;
+        } else {
+          errorMessage = err.message;
+        }
       }
       
       setError(errorMessage);

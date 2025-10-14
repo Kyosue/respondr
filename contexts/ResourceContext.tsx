@@ -1314,17 +1314,26 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
       filtered = filtered.filter(r => r.availableQuantity > 0);
     }
 
+    if (state.filters.agencyId) {
+      filtered = filtered.filter(r => r.agencyId === state.filters.agencyId);
+    }
+
+    if (state.filters.resourceType) {
+      filtered = filtered.filter(r => r.resourceType === state.filters.resourceType);
+    }
+
     if (state.filters.search && state.filters.search.trim()) {
       const searchLower = state.filters.search.toLowerCase();
       filtered = filtered.filter(r => 
         r.name.toLowerCase().includes(searchLower) ||
         r.description.toLowerCase().includes(searchLower) ||
-        r.tags.some(tag => tag.toLowerCase().includes(searchLower))
+        r.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
+        (r.agencyName && r.agencyName.toLowerCase().includes(searchLower))
       );
     }
 
     return filtered;
-  }, [state.resources, state.filters.category, state.filters.status, state.filters.condition, state.filters.available, state.filters.search]);
+  }, [state.resources, state.filters.category, state.filters.status, state.filters.condition, state.filters.available, state.filters.agencyId, state.filters.resourceType, state.filters.search]);
 
   const searchResources = (query: string) => {
     const searchLower = query.toLowerCase();

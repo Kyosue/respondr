@@ -12,11 +12,12 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
-import { HAMBURGER_MENU_ITEMS } from '@/config/navigation';
+import { getMenuItems } from '@/config/navigation';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLogin } from '@/hooks/useLogin';
+import { generateDisplayName } from '@/utils/nameUtils';
 
 interface HeaderProps {
   userName: string;
@@ -32,6 +33,9 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuAnimation] = useState(new Animated.Value(-300)); // Start from -300 (left side)
+  
+  // Get menu items based on user role
+  const menuItems = user?.userType ? getMenuItems(user.userType) : [];
 
   // Map user role to color (match UserCard logic)
   const getUserTypeColor = (userType?: 'admin' | 'supervisor' | 'operator') => {
@@ -92,7 +96,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
         </TouchableOpacity>
         
         <View style={styles.profileContainer}>
-          <ThemedText style={styles.userName}>{userName}</ThemedText>
+          <ThemedText style={styles.userName}>{generateDisplayName(userName)}</ThemedText>
           <View style={[styles.avatar, { backgroundColor: getUserTypeColor(user?.userType as any) }]}>
             <ThemedText style={styles.avatarText} darkColor="#000" lightColor="#fff">
               {nameInitial}
@@ -137,7 +141,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
             </View>
             
             <View style={styles.menuItems}>
-              {HAMBURGER_MENU_ITEMS.filter(item => item.id !== 'logout').map((item) => {
+              {menuItems.filter(item => item.id !== 'logout').map((item) => {
                 const isActive = currentTab === item.id;
                 return (
                   <TouchableOpacity 
@@ -181,12 +185,12 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
               onPress={handleLogout}
             >
               <Ionicons 
-                name={HAMBURGER_MENU_ITEMS.find(item => item.id === 'logout')?.icon as any} 
+                name={menuItems.find(item => item.id === 'logout')?.icon as any} 
                 size={22} 
                 color={colors.error} 
               />
               <ThemedText style={[styles.logoutText, { color: colors.error }]}>
-                {HAMBURGER_MENU_ITEMS.find(item => item.id === 'logout')?.title}
+                {menuItems.find(item => item.id === 'logout')?.title}
               </ThemedText>
             </TouchableOpacity>
           </Animated.View>

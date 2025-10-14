@@ -15,6 +15,7 @@ export const styles = StyleSheet.create({
   usersContainer: {
     marginTop: 2,
     paddingTop: 8,
+    zIndex: 1,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -52,5 +53,25 @@ export const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  accessDeniedContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  accessDeniedIcon: {
+    marginBottom: 16,
+  },
+  accessDeniedTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  accessDeniedMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.8,
   },
 });

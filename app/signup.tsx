@@ -33,13 +33,13 @@ export default function SignupScreen() {
 
   const handleSignup = async (
     fullName: string, 
+    displayName: string,
     email: string, 
-    username: string, 
     password: string, 
     userType: string
   ) => {
     try {
-      const success = await signup(fullName, email, username, password, userType);
+      const success = await signup(fullName, displayName, email, password, userType);
       if (success) {
         // Show success modal instead of alert
         setSuccessModalVisible(true);

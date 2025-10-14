@@ -3,7 +3,6 @@ import { Platform, StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   header: {
     paddingTop: 0,
-    paddingBottom: 16,
   },
   headerMain: {
     flexDirection: 'row',
@@ -130,6 +129,8 @@ export const styles = StyleSheet.create({
   filtersContainer: {
     marginBottom: 12,
     paddingVertical: 2,
+    zIndex: 1000,
+    position: 'relative',
   },
   filtersContent: {
     paddingHorizontal: 4,
@@ -158,5 +159,85 @@ export const styles = StyleSheet.create({
   filterText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Enhanced filter styles
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Dropdown styles
+  dropdownContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 4,
+    right: 4,
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 20,
+      },
+    }),
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  dropdownTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dropdownIndicator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

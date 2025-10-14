@@ -183,6 +183,8 @@ export interface ResourceFilters {
   condition?: ResourceCondition;
   search?: string;
   available?: boolean;
+  agencyId?: string;
+  resourceType?: 'pdrrmo' | 'external';
 }
 
 export interface ResourceStats {

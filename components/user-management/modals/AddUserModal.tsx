@@ -3,9 +3,11 @@ import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useSignup } from '@/hooks/useSignup';
+import { UserType } from '@/types/UserType';
+import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Animated,
@@ -30,21 +32,19 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
   
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [userType, setUserType] = useState('admin');
+  const [userType, setUserType] = useState<UserType>('admin');
+  // Status is always 'active' for new users - no need to make it selectable
   
   const [fullNameError, setFullNameError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   
   const [isFocused, setIsFocused] = useState({ 
     fullName: false, 
     email: false, 
-    username: false, 
     password: false, 
     confirmPassword: false,
     userType: false
@@ -52,9 +52,40 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState(0);
   
   // Animation values
   const [buttonScale] = useState(new Animated.Value(1));
+
+  // Calculate password strength
+  const calculatePasswordStrength = (password: string): number => {
+    let strength = 0;
+    if (password.length >= 6) strength += 1;
+    if (password.length >= 8) strength += 1;
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+    return strength;
+  };
+
+  // Real-time password strength update
+  useEffect(() => {
+    setPasswordStrength(calculatePasswordStrength(password));
+  }, [password]);
+
+
+  const getPasswordStrengthColor = (strength: number) => {
+    if (strength <= 2) return '#EF4444';
+    if (strength <= 4) return '#F59E0B';
+    return '#10B981';
+  };
+
+  const getPasswordStrengthText = (strength: number) => {
+    if (strength <= 2) return 'Weak';
+    if (strength <= 4) return 'Medium';
+    return 'Strong';
+  };
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -62,16 +93,13 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
     // Clear previous errors
     setFullNameError('');
     setEmailError('');
-    setUsernameError('');
     setPasswordError('');
     setConfirmPasswordError('');
 
-    // Validate full name
-    if (!fullName.trim()) {
-      setFullNameError('Full name is required');
-      isValid = false;
-    } else if (fullName.trim().length < 2) {
-      setFullNameError('Full name must be at least 2 characters');
+    // Validate full name using utility function
+    const nameValidation = validateFullName(fullName);
+    if (!nameValidation.isValid) {
+      setFullNameError(nameValidation.error || 'Invalid full name');
       isValid = false;
     }
 
@@ -85,15 +113,6 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
       isValid = false;
     }
 
-    // Validate username
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-    if (!username.trim()) {
-      setUsernameError('Username is required');
-      isValid = false;
-    } else if (!usernameRegex.test(username.trim())) {
-      setUsernameError('Username must be 3-20 characters and contain only letters, numbers, and underscores');
-      isValid = false;
-    }
 
     // Validate password
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
@@ -120,20 +139,20 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
   const handleSubmit = async () => {
     if (validateForm()) {
       try {
-        const success = await signup(fullName.trim(), email.trim(), username.trim(), password, userType);
+        const displayName = generateDisplayName(fullName.trim());
+        const success = await signup(fullName.trim(), displayName, email.trim(), password, userType, 'active');
         if (success) {
           // Reset form
           setFullName('');
           setEmail('');
-          setUsername('');
           setPassword('');
           setConfirmPassword('');
           setUserType('admin');
           setFullNameError('');
           setEmailError('');
-          setUsernameError('');
           setPasswordError('');
           setConfirmPasswordError('');
+          setPasswordStrength(0);
           
           // Notify parent component
           onUserAdded?.();
@@ -151,15 +170,14 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
     // Reset form when closing
     setFullName('');
     setEmail('');
-    setUsername('');
     setPassword('');
     setConfirmPassword('');
     setUserType('admin');
     setFullNameError('');
     setEmailError('');
-    setUsernameError('');
     setPasswordError('');
     setConfirmPasswordError('');
+    setPasswordStrength(0);
     onClose();
   };
 
@@ -171,11 +189,6 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
   const handleEmailChange = (text: string) => {
     setEmail(text);
     if (emailError) setEmailError('');
-  };
-
-  const handleUsernameChange = (text: string) => {
-    setUsername(text);
-    if (usernameError) setUsernameError('');
   };
 
   const handlePasswordChange = (text: string) => {
@@ -306,43 +319,6 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
               ) : null}
             </View>
 
-            {/* Username Input */}
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Username</ThemedText>
-              <View style={styles.inputWrapper}>
-                <Ionicons 
-                  name="at-outline" 
-                  size={20} 
-                  color={isFocused.username ? colors.primary : colors.icon} 
-                  style={styles.inputIcon} 
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    { 
-                      backgroundColor: colors.inputBackground,
-                      borderColor: isFocused.username ? colors.primary : usernameError ? colors.error : colors.inputBorder,
-                      color: colors.inputText,
-                      paddingLeft: 48,
-                    }
-                  ]}
-                  placeholder="Enter username"
-                  placeholderTextColor={colors.disabledText}
-                  value={username}
-                  onChangeText={handleUsernameChange}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isLoading}
-                  onFocus={() => setIsFocused({...isFocused, username: true})}
-                  onBlur={() => setIsFocused({...isFocused, username: false})}
-                />
-              </View>
-              {usernameError ? (
-                <ThemedText style={[styles.errorText, { color: colors.error }]}>
-                  {usernameError}
-                </ThemedText>
-              ) : null}
-            </View>
 
             {/* Password Input */}
             <View style={styles.inputContainer}>
@@ -390,6 +366,27 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
                 <ThemedText style={[styles.errorText, { color: colors.error }]}>
                   {passwordError}
                 </ThemedText>
+              ) : password.length > 0 ? (
+                <View style={styles.passwordStrengthContainer}>
+                  <View style={styles.passwordStrengthBar}>
+                    {[1, 2, 3, 4, 5, 6].map((level) => (
+                      <View
+                        key={level}
+                        style={[
+                          styles.passwordStrengthSegment,
+                          {
+                            backgroundColor: level <= passwordStrength 
+                              ? getPasswordStrengthColor(passwordStrength) 
+                              : colors.border
+                          }
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <ThemedText style={[styles.passwordStrengthText, { color: getPasswordStrengthColor(passwordStrength) }]}>
+                    {getPasswordStrengthText(passwordStrength)}
+                  </ThemedText>
+                </View>
               ) : null}
             </View>
 
@@ -461,7 +458,7 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
                 />
                 <Picker
                   selectedValue={userType}
-                  onValueChange={(itemValue: string) => setUserType(itemValue)}
+                  onValueChange={(itemValue: UserType) => setUserType(itemValue)}
                   style={[
                     styles.picker, 
                     { 
@@ -480,6 +477,7 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
                 </Picker>
               </View>
             </View>
+
 
             {error ? (
               <View style={[styles.errorContainer, { backgroundColor: `${colors.error}20`, borderColor: `${colors.error}40` }]}>

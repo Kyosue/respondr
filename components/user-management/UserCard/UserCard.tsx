@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
 import {
-  Platform,
-  TouchableOpacity,
-  View
+    Platform,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
-import { UserData } from '../../../types/UserData';
+import { UserData, UserStatus } from '../../../types/UserData';
 import { UserType } from '../../../types/UserType';
 
 import { styles } from './UserCard.styles';
@@ -15,12 +15,18 @@ import { styles } from './UserCard.styles';
 interface UserCardProps {
   user: UserData;
   onPress: (user: UserData) => void;
+  onEdit?: (user: UserData) => void;
+  onDelete?: (user: UserData) => void;
+  onToggleStatus?: (user: UserData) => void;
   colors: any;
 }
 
 export const UserCard = memo(function UserCard({ 
   user, 
   onPress, 
+  onEdit,
+  onDelete,
+  onToggleStatus,
   colors
 }: UserCardProps) {
   const getUserTypeColor = (userType: UserType) => {
@@ -41,6 +47,26 @@ export const UserCard = memo(function UserCard({
     }
   };
 
+  const getStatusColor = (status: UserStatus | undefined) => {
+    if (!status) return '#6B7280';
+    switch (status) {
+      case 'active': return '#10B981';
+      case 'inactive': return '#6B7280';
+      case 'suspended': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
+  const getStatusIcon = (status: UserStatus | undefined) => {
+    if (!status) return 'help-circle';
+    switch (status) {
+      case 'active': return 'checkmark-circle';
+      case 'inactive': return 'pause-circle';
+      case 'suspended': return 'ban';
+      default: return 'help-circle';
+    }
+  };
+
   const formatDate = (timestamp: any): string => {
     if (!timestamp) return 'Unknown';
     try {
@@ -56,9 +82,12 @@ export const UserCard = memo(function UserCard({
   };
 
   const userTypeColor = getUserTypeColor(user.userType);
+  const statusColor = getStatusColor(user.status);
+  const statusIcon = getStatusIcon(user.status);
+  const userStatus = user.status || 'active'; // Default to 'active' if status is undefined
 
   return (
-    <TouchableOpacity 
+    <View 
       style={[styles.userCard, { 
         backgroundColor: colors.surface,
         borderColor: colors.border,
@@ -74,16 +103,22 @@ export const UserCard = memo(function UserCard({
           },
         }),
       }]}
-      onPress={() => onPress(user)}
-      activeOpacity={0.7}
     >
-      <View style={styles.cardContent}>
+      <TouchableOpacity 
+        style={styles.cardContent}
+        onPress={() => onPress(user)}
+        activeOpacity={0.7}
+      >
         <View style={styles.leftSection}>
           <View style={styles.avatarContainer}>
             <View style={[styles.userAvatar, { backgroundColor: userTypeColor }]}>
               <ThemedText style={styles.avatarText}>
                 {user.fullName.charAt(0).toUpperCase()}
               </ThemedText>
+            </View>
+            {/* Status indicator */}
+            <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
+              <Ionicons name={statusIcon} size={8} color="#fff" />
             </View>
           </View>
           
@@ -106,11 +141,7 @@ export const UserCard = memo(function UserCard({
             </View>
             
             <View style={styles.metaRow}>
-              <Ionicons name="at" size={12} color={colors.text + '60'} style={styles.metaIcon} />
-              <ThemedText style={[styles.userUsername, { color: colors.text + '80' }]} numberOfLines={1}>
-                {user.username}
-              </ThemedText>
-              <Ionicons name="mail" size={12} color={colors.text + '60'} style={[styles.metaIcon, { marginLeft: 15 }]} />
+              <Ionicons name="mail" size={12} color={colors.text + '60'} style={styles.metaIcon} />
               <ThemedText 
                 style={[styles.userEmail, { color: colors.text + '80' }]}
                 numberOfLines={1}
@@ -125,13 +156,53 @@ export const UserCard = memo(function UserCard({
               <ThemedText style={[styles.userDate, { color: colors.text + '60' }]}>
                 Joined {formatDate(user.createdAt)}
               </ThemedText>
+              <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                <Ionicons name={statusIcon} size={10} color={statusColor} />
+                <ThemedText style={[styles.statusText, { color: statusColor }]}>
+                  {userStatus.toUpperCase()}
+                </ThemedText>
+              </View>
             </View>
           </View>
         </View>
         <View style={styles.chevronContainer}>
           <Ionicons name="chevron-forward" size={20} color={colors.text + '40'} />
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      {/* Action Buttons */}
+      {(onEdit || onDelete || onToggleStatus) && (
+        <View style={styles.actionButtons}>
+          {onEdit && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colors.primary + '20' }]}
+              onPress={() => onEdit(user)}
+            >
+              <Ionicons name="create" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          {onToggleStatus && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: statusColor + '20' }]}
+              onPress={() => onToggleStatus(user)}
+            >
+              <Ionicons 
+                name={userStatus === 'active' ? 'pause' : 'play'} 
+                size={16} 
+                color={statusColor} 
+              />
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#EF444420' }]}
+              onPress={() => onDelete(user)}
+            >
+              <Ionicons name="trash" size={16} color="#EF4444" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
   );
 });

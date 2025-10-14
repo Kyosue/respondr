@@ -9,6 +9,8 @@ interface ResourceCardActionsProps {
   resource: Resource;
   onBorrow: (resource: Resource) => void;
   onReturn: (resource: Resource) => void;
+  onEdit?: (resource: Resource) => void;
+  onDelete?: (resource: Resource) => void;
   onActionsMenuToggle: () => void;
   isActionsMenuOpen: boolean;
   colors: any;
@@ -18,6 +20,8 @@ export function ResourceCardActions({
   resource, 
   onBorrow, 
   onReturn, 
+  onEdit,
+  onDelete,
   onActionsMenuToggle, 
   isActionsMenuOpen, 
   colors 
@@ -48,18 +52,20 @@ export function ResourceCardActions({
         </View>
       )}
       
-      <TouchableOpacity 
-        style={[styles.menuButton, { 
-          backgroundColor: isActionsMenuOpen ? colors.primary + '20' : colors.text + '15' 
-        }]}
-        onPress={onActionsMenuToggle}
-      >
-        <Ionicons 
-          name="ellipsis-horizontal" 
-          size={16} 
-          color={isActionsMenuOpen ? colors.primary : colors.text} 
-        />
-      </TouchableOpacity>
+      {(onEdit || onDelete) && (
+        <TouchableOpacity 
+          style={[styles.menuButton, { 
+            backgroundColor: isActionsMenuOpen ? colors.primary + '20' : colors.text + '15' 
+          }]}
+          onPress={onActionsMenuToggle}
+        >
+          <Ionicons 
+            name="ellipsis-horizontal" 
+            size={16} 
+            color={isActionsMenuOpen ? colors.primary : colors.text} 
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
