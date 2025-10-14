@@ -3,11 +3,11 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Platform,
-    StyleSheet,
-    View
+  Animated,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

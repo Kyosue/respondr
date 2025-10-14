@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  Dimensions,
-  Platform,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    Dimensions,
+    Platform,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
