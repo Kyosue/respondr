@@ -9,6 +9,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import { ResourceProvider } from '@/contexts/ResourceContext';
 import { SitRepProvider } from '@/contexts/SitRepContext';
+import { AppThemeProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -76,15 +77,17 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <NetworkProvider>
-        <AuthProvider>
-          <ResourceProvider>
-            <SitRepProvider>
-              <LayoutContent />
-            </SitRepProvider>
-          </ResourceProvider>
-        </AuthProvider>
-      </NetworkProvider>
+      <AppThemeProvider>
+        <NetworkProvider>
+          <AuthProvider>
+            <ResourceProvider>
+              <SitRepProvider>
+                <LayoutContent />
+              </SitRepProvider>
+            </ResourceProvider>
+          </AuthProvider>
+        </NetworkProvider>
+      </AppThemeProvider>
     </SafeAreaProvider>
   );
 }

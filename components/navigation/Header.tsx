@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  Animated,
-  Image,
-  Modal,
-  Platform,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    Animated,
+    Image,
+    Modal,
+    Platform,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';

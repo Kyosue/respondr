@@ -3,16 +3,17 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  StyleSheet,
-  View
+    Animated,
+    Dimensions,
+    Platform,
+    StyleSheet,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { About } from '../components/about/About';
 import { Dashboard } from '../components/dashboard/Dashboard';
@@ -29,6 +30,7 @@ import { UserManagement } from '../components/user-management/UserManagement';
 export default function IndexScreen() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -52,6 +54,24 @@ export default function IndexScreen() {
       })
     ]).start();
   }, []);
+
+  // Restart animations when theme changes
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, [isDark]);
 
   // Reset animation when tab changes
   useEffect(() => {
@@ -141,6 +161,7 @@ export default function IndexScreen() {
         />
         
         <Animated.View 
+          key={`content-${isDark}`}
           style={[styles.contentContainer, { 
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }]

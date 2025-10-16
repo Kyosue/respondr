@@ -1,6 +1,7 @@
 import { LoginForm } from '@/components/auth/LoginForm';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLogin } from '@/hooks/useLogin';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function LoginScreen() {
   const { login, isLoading, error } = useLogin();
   const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   
@@ -41,11 +43,11 @@ export default function LoginScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       
       {/* Background gradient */}
       <LinearGradient
-        colors={colorScheme === 'dark' ? 
+        colors={isDark ? 
           ['#121212', '#1E1E1E', '#121212'] : 
           [colors.background, '#f5f7fa', colors.background]}
         style={styles.backgroundGradient}

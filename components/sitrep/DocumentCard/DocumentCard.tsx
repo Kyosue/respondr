@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Animated,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SitRepDocument } from '@/types/Document';
 
@@ -32,6 +33,7 @@ export const DocumentCard = memo(function DocumentCard({
   isMultiSelectMode = false
 }: DocumentCardProps) {
   const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [scaleValue] = useState(new Animated.Value(1));
   const [isPressed, setIsPressed] = useState(false);
@@ -126,7 +128,7 @@ export const DocumentCard = memo(function DocumentCard({
              <Ionicons 
                name={getFileIcon(document.fileType)} 
                size={72} 
-               color={isSelected ? 'rgba(221, 7, 7, 0.5)' : 'rgba(0, 0, 0, 0.3)'} 
+               color={isSelected ? 'rgba(221, 7, 7, 0.5)' : isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'} 
                style={styles.backgroundIcon}
              />
              <Text style={[styles.fileTypeText, { color: isSelected ? 'red' : getFileColor(document.fileType) }]}>
