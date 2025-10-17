@@ -50,7 +50,11 @@ const Settings: React.FC = () => {
     >
       <View style={styles.settingLeft}>
         <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons name={icon as any} size={20} color={colors.primary} />
+          <Ionicons 
+            name={icon as any} 
+            size={20} 
+            color={icon === 'sunny' ? '#FFA500' : icon === 'moon' ? '#4A90E2' : colors.primary} 
+          />
         </View>
         <View style={styles.settingText}>
           <ThemedText style={styles.settingTitle}>{title}</ThemedText>
@@ -106,9 +110,9 @@ const Settings: React.FC = () => {
               showArrow={false}
             />
             <SettingItem
-              icon="moon-outline"
-              title="Dark Mode"
-              subtitle="Switch between light and dark themes"
+              icon={isDark ? "moon" : "sunny"}
+              title="Theme"
+              subtitle={isDark ? "Currently in dark mode" : "Currently in light mode"}
               rightComponent={
                 <Switch
                   value={isDark}

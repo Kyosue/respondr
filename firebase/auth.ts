@@ -1,6 +1,8 @@
 import {
     createUserWithEmailAndPassword,
+    EmailAuthProvider,
     User as FirebaseUser,
+    reauthenticateWithCredential,
     signInWithEmailAndPassword,
     signOut,
     updateProfile,
@@ -170,7 +172,73 @@ export const updateUser = async (
   }
 };
 
-// Delete user (soft delete by default)
+// Re-authenticate current user with password
+export const reauthenticateUser = async (password: string): Promise<void> => {
+  try {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Create credential with current user's email and provided password
+    const credential = EmailAuthProvider.credential(user.email, password);
+    
+    // Re-authenticate the user
+    await reauthenticateWithCredential(user, credential);
+  } catch (error) {
+    console.error('Error re-authenticating user:', error);
+    if (error instanceof Error) {
+      if (error.message.includes('wrong-password')) {
+        throw new Error('Incorrect password. Please try again.');
+      } else if (error.message.includes('user-mismatch')) {
+        throw new Error('User mismatch. Please try again.');
+      } else if (error.message.includes('user-not-found')) {
+        throw new Error('User not found.');
+      } else if (error.message.includes('invalid-credential')) {
+        throw new Error('Invalid credentials. Please check your password.');
+      } else if (error.message.includes('too-many-requests')) {
+        throw new Error('Too many failed attempts. Please try again later.');
+      }
+    }
+    throw error;
+  }
+};
+
+// Delete user with password verification (secure delete)
+export const deleteUserSecure = async (
+  userId: string,
+  currentUserPassword: string,
+  hardDelete: boolean = true
+): Promise<void> => {
+  try {
+    // First, re-authenticate the current user with their password
+    await reauthenticateUser(currentUserPassword);
+
+    if (hardDelete) {
+      // Hard delete - remove from Firebase Auth and Firestore
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.uid === userId) {
+        // Can't delete current user
+        throw new Error('Cannot delete your own account');
+      }
+      
+      // Delete from Firestore first
+      await deleteDoc(doc(db, 'users', userId));
+      
+      // Note: For deleting other users from Firebase Auth, you would typically use Admin SDK
+      // This would be done via Cloud Functions in a production environment
+      console.warn('Hard delete: User document removed from Firestore. Firebase Auth deletion requires Admin SDK.');
+    } else {
+      // Soft delete - mark as inactive
+      await updateUser(userId, { status: 'inactive' });
+    }
+  } catch (error) {
+    console.error('Error deleting user securely:', error);
+    throw error;
+  }
+};
+
+// Delete user (soft delete by default) - kept for backward compatibility
 export const deleteUser = async (
   userId: string,
   hardDelete: boolean = false

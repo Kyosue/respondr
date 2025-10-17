@@ -10,16 +10,16 @@ import { UserType } from '@/types/UserType';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  View
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    View
 } from 'react-native';
-import { deleteUser, getAllUsers, toggleUserStatus } from '../../firebase/auth';
+import { deleteUserSecure, getAllUsers, toggleUserStatus } from '../../firebase/auth';
 import { UserCard } from './UserCard/UserCard';
 import { UserHeader } from './UserHeader/UserHeader';
-import { AddUserModal, EditUserModal, UserDetailsModal } from './modals';
+import { AddUserModal, EditUserModal, PasswordVerificationModal, UserDetailsModal } from './modals';
 import { styles } from './styles/UserManagement.styles';
 
 const UserManagement: React.FC = () => {
@@ -41,6 +41,8 @@ const UserManagement: React.FC = () => {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -123,28 +125,53 @@ const UserManagement: React.FC = () => {
   };
 
   const handleDeleteUser = async (user: UserData) => {
+    // Check if trying to delete own account
+    if (user.id === firebaseUser?.uid) {
+      Alert.alert(
+        'Cannot Delete Account',
+        'You cannot delete your own account. Please ask another administrator to delete your account.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Alert.alert(
       'Delete User',
-      `Are you sure you want to delete ${user.fullName}? This action cannot be undone.`,
+      `Are you sure you want to delete ${user.fullName}? This action cannot be undone and will require your password verification.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteUser(user.id, false); // Soft delete
-              await fetchUsers(); // Refresh the list
-              handleCloseModal();
-              Alert.alert('Success', 'User deleted successfully');
-            } catch (error) {
-              console.error('Error deleting user:', error);
-              Alert.alert('Error', 'Failed to delete user. Please try again.');
-            }
+          onPress: () => {
+            setUserToDelete(user);
+            setShowPasswordModal(true);
           }
         }
       ]
     );
+  };
+
+  const handlePasswordVerification = async (password: string) => {
+    if (!userToDelete) return;
+
+    try {
+      await deleteUserSecure(userToDelete.id, password, true); // Hard delete with password verification
+      await fetchUsers(); // Refresh the list
+      setShowPasswordModal(false);
+      setUserToDelete(null);
+      handleCloseModal();
+      Alert.alert('Success', `${userToDelete.fullName} has been deleted successfully`);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete user. Please try again.';
+      throw new Error(errorMessage); // This will be caught by the PasswordVerificationModal
+    }
+  };
+
+  const handleClosePasswordModal = () => {
+    setShowPasswordModal(false);
+    setUserToDelete(null);
   };
 
   const handleToggleUserStatus = async (user: UserData) => {
@@ -334,6 +361,16 @@ const UserManagement: React.FC = () => {
         visible={showEditUserModal}
         onClose={handleCloseEditUserModal}
         onUserUpdated={handleUserUpdated}
+      />
+
+      {/* Password Verification Modal */}
+      <PasswordVerificationModal
+        visible={showPasswordModal}
+        onClose={handleClosePasswordModal}
+        onVerify={handlePasswordVerification}
+        title="Verify Password to Delete User"
+        message="To delete this user, please enter your current password to confirm this action."
+        userFullName={userToDelete?.fullName}
       />
     </ThemedView>
   );
