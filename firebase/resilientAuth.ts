@@ -82,7 +82,7 @@ export class ResilientAuthService {
   // Sign in user with offline support
   async signInUser(email: string, password: string): Promise<UserData> {
     try {
-      // Sign in with Firebase Auth with retry
+      // Sign in with Firebase Auth with retry (but not for auth errors)
       const userCredential: UserCredential = await withRetry(
         () => signInWithEmailAndPassword(auth, email, password),
         undefined,

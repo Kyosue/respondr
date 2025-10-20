@@ -110,6 +110,21 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error as Error;
       
+      // Don't retry authentication errors
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorCode = (error as any).code;
+        if (errorCode && (
+          errorCode.includes('auth/invalid-credential') ||
+          errorCode.includes('auth/user-not-found') ||
+          errorCode.includes('auth/wrong-password') ||
+          errorCode.includes('auth/user-disabled') ||
+          errorCode.includes('auth/invalid-email')
+        )) {
+          console.error(`${context} failed with auth error (not retrying):`, error);
+          throw lastError;
+        }
+      }
+      
       if (attempt === config.maxRetries) {
         console.error(`${context} failed after ${config.maxRetries + 1} attempts:`, error);
         throw lastError;

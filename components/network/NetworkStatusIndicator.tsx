@@ -2,8 +2,8 @@ import { Colors } from '@/constants/Colors';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface NetworkStatusIndicatorProps {
   showDetails?: boolean;
@@ -14,19 +14,66 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
   const { isOnline, isSlowConnection, isSyncing, pendingOperationsCount, retryConnection, forceSync } = useNetwork();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  
+  // Animation for syncing state
+  const spinValue = useRef(new Animated.Value(0)).current;
+  const pulseValue = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    if (isSyncing) {
+      const spin = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      );
+      
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseValue, {
+            toValue: 1.1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseValue, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      
+      spin.start();
+      pulse.start();
+      
+      return () => {
+        spin.stop();
+        pulse.stop();
+      };
+    } else {
+      spinValue.setValue(0);
+      pulseValue.setValue(1);
+    }
+  }, [isSyncing, spinValue, pulseValue]);
+  
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const getStatusColor = () => {
-    if (isSyncing) return colors.warning || '#FFA500';
+    if (isSyncing) return colors.warning;
     if (!isOnline) return colors.error;
-    if (isSlowConnection) return colors.warning || '#FFA500';
-    return colors.success || '#4CAF50';
+    if (isSlowConnection) return colors.warning;
+    return colors.success;
   };
 
   const getStatusText = () => {
-    if (isSyncing) return 'Syncing...';
-    if (!isOnline) return 'Offline';
-    if (isSlowConnection) return 'Slow Connection';
-    return 'Online';
+    if (isSyncing) return 'Syncing data...';
+    if (!isOnline) return 'You\'re offline';
+    if (isSlowConnection) return 'Slow connection';
+    return 'All systems operational';
   };
 
   const getStatusIcon = () => {
@@ -34,6 +81,13 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
     if (!isOnline) return 'cloud-offline';
     if (isSlowConnection) return 'warning';
     return 'cloud-done';
+  };
+
+  const getBackgroundColor = () => {
+    if (isSyncing) return colors.warning + '15';
+    if (!isOnline) return colors.error + '15';
+    if (isSlowConnection) return colors.warning + '15';
+    return colors.success + '15';
   };
 
   const handleRetry = async () => {
@@ -64,22 +118,36 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       <View style={styles.statusRow}>
         <View style={styles.statusInfo}>
-          <Ionicons 
-            name={getStatusIcon() as any} 
-            size={16} 
-            color={getStatusColor()} 
-          />
-          <Text style={[styles.statusText, { color: getStatusColor() }]}>
-            {getStatusText()}
-          </Text>
-          {pendingOperationsCount > 0 && (
-            <Text style={[styles.pendingText, { color: colors.text }]}>
-              ({pendingOperationsCount} pending)
+          <Animated.View 
+            style={[
+              styles.iconContainer, 
+              { 
+                backgroundColor: getStatusColor(),
+                transform: [{ scale: pulseValue }]
+              }
+            ]}
+          >
+            <Animated.View style={{ transform: [{ rotate: spin }] }}>
+              <Ionicons 
+                name={getStatusIcon() as any} 
+                size={14} 
+                color={colors.background} 
+              />
+            </Animated.View>
+          </Animated.View>
+          <View style={styles.textContainer}>
+            <Text style={[styles.statusText, { color: colors.text }]}>
+              {getStatusText()}
             </Text>
-          )}
+            {pendingOperationsCount > 0 && (
+              <Text style={[styles.pendingText, { color: colors.text + '60' }]}>
+                {pendingOperationsCount} pending operation{pendingOperationsCount !== 1 ? 's' : ''}
+              </Text>
+            )}
+          </View>
         </View>
         
         <View style={styles.actionButtons}>
@@ -87,8 +155,9 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
             <TouchableOpacity 
               style={[styles.button, { backgroundColor: colors.primary }]}
               onPress={handleRetry}
+              activeOpacity={0.7}
             >
-              <Ionicons name="refresh" size={14} color={colors.buttonText} />
+              <Ionicons name="refresh" size={12} color={colors.buttonText} />
               <Text style={[styles.buttonText, { color: colors.buttonText }]}>
                 Retry
               </Text>
@@ -99,8 +168,9 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
             <TouchableOpacity 
               style={[styles.button, { backgroundColor: colors.primary }]}
               onPress={handleSync}
+              activeOpacity={0.7}
             >
-              <Ionicons name="sync" size={14} color={colors.buttonText} />
+              <Ionicons name="sync" size={12} color={colors.buttonText} />
               <Text style={[styles.buttonText, { color: colors.buttonText }]}>
                 Sync
               </Text>
@@ -111,7 +181,7 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
       
       {showDetails && (
         <View style={styles.detailsRow}>
-          <Text style={[styles.detailsText, { color: colors.text }]}>
+          <Text style={[styles.detailsText, { color: colors.text + '70' }]}>
             {!isOnline 
               ? 'Working offline. Changes will sync when connection is restored.'
               : isSlowConnection 
@@ -127,10 +197,11 @@ export function NetworkStatusIndicator({ showDetails = false, onRetry }: Network
 
 const styles = StyleSheet.create({
   container: {
+    marginHorizontal: 20,
+    marginVertical: 4,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    backgroundColor: 'transparent',
   },
   statusRow: {
     flexDirection: 'row',
@@ -142,15 +213,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  iconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  textContainer: {
+    flex: 1,
+  },
   statusText: {
     fontSize: 14,
     fontWeight: '500',
-    marginLeft: 8,
+    marginBottom: 1,
+    letterSpacing: 0.1,
+    lineHeight: 16,
   },
   pendingText: {
     fontSize: 12,
-    marginLeft: 8,
-    opacity: 0.7,
+    fontWeight: '400',
+    lineHeight: 14,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -161,19 +245,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 4,
     gap: 4,
   },
   buttonText: {
     fontSize: 12,
     fontWeight: '500',
+    letterSpacing: 0.1,
+    lineHeight: 14,
   },
   detailsRow: {
-    marginTop: 4,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
   },
   detailsText: {
     fontSize: 12,
-    opacity: 0.7,
-    lineHeight: 16,
+    lineHeight: 14,
+    fontWeight: '400',
   },
 });
