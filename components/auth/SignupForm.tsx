@@ -3,7 +3,6 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -17,7 +16,7 @@ import {
 } from 'react-native';
 
 interface SignupFormProps {
-  onSubmit: (fullName: string, displayName: string, email: string, password: string, userType: string) => Promise<void>;
+  onSubmit: (fullName: string, displayName: string, email: string, password: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -27,7 +26,6 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [userType, setUserType] = useState('admin');
   
   const [fullNameError, setFullNameError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -38,8 +36,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     fullName: false, 
     email: false, 
     password: false, 
-    confirmPassword: false,
-    userType: false
+    confirmPassword: false
   });
   
   const [showPassword, setShowPassword] = useState(false);
@@ -107,7 +104,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
       try {
         // Submit the form - validation will be handled in the backend
         const displayName = generateDisplayName(fullName.trim());
-        await onSubmit(fullName.trim(), displayName, email.trim(), password, userType);
+        await onSubmit(fullName.trim(), displayName, email.trim(), password);
       } catch (err) {
         console.error('Error during signup:', err);
       }
@@ -332,44 +329,6 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
           ) : null}
         </View>
 
-        {/* User Type Picker */}
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>User Type</ThemedText>
-          <View style={[
-            styles.inputWrapper,
-            styles.pickerWrapper, 
-            { 
-              backgroundColor: colors.inputBackground,
-              borderColor: isFocused.userType ? colors.primary : colors.inputBorder,
-            }
-          ]}>
-            <Ionicons 
-              name="people-outline" 
-              size={20} 
-              color={isFocused.userType ? colors.primary : colors.icon} 
-              style={styles.inputIcon} 
-            />
-            <Picker
-              selectedValue={userType}
-              onValueChange={(itemValue: string) => setUserType(itemValue)}
-              style={[
-                styles.picker, 
-                { 
-                  color: colors.inputText,
-                }
-              ]}
-              dropdownIconColor={isFocused.userType ? colors.primary : colors.icon}
-              enabled={!isLoading}
-              mode="dropdown"
-              onFocus={() => setIsFocused({...isFocused, userType: true})}
-              onBlur={() => setIsFocused({...isFocused, userType: false})}
-            >
-              <Picker.Item label="Admin" value="admin" />
-              <Picker.Item label="Supervisor" value="supervisor" />
-              <Picker.Item label="Operator" value="operator" />
-            </Picker>
-          </View>
-        </View>
 
         {error ? (
           <View style={[styles.errorContainer, { backgroundColor: `${colors.error}20`, borderColor: `${colors.error}40` }]}>
@@ -477,27 +436,6 @@ const styles = StyleSheet.create({
     right: 16,
     top: 15,
     zIndex: 1,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderRadius: 12,
-    width: '100%',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-    height: 50,
-    overflow: 'hidden', // Prevent content from overflowing
-    paddingRight: 42,
-  },
-  picker: {
-    width: '100%',
-    height: 50,
-    marginLeft: 42,
-    marginRight: 16,
-    color: '#000', // Ensure text is visible
   },
   errorText: {
     fontSize: 14,

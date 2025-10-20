@@ -4,17 +4,17 @@ import { Colors } from '@/constants/Colors';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 interface LoginFormProps {
@@ -230,11 +230,6 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           </Animated.View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.forgotPassword}>
-          <ThemedText style={[styles.forgotPasswordText, { color: colors.primary }]}>
-            Forgot your password?
-          </ThemedText>
-        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -321,13 +316,5 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginLeft: 8,
-  },
-  forgotPassword: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  forgotPasswordText: {
-    fontSize: 15,
-    fontWeight: '500',
   },
 });

@@ -38,7 +38,7 @@ export class ResilientAuthService {
     password: string,
     fullName: string,
     displayName: string,
-    userType: UserType
+    userType: UserType = 'operator' // Default to operator for self-signup
   ): Promise<UserData> {
     try {
       // Create user in Firebase Auth with retry
@@ -64,7 +64,7 @@ export class ResilientAuthService {
         displayName,
         email,
         userType,
-        status: 'active',
+        status: 'inactive', // New accounts are inactive by default
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };

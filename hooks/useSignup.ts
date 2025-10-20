@@ -1,6 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
-import { UserType } from '@/firebase/auth';
 import { ResilientAuthService } from '@/firebase/resilientAuth';
 import { FirebaseError } from 'firebase/app';
 import { useState } from 'react';
@@ -16,16 +15,14 @@ export function useSignup() {
     fullName: string, 
     displayName: string,
     email: string, 
-    password: string, 
-    userType: string,
-    status: string = 'active'
+    password: string
   ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
       // Validate inputs
-      if (!fullName || !displayName || !email || !password || !userType) {
+      if (!fullName || !displayName || !email || !password) {
         throw new Error('All fields are required');
       }
 
@@ -34,13 +31,11 @@ export function useSignup() {
         email,
         password,
         fullName,
-        displayName,
-        userType as UserType,
-        status as any // Status will be added to userData
+        displayName
       );
       
-      // Update auth context
-      login(userData);
+      // Don't automatically log in the user since their account is inactive
+      // The user will need to wait for admin activation before they can log in
 
       return true;
     } catch (err: unknown) {

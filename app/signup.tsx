@@ -10,13 +10,13 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -37,11 +37,10 @@ export default function SignupScreen() {
     fullName: string, 
     displayName: string,
     email: string, 
-    password: string, 
-    userType: string
+    password: string
   ) => {
     try {
-      const success = await signup(fullName, displayName, email, password, userType);
+      const success = await signup(fullName, displayName, email, password);
       if (success) {
         // Show success modal instead of alert
         setSuccessModalVisible(true);
@@ -100,10 +99,10 @@ export default function SignupScreen() {
               
               <View style={styles.header}>
                 <ThemedText type="title" style={styles.title}>
-                  Create Account
+                  Self Signup
                 </ThemedText>
                 <ThemedText style={styles.subtitle}>
-                  Sign up to get started with Respondr
+                  Create your account - activation required by administrator
                 </ThemedText>
               </View>
               
@@ -123,9 +122,9 @@ export default function SignupScreen() {
       {/* Success Modal */}
       <SuccessModal
         visible={successModalVisible}
-        message="Your account has been created successfully! You can now sign in with your credentials."
+        message="Your account has been created successfully! However, your account is currently inactive and needs to be activated by an administrator before you can sign in. Please contact an administrator to activate your account."
         onClose={handleCloseModal}
-        timeout={5000} // 5 seconds timeout
+        timeout={8000} // 8 seconds timeout for longer message
       />
     </View>
   );

@@ -118,7 +118,9 @@ export async function withRetry<T>(
           errorCode.includes('auth/user-not-found') ||
           errorCode.includes('auth/wrong-password') ||
           errorCode.includes('auth/user-disabled') ||
-          errorCode.includes('auth/invalid-email')
+          errorCode.includes('auth/invalid-email') ||
+          errorCode.includes('auth/email-already-in-use') ||
+          errorCode.includes('auth/weak-password')
         )) {
           console.error(`${context} failed with auth error (not retrying):`, error);
           throw lastError;
