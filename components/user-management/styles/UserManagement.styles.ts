@@ -17,6 +17,46 @@ export const styles = StyleSheet.create({
     paddingTop: 8,
     zIndex: 1,
   },
+  usersGrid: {
+    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+  },
+  userCardWrapper: {
+    // This will be styled dynamically based on screen size
+  },
+  groupsContainer: {
+    paddingHorizontal: 16,
+    marginHorizontal: 0,
+  },
+  roleGroup: {
+    marginBottom: 0,
+  },
+  roleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    marginBottom: 16,
+  },
+  roleTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  roleCount: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  roleDivider: {
+    height: 1,
+    marginTop: 24,
+    marginHorizontal: 16,
+    opacity: 0.3,
+  },
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: 60,

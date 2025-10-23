@@ -1,23 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  ScrollView,
-  StyleSheet,
-  Switch,
-  TouchableOpacity,
-  View
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 const Settings: React.FC = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { isDark, setColorScheme } = useTheme();
+  const colors = Colors[isDark ? 'dark' : 'light'];
   
   // Settings state
   const [notifications, setNotifications] = useState(true);

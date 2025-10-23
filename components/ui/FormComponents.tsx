@@ -54,9 +54,9 @@ export function FormInput({
         style={[
           multiline ? styles.textArea : styles.input,
           {
-            backgroundColor: '#FFFFFF',
-            borderColor: error ? colors.error : colors.border,
-            color: colors.text,
+            backgroundColor: colors.inputBackground,
+            borderColor: error ? colors.error : colors.inputBorder,
+            color: colors.inputText,
           },
         ]}
         value={value}
@@ -117,8 +117,8 @@ export function FormDatePicker({
         style={[
           styles.dateButton,
           {
-            backgroundColor: '#FFFFFF',
-            borderColor: colors.border,
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
           },
         ]}
         onPress={() => setShowDatePicker(true)}

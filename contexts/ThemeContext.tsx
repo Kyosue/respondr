@@ -56,14 +56,23 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setColorScheme = async (scheme: ColorScheme) => {
     try {
+      console.log('Setting color scheme to:', scheme);
       setColorSchemeState(scheme);
       await AsyncStorage.setItem(THEME_STORAGE_KEY, scheme);
+      console.log('Color scheme saved successfully');
     } catch (error) {
       console.error('Failed to save theme preference:', error);
     }
   };
 
   const isDark = colorScheme === 'dark' || (colorScheme === 'system' && systemColorScheme === 'dark');
+  
+  // Debug logging for web
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      console.log('Theme state:', { colorScheme, systemColorScheme, isDark });
+    }
+  }, [colorScheme, systemColorScheme, isDark]);
 
   return (
     <ThemeContext.Provider value={{ colorScheme, setColorScheme, isDark }}>

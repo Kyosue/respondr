@@ -50,5 +50,15 @@ module.exports = async function (env, argv) {
     }),
   ];
 
+  // Add HTML title and favicon configuration
+  if (config.plugins) {
+    const HtmlWebpackPlugin = require('html-webpack-plugin');
+    const htmlPlugin = config.plugins.find(plugin => plugin instanceof HtmlWebpackPlugin);
+    if (htmlPlugin) {
+      htmlPlugin.options.title = 'Respondr';
+      htmlPlugin.options.favicon = './assets/images/logo-1.png';
+    }
+  }
+
   return config;
 };

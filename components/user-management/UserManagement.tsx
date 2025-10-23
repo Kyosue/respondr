@@ -10,11 +10,12 @@ import { UserType } from '@/types/UserType';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
+  View
 } from 'react-native';
 import { deleteUserSecure, getAllUsers, toggleUserStatus } from '../../firebase/auth';
 import { UserCard } from './UserCard/UserCard';
@@ -43,6 +44,21 @@ const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
+
+  // Responsive grid logic
+  const screenWidth = Dimensions.get('window').width;
+  const isWeb = screenWidth > 768;
+  const isTablet = screenWidth > 600 && screenWidth <= 768;
+  
+  // Calculate cards per row based on screen size
+  const getCardsPerRow = () => {
+    if (isWeb) return 4; // 3 cards per row on web
+    if (isTablet) return 3; // 2 cards per row on tablet
+    return 1; // 1 card per row on mobile
+  };
+  
+  const cardsPerRow = getCardsPerRow();
+  const cardWidth = (100 / cardsPerRow) - 2; // 2% margin between cards
 
   const fetchUsers = async () => {
     try {
@@ -107,6 +123,28 @@ const UserManagement: React.FC = () => {
       return matchesSearch && matchesTypeFilter && matchesStatusFilter;
     });
   }, [users, searchQuery, filterType, filterStatus]);
+
+  // Group users by role
+  const groupedUsers = useMemo(() => {
+    const groups: { [key: string]: UserData[] } = {
+      admin: [],
+      supervisor: [],
+      operator: []
+    };
+
+    filteredUsers.forEach(user => {
+      if (groups[user.userType]) {
+        groups[user.userType].push(user);
+      }
+    });
+
+    // Return groups in order: admin, supervisor, operator
+    return [
+      { role: 'admin', users: groups.admin, label: 'Administrators' },
+      { role: 'supervisor', users: groups.supervisor, label: 'Supervisors' },
+      { role: 'operator', users: groups.operator, label: 'Operators' }
+    ].filter(group => group.users.length > 0);
+  }, [filteredUsers]);
 
   const handleUserPress = (user: UserData) => {
     setSelectedUser(user);
@@ -323,17 +361,60 @@ const UserManagement: React.FC = () => {
           {filteredUsers.length === 0 ? (
             renderEmptyState()
           ) : (
-            filteredUsers.map((user: UserData) => (
-              <UserCard
-                key={user.id}
-                user={user}
-                onPress={handleUserPress}
-                onEdit={canEditUsers ? handleEditUser : undefined}
-                onDelete={canDeleteUsers ? handleDeleteUser : undefined}
-                onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
-                colors={colors}
-              />
-            ))
+            <View style={styles.groupsContainer}>
+              {groupedUsers.map((group, groupIndex) => (
+                <View key={group.role} style={styles.roleGroup}>
+                  {/* Role Header */}
+                  <View style={[styles.roleHeader, { borderBottomColor: colors.border }]}>
+                    <ThemedText style={[styles.roleTitle, { color: colors.text }]}>
+                      {group.label}
+                    </ThemedText>
+                    <ThemedText style={[styles.roleCount, { color: colors.text + '60' }]}>
+                      {group.users.length} {group.users.length === 1 ? 'user' : 'users'}
+                    </ThemedText>
+                  </View>
+
+                  {/* Users Grid for this role */}
+                  <View style={[
+                    styles.usersGrid,
+                    {
+                      flexDirection: isWeb || isTablet ? 'row' : 'column',
+                      flexWrap: isWeb || isTablet ? 'wrap' : 'nowrap',
+                      justifyContent: 'flex-start',
+                      alignItems: isWeb || isTablet ? 'flex-start' : 'stretch',
+                      gap: isWeb || isTablet ? 12 : 0,
+                    }
+                  ]}>
+                    {group.users.map((user: UserData) => (
+                      <View 
+                        key={user.id}
+                        style={[
+                          styles.userCardWrapper,
+                          {
+                            width: isWeb || isTablet ? `${cardWidth}%` : '100%',
+                            marginBottom: isWeb || isTablet ? 12 : 6,
+                          }
+                        ]}
+                      >
+                        <UserCard
+                          user={user}
+                          onPress={handleUserPress}
+                          onEdit={canEditUsers ? handleEditUser : undefined}
+                          onDelete={canDeleteUsers ? handleDeleteUser : undefined}
+                          onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
+                          colors={colors}
+                        />
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Divider between role groups (except for the last group) */}
+                  {groupIndex < groupedUsers.length - 1 && (
+                    <View style={[styles.roleDivider, { backgroundColor: colors.border }]} />
+                  )}
+                </View>
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>

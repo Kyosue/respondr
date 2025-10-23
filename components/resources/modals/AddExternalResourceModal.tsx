@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
   Alert,
+  Animated,
   Modal,
   ScrollView,
   StyleSheet,
@@ -20,6 +21,7 @@ import { RESOURCE_CATEGORIES, RESOURCE_CONDITIONS } from '@/constants/ResourceCo
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Resource, ResourceCategory, ResourceCondition } from '@/types/Resource';
 import { getModalConfig, showErrorAlert, showSuccessAlert } from '@/utils/modalUtils';
 import { ResourceValidator } from '@/utils/resourceValidation';
@@ -71,6 +73,31 @@ export function AddExternalResourceModal({
   const [imagePublicIds, setImagePublicIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Hybrid RAMP hook
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
+    visible,
+    onClose: () => {
+      // Reset form data
+      setFormData({
+        name: '',
+        description: '',
+        category: 'equipment',
+        agencyName: '',
+        agencyId: '',
+        address: '',
+        contactNumbers: [''],
+        location: '',
+        condition: 'good',
+        totalQuantity: 1,
+        tags: ''
+      });
+      setImages([]);
+      setImagePublicIds([]);
+      setErrors({});
+      onClose();
+    }
+  });
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -328,33 +355,36 @@ export function AddExternalResourceModal({
     }
   };
 
-  const handleClose = () => {
-    setFormData({
-      name: '',
-      description: '',
-      category: 'equipment',
-      agencyName: '',
-      agencyId: '',
-      address: '',
-      contactNumbers: [''],
-      location: '',
-      condition: 'good',
-      totalQuantity: 1,
-      tags: ''
-    });
-    setImages([]);
-    setImagePublicIds([]);
-    setErrors({});
-    onClose();
-  };
+  const handleClose = rampHandleClose;
 
-  return (
-    <Modal
-      visible={visible}
-      {...getModalConfig()}
-      onRequestClose={handleClose}
-    >
-      <ThemedView style={styles.container}>
+  // Platform-specific modal rendering
+  if (isWeb) {
+    // RAMP implementation for web
+    return (
+      <Modal
+        visible={visible}
+        {...getModalConfig()}
+        onRequestClose={handleClose}
+        transparent={true}
+        animationType="fade"
+      >
+        <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
+          <TouchableOpacity 
+            style={styles.overlayCloseButton} 
+            onPress={handleClose}
+            activeOpacity={0.7}
+          />
+          <Animated.View style={[
+            styles.container,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim }
+              ]
+            }
+          ]}>
+            <ThemedView style={styles.modalContent}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
@@ -390,7 +420,7 @@ export function AddExternalResourceModal({
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                <View style={styles.inputGroup}>
-                 <ThemedText style={styles.label}>Agency Name *</ThemedText>
+                 <ThemedText style={[styles.label, { color: colors.text }]}>Agency Name *</ThemedText>
                  <AgencyNameInput
                    value={formData.agencyName}
                    onChangeText={handleAgencyNameChange}
@@ -415,7 +445,7 @@ export function AddExternalResourceModal({
               />
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Contact Numbers * (11 digits each)</ThemedText>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Contact Numbers * (11 digits each)</ThemedText>
                 <View style={styles.contactNumbersGrid}>
                   {formData.contactNumbers.map((number, index) => (
                     <View key={index} style={styles.contactNumberItem}>
@@ -483,7 +513,7 @@ export function AddExternalResourceModal({
               />
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Category</ThemedText>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Category</ThemedText>
                 <View style={styles.categoryContainer}>
                   {categories.map((category) => (
                     <TouchableOpacity
@@ -559,7 +589,293 @@ export function AddExternalResourceModal({
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Condition</ThemedText>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
+                <View style={styles.conditionContainer}>
+                  {conditions.map((condition) => (
+                    <TouchableOpacity
+                      key={condition.value}
+                      style={[
+                        styles.conditionButton,
+                        { borderColor: colors.border },
+                        formData.condition === condition.value && { 
+                          backgroundColor: condition.color,
+                          borderColor: condition.color 
+                        }
+                      ]}
+                      onPress={() => handleInputChange('condition', condition.value)}
+                    >
+                      <View style={[
+                        styles.conditionIndicator,
+                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
+                      ]} />
+                      <ThemedText style={[
+                        styles.conditionButtonText,
+                        formData.condition === condition.value && { color: '#fff' }
+                      ]}>
+                        {condition.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <FormInput
+                label="Tags (Optional)"
+                value={formData.tags}
+                onChangeText={(value) => handleInputChange('tags', value)}
+                placeholder="e.g., emergency, portable, battery-powered"
+                error={errors.tags}
+                helperText="Add keywords to help others find this resource (separate with commas)"
+              />
+            </View>
+          </View>
+
+          {/* Photos */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="camera-outline" size={20} color="#007AFF" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Photos (Optional)</ThemedText>
+            </View>
+            
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ImageUpload
+                onImageSelected={handleImageSelected}
+                onImageRemoved={handleImageRemoved}
+                currentImageUrl={images[0]}
+                placeholder="Tap to add resource photo"
+                maxImages={5}
+                resourceId="temp" // Will be updated after resource creation
+                folder="resources"
+                tags={['resource', formData.category, 'external']}
+                quality="auto"
+                format="auto"
+                disabled={loading}
+              />
+            </View>
+          </View>
+        </ScrollView>
+          </ThemedView>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+    );
+  }
+
+  // Original mobile implementation
+  return (
+    <Modal
+      visible={visible}
+      {...getModalConfig()}
+      onRequestClose={handleClose}
+    >
+      <ThemedView style={styles.mobileContainer}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+              <Ionicons name="close" size={20} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <ThemedText type="subtitle" style={styles.title}>Add External Resource</ThemedText>
+              <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                Create a new resource entry
+              </ThemedText>
+            </View>
+            <View style={styles.headerButton}>
+              <FormButton
+                title="Save"
+                onPress={handleSubmit}
+                variant="primary"
+                disabled={loading}
+                loading={loading}
+              />
+            </View>
+          </View>
+        </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Agency Information - Put this first */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="business-outline" size={20} color="#FF8F00" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Agency Information</ThemedText>
+            </View>
+            
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+               <View style={styles.inputGroup}>
+                 <ThemedText style={[styles.label, { color: colors.text }]}>Agency Name *</ThemedText>
+                 <AgencyNameInput
+                   value={formData.agencyName}
+                   onChangeText={handleAgencyNameChange}
+                   onAgencySelect={handleAgencySelect}
+                   placeholder="Enter agency name"
+                   suggestions={agencies}
+                   error={errors.agencyName}
+                   helperText="Select from existing agencies or type a new agency name"
+                 />
+               </View>
+
+              <FormInput
+                label="Agency Address"
+                value={formData.address}
+                onChangeText={(value) => handleInputChange('address', value)}
+                placeholder="Enter full agency address"
+                multiline
+                numberOfLines={2}
+                required
+                error={errors.address}
+                helperText="Complete address of the agency"
+              />
+
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Contact Numbers * (11 digits each)</ThemedText>
+                <View style={styles.contactNumbersGrid}>
+                  {formData.contactNumbers.map((number, index) => (
+                    <View key={index} style={styles.contactNumberItem}>
+                      <FormInput
+                        label={`Contact ${index + 1}`}
+                        value={number}
+                        onChangeText={(text) => handleContactNumberChange(index, text)}
+                        placeholder="09XXXXXXXXX"
+                        keyboardType="numeric"
+                        error={errors.contactNumbers && index === 0 ? errors.contactNumbers : undefined}
+                      />
+                      {formData.contactNumbers.length > 1 && (
+                        <TouchableOpacity
+                          style={[styles.removeButton, { backgroundColor: colors.error + '20' }]}
+                          onPress={() => removeContactNumber(index)}
+                        >
+                          <Ionicons name="close" size={16} color={colors.error} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                  onPress={addContactNumber}
+                >
+                  <Ionicons name="add" size={16} color={colors.primary} />
+                  <ThemedText style={[styles.addButtonText, { color: colors.primary }]}>
+                    Add Contact Number
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Basic Information */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
+            </View>
+            
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <FormInput
+                label="Resource Name"
+                value={formData.name}
+                onChangeText={(value) => handleInputChange('name', value)}
+                placeholder="e.g., Emergency Generator, First Aid Kit, Radio"
+                required
+                error={errors.name}
+                helperText="Give it a clear, descriptive name that others will understand"
+              />
+
+              <FormInput
+                label="Description"
+                value={formData.description}
+                onChangeText={(value) => handleInputChange('description', value)}
+                placeholder="Describe what this resource is and how it's used..."
+                multiline
+                numberOfLines={3}
+                error={errors.description}
+                helperText="Provide details about the resource's purpose and usage"
+              />
+
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Category</ThemedText>
+                <View style={styles.categoryContainer}>
+                  {categories.map((category) => (
+                    <TouchableOpacity
+                      key={category.value}
+                      style={[
+                        styles.categoryButton,
+                        { borderColor: colors.border },
+                        formData.category === category.value && { 
+                          backgroundColor: colors.primary,
+                          borderColor: colors.primary 
+                        }
+                      ]}
+                      onPress={() => handleInputChange('category', category.value)}
+                    >
+                      <Ionicons 
+                        name={category.icon as keyof typeof Ionicons.glyphMap} 
+                        size={16} 
+                        color={formData.category === category.value ? '#fff' : colors.primary} 
+                        style={styles.categoryIcon}
+                      />
+                      <ThemedText style={[
+                        styles.categoryButtonText,
+                        formData.category === category.value && { color: '#fff' }
+                      ]}>
+                        {category.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Quantity and Location */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="location-outline" size={20} color="#007AFF" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
+            </View>
+            
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <FormQuantityInput
+                label="Total Quantity"
+                value={formData.totalQuantity}
+                onChangeValue={(value) => handleInputChange('totalQuantity', value)}
+                required
+                error={errors.totalQuantity}
+                helperText="How many units of this resource does the agency have?"
+              />
+
+              <LocationInput
+                value={formData.location}
+                onChangeText={(value) => handleInputChange('location', value)}
+                placeholder="e.g., Agency Office, Emergency Center"
+                suggestions={getLocationSuggestions(formData.location)}
+                error={errors.location}
+                helperText="Where is this resource located at the agency? Select from existing locations or type a new one."
+                disabled={loading}
+              />
+            </View>
+          </View>
+
+          {/* Condition and Details */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="settings-outline" size={20} color="#007AFF" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Condition & Details</ThemedText>
+            </View>
+            
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
                 <View style={styles.conditionContainer}>
                   {conditions.map((condition) => (
                     <TouchableOpacity
@@ -631,8 +947,43 @@ export function AddExternalResourceModal({
   );
 }
 
+
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  overlayCloseButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
   container: {
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 2,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  mobileContainer: {
     flex: 1,
   },
   header: {
@@ -706,7 +1057,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#374151',
   },
   categoryContainer: {
     flexDirection: 'row',
@@ -794,6 +1144,5 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 12,
     marginTop: 4,
-    color: '#EF4444',
   },
 });

@@ -2,15 +2,15 @@ import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   userCard: {
-    marginHorizontal: 16,
     marginVertical: 6,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
+    flex: 1,
   },
   cardContent: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -21,18 +21,18 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   avatarContainer: {
-    marginRight: 16,
+    marginRight: 12,
     position: 'relative',
   },
   userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
   },
@@ -42,18 +42,18 @@ export const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   userName: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     flex: 1,
     marginRight: 8,
   },
   userTypeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -61,42 +61,17 @@ export const styles = StyleSheet.create({
     marginRight: 4,
   },
   userTypeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
   },
-  metaRow: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'nowrap',
-    gap: 4,
-    marginBottom: 2,
-  },
-  metaIcon: {
-    marginRight: 4,
-    width: 12,
-  },
-  metaDot: {
-    opacity: 0.5,
-  },
-  userUsername: {
-    fontSize: 13,
-    fontWeight: '500',
-    maxWidth: '40%',
-  },
-  userEmail: {
-    fontSize: 13,
-    fontWeight: '500',
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  userDate: {
-    fontSize: 11,
-    fontWeight: '500',
   },
   chevronContainer: {
-    marginLeft: 10,
+    marginLeft: 8,
     padding: 2,
   },
   statusIndicator: {
@@ -117,7 +92,6 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
   },
   statusText: {
     fontSize: 9,
@@ -125,17 +99,26 @@ export const styles = StyleSheet.create({
     marginLeft: 2,
     letterSpacing: 0.3,
   },
-  actionButtons: {
+  actionButtonsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 14,
-    paddingBottom: 12,
-    gap: 8,
+    borderTopWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
   },
   actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

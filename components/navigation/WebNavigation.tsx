@@ -35,7 +35,7 @@ export function WebNavigation({ currentRoute }: WebNavigationProps) {
               styles.navItem,
               currentRoute === item.route && styles.activeNavItem
             ]}
-            onPress={() => router.push(item.route)}
+            onPress={() => router.push(item.route as any)}
           >
             <Text style={styles.navIcon}>{item.icon}</Text>
             <Text style={[

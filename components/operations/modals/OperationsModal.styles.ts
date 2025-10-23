@@ -1,7 +1,42 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
+  // Hybrid RAMP styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  overlayCloseButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
   container: {
+    width: '100%',
+    maxWidth: 800,
+    maxHeight: '90%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 2,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  mobileContainer: {
     flex: 1,
   },
   header: {

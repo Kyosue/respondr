@@ -103,7 +103,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
             style={[
                 styles.input,
                 {
-                borderColor: error ? '#ff4444' : colors.border,
+                borderColor: error ? colors.error : colors.inputBorder,
                 backgroundColor: disabled ? colors.background + '50' : colors.background,
                 color: colors.text,
                 },
@@ -177,7 +177,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
         )}
 
         {error && (
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
+            <ThemedText style={[styles.errorText, { color: colors.error }]}>{error}</ThemedText>
         )}
 
         {helperText && !error && (
@@ -253,7 +253,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
         marginLeft: 8,
     },
     errorText: {
-        color: '#ff4444',
         fontSize: 12,
         marginTop: 4,
     },

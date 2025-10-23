@@ -1,6 +1,6 @@
 import { NetworkManager, NetworkState } from '@/utils/networkUtils';
 import { SyncManager } from '@/utils/syncManager';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface NetworkContextType {
   isOnline: boolean;
@@ -41,16 +41,26 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
     initializeNetwork();
 
     // Subscribe to network changes
-    const unsubscribe = networkManager.subscribe((state) => {
+    const unsubscribe = networkManager.subscribe(async (state) => {
       setNetworkState(state);
       setIsOnline(state.isConnected && state.isInternetReachable === true);
       setIsSlowConnection(networkManager.isSlowConnection());
+      
+      // Update sync status when network state changes
+      try {
+        const status = await syncManager.getSyncStatus();
+        setIsSyncing(status.isSyncing);
+        setPendingOperationsCount(status.pendingOperationsCount);
+        setLastSyncTime(status.lastSyncTime);
+      } catch (error) {
+        console.error('Failed to update sync status on network change:', error);
+      }
     });
 
     // Start auto-sync
     const unsubscribeSync = syncManager.startAutoSync();
 
-    // Update sync status periodically
+    // Update sync status - only run once on mount and when network changes
     const updateSyncStatus = async () => {
       try {
         const status = await syncManager.getSyncStatus();
@@ -62,13 +72,21 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       }
     };
 
+    // Initial sync status update
     updateSyncStatus();
-    const syncStatusInterval = setInterval(updateSyncStatus, 5000); // Update every 5 seconds
+    
+    // Only run periodic updates in production to prevent dev server issues
+    let syncStatusInterval: NodeJS.Timeout | null = null;
+    if (process.env.NODE_ENV === 'production') {
+      syncStatusInterval = setInterval(updateSyncStatus, 60000); // Update every 60 seconds in production
+    }
 
     return () => {
       unsubscribe();
       unsubscribeSync();
-      clearInterval(syncStatusInterval);
+      if (syncStatusInterval) {
+        clearInterval(syncStatusInterval);
+      }
     };
   }, []);
 

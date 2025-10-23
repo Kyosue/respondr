@@ -3,16 +3,15 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // import 'react-native-reanimated';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import { ResourceProvider } from '@/contexts/ResourceContext';
 import { SitRepProvider } from '@/contexts/SitRepContext';
-import { AppThemeProvider } from '@/contexts/ThemeContext';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
 
 // Initialize Firebase with error handling
 let firebaseInitialized = false;
@@ -30,10 +29,10 @@ try {
 }
 
 function LayoutContent() {
-  const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
   
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="signup" />
@@ -50,6 +49,25 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
   const [isReady, setIsReady] = useState(false);
+
+  // Set document title and favicon for web
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Respondr';
+      
+      // Set favicon dynamically
+      const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+      if (favicon) {
+        favicon.href = '/assets/images/favicon.png';
+      } else {
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/png';
+        link.href = '/assets/images/favicon.png';
+        document.head.appendChild(link);
+      }
+    }
+  }, []);
 
   // Initialize Firebase with proper error handling
   useEffect(() => {
@@ -68,7 +86,13 @@ export default function RootLayout() {
       }
     };
 
-    initializeApp();
+    // Add a small delay in development to prevent rapid re-initialization
+    if (process.env.NODE_ENV === 'development') {
+      const timeoutId = setTimeout(initializeApp, 100);
+      return () => clearTimeout(timeoutId);
+    } else {
+      initializeApp();
+    }
   }, []);
 
   if (!loaded || !isReady) {

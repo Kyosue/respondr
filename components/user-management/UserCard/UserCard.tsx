@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
 import {
-    Platform,
-    TouchableOpacity,
-    View
+  Platform,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -67,19 +67,6 @@ export const UserCard = memo(function UserCard({
     }
   };
 
-  const formatDate = (timestamp: any): string => {
-    if (!timestamp) return 'Unknown';
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Invalid Date';
-    }
-  };
 
   const userTypeColor = getUserTypeColor(user.userType);
   const statusColor = getStatusColor(user.status);
@@ -140,22 +127,7 @@ export const UserCard = memo(function UserCard({
               </View>
             </View>
             
-            <View style={styles.metaRow}>
-              <Ionicons name="mail" size={12} color={colors.text + '60'} style={styles.metaIcon} />
-              <ThemedText 
-                style={[styles.userEmail, { color: colors.text + '80' }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {user.email}
-              </ThemedText>
-            </View>
-            
-            <View style={styles.metaRow}>
-              <Ionicons name="calendar" size={12} color={colors.text + '60'} style={styles.metaIcon} />
-              <ThemedText style={[styles.userDate, { color: colors.text + '60' }]}>
-                Joined {formatDate(user.createdAt)}
-              </ThemedText>
+            <View style={styles.statusRow}>
               <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
                 <Ionicons name={statusIcon} size={10} color={statusColor} />
                 <ThemedText style={[styles.statusText, { color: statusColor }]}>
@@ -172,33 +144,42 @@ export const UserCard = memo(function UserCard({
 
       {/* Action Buttons */}
       {(onEdit || onDelete || onToggleStatus) && (
-        <View style={styles.actionButtons}>
+        <View style={[styles.actionButtonsContainer, { borderTopColor: colors.border }]}>
           {onEdit && (
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.primary + '20' }]}
+              style={[styles.actionButton, { backgroundColor: colors.primary + '10' }]}
               onPress={() => onEdit(user)}
             >
-              <Ionicons name="create" size={16} color={colors.primary} />
+              <Ionicons name="create" size={18} color={colors.primary} />
+              <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>
+                Edit
+              </ThemedText>
             </TouchableOpacity>
           )}
           {onToggleStatus && (
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: statusColor + '20' }]}
+              style={[styles.actionButton, { backgroundColor: statusColor + '10' }]}
               onPress={() => onToggleStatus(user)}
             >
               <Ionicons 
                 name={userStatus === 'active' ? 'pause' : 'play'} 
-                size={16} 
+                size={18} 
                 color={statusColor} 
               />
+              <ThemedText style={[styles.actionButtonText, { color: statusColor }]}>
+                {userStatus === 'active' ? 'Pause' : 'Activate'}
+              </ThemedText>
             </TouchableOpacity>
           )}
           {onDelete && (
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: '#EF444420' }]}
+              style={[styles.actionButton, { backgroundColor: '#EF444410' }]}
               onPress={() => onDelete(user)}
             >
-              <Ionicons name="trash" size={16} color="#EF4444" />
+              <Ionicons name="trash" size={18} color="#EF4444" />
+              <ThemedText style={[styles.actionButtonText, { color: '#EF4444' }]}>
+                Delete
+              </ThemedText>
             </TouchableOpacity>
           )}
         </View>

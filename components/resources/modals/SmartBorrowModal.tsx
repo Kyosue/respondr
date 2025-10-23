@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   Image,
   Modal,
   ScrollView,
@@ -18,7 +19,9 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Resource, ResourceTransaction } from '@/types/Resource';
+import { getModalConfig } from '@/utils/modalUtils';
 import { BorrowerForm, BorrowerInfo } from './BorrowerForm';
 import { ResourceItem, ResourceItemRow } from './ResourceItemRow';
 
@@ -72,12 +75,35 @@ export function SmartBorrowModal({
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'available'>('name');
   const [showSearchFilters, setShowSearchFilters] = useState(false);
 
+  // Hybrid RAMP hook
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
+    visible,
+    onClose: () => {
+      // Reset form data
+      setResourceItems([]);
+      setBorrowerInfo({
+        borrowerName: '',
+        borrowerContact: '',
+        borrowerDepartment: '',
+        borrowerPicture: null,
+      });
+      setSelectedTransaction(null);
+      setErrors({});
+      setSearchQuery('');
+      setSelectedCategory('all');
+      setSortBy('name');
+      setShowSearchFilters(false);
+      onClose();
+    }
+  });
+
   // Resource items state - use refs to avoid re-render loops
   const [resourceItems, setResourceItems] = useState<ResourceItem[]>([]);
   const prevVisibleRef = useRef(false);
   const prevResourceRef = useRef<Resource | null>(null);
   const prevSelectedResourcesRef = useRef<Resource[]>([]);
   const prevModeRef = useRef<string>('');
+
 
   // Initialize resourceItems when modal opens or props change
   useEffect(() => {
@@ -258,22 +284,7 @@ export function SmartBorrowModal({
     }
   };
 
-  const handleClose = () => {
-    setResourceItems([]);
-    setBorrowerInfo({
-      borrowerName: '',
-      borrowerContact: '',
-      borrowerDepartment: '',
-      borrowerPicture: null,
-    });
-    setSelectedTransaction(null);
-    setErrors({});
-    setSearchQuery('');
-    setSelectedCategory('all');
-    setSortBy('name');
-    setShowSearchFilters(false);
-    onClose();
-  };
+  const handleClose = rampHandleClose;
 
   const addResource = (resource: Resource) => {
     // Check against the actual state
@@ -368,14 +379,34 @@ export function SmartBorrowModal({
 
   if (!visible) return null;
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleClose}
-    >
-      <ThemedView style={styles.container}>
+  // Platform-specific modal rendering
+  if (isWeb) {
+    // Hybrid RAMP implementation for web
+    return (
+      <Modal
+        visible={visible}
+        {...getModalConfig()}
+        onRequestClose={handleClose}
+        transparent={true}
+        animationType="fade"
+      >
+        <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
+          <TouchableOpacity 
+            style={styles.overlayCloseButton} 
+            onPress={handleClose}
+            activeOpacity={0.7}
+          />
+          <Animated.View style={[
+            styles.container,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim }
+              ]
+            }
+          ]}>
+            <ThemedView style={styles.modalContent}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
@@ -735,13 +766,422 @@ export function SmartBorrowModal({
             </View>
           </View>
         </ScrollView>
+            </ThemedView>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+    );
+  }
+
+  // Original mobile implementation
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
+    >
+      <ThemedView style={styles.mobileContainer}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+              <Ionicons name="close" size={20} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <ThemedText type="subtitle" style={styles.title}>
+                {mode === 'borrow' 
+                  ? (isMultiResource ? 'Borrow Multiple Resources' : 'Borrow Single Resource')
+                  : 'Return Resource'
+                }
+              </ThemedText>
+              {isMultiResource && resourceItems.length > 0 && (
+                <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                  {resourceItems.length} resource{resourceItems.length !== 1 ? 's' : ''} selected
+                </ThemedText>
+              )}
+            </View>
+            <View style={styles.headerButton}>
+              <FormButton
+                title={mode === 'borrow' 
+                  ? (isMultiResource ? 'Borrow All' : 'Borrow Resource')
+                  : 'Return Resource'
+                }
+                onPress={handleSubmit}
+                variant={mode === 'borrow' ? 'primary' : 'success'}
+                disabled={loading || (mode === 'return' && !selectedTransaction)}
+                loading={loading}
+              />
+            </View>
+          </View>
+        </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Resource Information */}
+          {isSingleResource && (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Resource Information</ThemedText>
+              <View style={[styles.resourceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.resourceHeader}>
+                  <View style={styles.resourceImageContainer}>
+                    {resource.images && resource.images.length > 0 ? (
+                      <Image 
+                        source={{ uri: resource.images[0] }} 
+                        style={styles.resourceImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                        <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.resourceDetails}>
+                    <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
+                    <View style={styles.resourceCategoryContainer}>
+                      <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
+                      <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
+                        {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.resourceDescription} numberOfLines={2}>
+                      {resource.description}
+                    </ThemedText>
+                  </View>
+                </View>
+                
+                <View style={[styles.availabilityInfo, { backgroundColor: colors.background }]}>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.success + '20' }]}>
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Available</ThemedText>
+                      <ThemedText style={[styles.availabilityValue, { color: colors.success }]}>
+                        {resource.availableQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.primary + '20' }]}>
+                      <Ionicons name="cube" size={16} color={colors.primary} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Total</ThemedText>
+                      <ThemedText style={styles.availabilityValue}>
+                        {resource.totalQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Borrower Information - Only for borrow mode */}
+          {mode === 'borrow' && (
+            <BorrowerForm
+              borrowerInfo={borrowerInfo}
+              onBorrowerInfoChange={setBorrowerInfo}
+              errors={errors}
+              showImagePicker={true}
+            />
+          )}
+
+          {/* Resource Items - Only for borrow mode */}
+          {mode === 'borrow' && (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>
+                {isMultiResource 
+                  ? (resourceItems.length > 0 
+                      ? `Selected Resources (${resourceItems.length})` 
+                      : 'Select Resources to Borrow')
+                  : 'Borrow Details'
+                }
+              </ThemedText>
+              
+              {resourceItems.map((item, index) => (
+                <ResourceItemRow
+                  key={item.resource.id}
+                  item={item}
+                  onUpdate={(updatedItem) => updateResourceItem(index, updatedItem)}
+                  onRemove={() => removeResourceItem(index)}
+                  errors={{
+                    quantity: errors[`quantity_${index}`],
+                  }}
+                  showRemoveButton={isMultiResource}
+                />
+              ))}
+
+              {/* Add more resources button - Only in multi-resource mode */}
+              {isMultiResource && (
+                <View style={styles.addResourcesSection}>
+                  <View style={styles.resourcesHeader}>
+                    <ThemedText style={styles.addResourcesTitle}>
+                      {resourceItems.length > 0 ? 'Add More Resources' : 'Available Resources'}
+                    </ThemedText>
+                    <TouchableOpacity
+                      onPress={() => setShowSearchFilters(!showSearchFilters)}
+                      style={[styles.filterButton, { backgroundColor: colors.primary }]}
+                    >
+                      <Ionicons name="filter" size={16} color="#fff" />
+                      <ThemedText style={styles.filterButtonText}>Filter</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Search and Filter Controls */}
+                  {showSearchFilters && (
+                    <View style={[styles.searchFiltersContainer, { backgroundColor: colors.surface }]}>
+                      {/* Search Input */}
+                      <View style={styles.searchInputContainer}>
+                        <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
+                        <TextInput
+                          style={[styles.searchInput, { 
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                            color: colors.text 
+                          }]}
+                          value={searchQuery}
+                          onChangeText={setSearchQuery}
+                          placeholder="Search resources..."
+                          placeholderTextColor={colors.text + '80'}
+                        />
+                        {searchQuery.length > 0 && (
+                          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                            <Ionicons name="close-circle" size={20} color={colors.text} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {/* Category Filter */}
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+                        {availableCategories.map((category) => (
+                          <TouchableOpacity
+                            key={category}
+                            onPress={() => setSelectedCategory(category)}
+                            style={[
+                              styles.categoryChip,
+                              { 
+                                backgroundColor: selectedCategory === category ? colors.primary : colors.background,
+                                borderColor: colors.border 
+                              }
+                            ]}
+                          >
+                            <ThemedText style={[
+                              styles.categoryChipText,
+                              { color: selectedCategory === category ? '#fff' : colors.text }
+                            ]}>
+                              {category === 'all' ? 'All' : category.charAt(0).toUpperCase() + category.slice(1)}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+
+                      {/* Sort Options */}
+                      <View style={styles.sortContainer}>
+                        <ThemedText style={styles.sortLabel}>Sort by:</ThemedText>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
+                          {[
+                            { key: 'name', label: 'Name' },
+                            { key: 'category', label: 'Category' },
+                            { key: 'available', label: 'Available' }
+                          ].map((option) => (
+                            <TouchableOpacity
+                              key={option.key}
+                              onPress={() => setSortBy(option.key as any)}
+                              style={[
+                                styles.sortChip,
+                                { 
+                                  backgroundColor: sortBy === option.key ? colors.primary : colors.background,
+                                  borderColor: colors.border 
+                                }
+                              ]}
+                            >
+                              <ThemedText style={[
+                                styles.sortChipText,
+                                { color: sortBy === option.key ? '#fff' : colors.text }
+                              ]}>
+                                {option.label}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Resources Grid */}
+                  <ScrollView 
+                    showsVerticalScrollIndicator={false} 
+                    style={styles.resourcesScroll}
+                    contentContainerStyle={styles.resourcesGridContent}
+                  >
+                    {(() => {
+                      const availableResources = getFilteredAvailableResources()
+                        .filter(r => !resourceItems.some((item: ResourceItem) => item.resource.id === r.id));
+                      
+                      if (availableResources.length === 0) {
+                        return (
+                          <View style={styles.noResourcesContainer}>
+                            <Ionicons name="cube-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
+                            <ThemedText style={styles.noResourcesText}>
+                              {searchQuery || selectedCategory !== 'all' 
+                                ? 'No resources match your filters' 
+                                : 'No available resources'
+                              }
+                            </ThemedText>
+                            {(searchQuery || selectedCategory !== 'all') && (
+                              <TouchableOpacity
+                                onPress={() => {
+                                  setSearchQuery('');
+                                  setSelectedCategory('all');
+                                }}
+                                style={[styles.clearFiltersButton, { backgroundColor: colors.primary }]}
+                              >
+                                <ThemedText style={styles.clearFiltersText}>Clear Filters</ThemedText>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      }
+                      
+                      return (
+                        <View style={styles.resourcesGrid}>
+                          {availableResources.map((availableResource) => (
+                            <TouchableOpacity
+                              key={availableResource.id}
+                              style={[styles.resourceGridCard, { 
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border 
+                              }]}
+                              onPress={() => addResource(availableResource)}
+                            >
+                              <View style={styles.resourceGridImageContainer}>
+                                {availableResource.images && availableResource.images.length > 0 ? (
+                                  <Image 
+                                    source={{ uri: availableResource.images[0] }} 
+                                    style={styles.resourceGridImage}
+                                    resizeMode="cover"
+                                  />
+                                ) : (
+                                  <View style={[styles.resourceGridIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={24} color={colors.primary} />
+                                  </View>
+                                )}
+                              </View>
+                              <ThemedText style={styles.resourceCardName} numberOfLines={2}>
+                                {availableResource.name}
+                              </ThemedText>
+                              <ThemedText style={styles.resourceQuantity}>
+                                Available: {availableResource.availableQuantity}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      );
+                    })()}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Return Details - Only for return mode */}
+          {mode === 'return' && selectedTransaction && (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Return Details</ThemedText>
+              
+              <View style={styles.transactionInfo}>
+                <View style={styles.transactionItem}>
+                  <ThemedText style={styles.transactionLabel}>Borrowed Quantity:</ThemedText>
+                  <ThemedText style={styles.transactionValue}>
+                    {selectedTransaction.quantity}
+                  </ThemedText>
+                </View>
+                <View style={styles.transactionItem}>
+                  <ThemedText style={styles.transactionLabel}>Borrowed Date:</ThemedText>
+                  <ThemedText style={styles.transactionValue}>
+                    {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString() : 'Unknown'}
+                  </ThemedText>
+                </View>
+                {selectedTransaction.dueDate && (
+                  <View style={styles.transactionItem}>
+                    <ThemedText style={styles.transactionLabel}>Due Date:</ThemedText>
+                    <ThemedText style={[
+                      styles.transactionValue,
+                      selectedTransaction.dueDate < new Date() && { color: colors.error }
+                    ]}>
+                      {selectedTransaction.dueDate ? new Date(selectedTransaction.dueDate).toLocaleDateString() : 'Unknown'}
+                    </ThemedText>
+                  </View>
+                )}
+                {selectedTransaction.notes && (
+                  <View style={styles.transactionItem}>
+                    <ThemedText style={styles.transactionLabel}>Original Notes:</ThemedText>
+                    <ThemedText style={styles.transactionValue}>
+                      {selectedTransaction.notes}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Terms & Conditions */}
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Terms & Conditions</ThemedText>
+            <View style={[styles.termsContainer, { backgroundColor: colors.surface }]}>
+              <ThemedText style={styles.termsText}>
+                • Resources must be returned in the same condition as borrowed{'\n'}
+                • Report any damage or issues immediately{'\n'}
+                • Late returns may result in restricted access{'\n'}
+                • Follow all safety protocols when using resources
+                {isMultiResource && '\n• Each resource may have different due dates'}
+              </ThemedText>
+            </View>
+          </View>
+        </ScrollView>
       </ThemedView>
     </Modal>
   );
 }
 
+
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  overlayCloseButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
   container: {
+    width: '100%',
+    maxWidth: 800,
+    maxHeight: '90%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 2,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  mobileContainer: {
     flex: 1,
   },
   header: {
