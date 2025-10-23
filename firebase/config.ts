@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import { Auth, browserLocalPersistence, getAuth, initializeAuth } from 'firebase/auth';
 import { disableNetwork, enableNetwork, Firestore, getFirestore } from 'firebase/firestore';
-import { getStorage, Storage } from 'firebase/storage';
+import { FirebaseStorage, getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 
 // Import React Native persistence for mobile platforms
@@ -18,20 +18,20 @@ if (Platform.OS !== 'web') {
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyAkNMUq2I6WpUH1OcTFrX9PAaMpuEmm_mI",
-  authDomain: "respondr-da5cb.firebaseapp.com",
-  projectId: "respondr-da5cb",
-  storageBucket: "respondr-da5cb.firebasestorage.app",
-  messagingSenderId: "944507190892",
-  appId: "1:944507190892:web:d0737fa77ad89786d7a249",
-  measurementId: "G-5G1YF12FQW"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase with error handling
 let app: FirebaseApp;
 let firebaseAuth: Auth;
 let db: Firestore;
-let storage: Storage;
+let storage: FirebaseStorage;
 
 try {
   if (getApps().length === 0) {

@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Dimensions, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { CurrentOperationsTab, HistoryOperationsTab } from './index';
+import { CurrentOperationsTab } from './CurrentOperationsTab';
+import { HistoryOperationsTab } from './HistoryOperationsTab';
 
 interface MunicipalityDetailModalProps {
   visible: boolean;

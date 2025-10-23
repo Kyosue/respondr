@@ -4,7 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { OperationCompleteModal } from './index';
+import { OperationCompleteModal } from './OperationCompleteModal';
 
 interface OperationCardProps {
   operation: {

@@ -1,12 +1,12 @@
 import {
-    createUserWithEmailAndPassword,
-    EmailAuthProvider,
-    User as FirebaseUser,
-    reauthenticateWithCredential,
-    signInWithEmailAndPassword,
-    signOut,
-    updateProfile,
-    UserCredential
+  createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  User as FirebaseUser,
+  reauthenticateWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  UserCredential
 } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from './config';
@@ -320,7 +320,6 @@ export const getUsersWithFilters = async (filters: {
       const searchTerm = filters.searchQuery.toLowerCase();
       users = users.filter(user => 
         user.fullName.toLowerCase().includes(searchTerm) ||
-        user.username.toLowerCase().includes(searchTerm) ||
         user.email.toLowerCase().includes(searchTerm)
       );
     }
