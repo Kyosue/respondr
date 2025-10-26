@@ -4,17 +4,17 @@ import { Colors } from '@/constants/Colors';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 interface LoginFormProps {
@@ -36,6 +36,9 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
   
   // Animation values
   const [buttonScale] = useState(new Animated.Value(1));
+  
+  // Refs for inputs
+  const passwordInputRef = useRef<TextInput>(null);
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -135,6 +138,8 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
               editable={!isLoading}
               onFocus={() => setIsFocused({...isFocused, email: true})}
               onBlur={() => setIsFocused({...isFocused, email: false})}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
             />
           </View>
           {emailError ? (
@@ -154,6 +159,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
               style={styles.inputIcon} 
             />
             <TextInput
+              ref={passwordInputRef}
               style={[
                 styles.input,
                 { 
@@ -173,6 +179,9 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
               editable={!isLoading}
               onFocus={() => setIsFocused({...isFocused, password: true})}
               onBlur={() => setIsFocused({...isFocused, password: false})}
+              onSubmitEditing={handleSubmit}
+              returnKeyType="go"
+              blurOnSubmit={false}
             />
             <TouchableOpacity 
               style={styles.passwordToggle}

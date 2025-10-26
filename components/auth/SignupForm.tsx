@@ -4,7 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Animated,
@@ -47,6 +47,11 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
   
   // Animation values
   const [buttonScale] = useState(new Animated.Value(1));
+  
+  // Refs for inputs
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
   
 
 
@@ -183,6 +188,8 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               editable={!isLoading}
               onFocus={() => setIsFocused({...isFocused, fullName: true})}
               onBlur={() => setIsFocused({...isFocused, fullName: false})}
+              returnKeyType="next"
+              onSubmitEditing={() => emailInputRef.current?.focus()}
             />
           </View>
           {fullNameError ? (
@@ -203,6 +210,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               style={styles.inputIcon} 
             />
             <TextInput
+              ref={emailInputRef}
               style={[
                 styles.input,
                 { 
@@ -221,6 +229,8 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               editable={!isLoading}
               onFocus={() => setIsFocused({...isFocused, email: true})}
               onBlur={() => setIsFocused({...isFocused, email: false})}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
             />
           </View>
           {emailError ? (
@@ -242,6 +252,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               style={styles.inputIcon} 
             />
             <TextInput
+              ref={passwordInputRef}
               style={[
                 styles.input,
                 { 
@@ -261,6 +272,8 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               editable={!isLoading}
               onFocus={() => setIsFocused({...isFocused, password: true})}
               onBlur={() => setIsFocused({...isFocused, password: false})}
+              returnKeyType="next"
+              onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
             />
             <TouchableOpacity 
               style={styles.passwordToggle}
@@ -291,6 +304,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               style={styles.inputIcon} 
             />
             <TextInput
+              ref={confirmPasswordInputRef}
               style={[
                 styles.input,
                 { 
@@ -310,6 +324,9 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               editable={!isLoading}
               onFocus={() => setIsFocused({...isFocused, confirmPassword: true})}
               onBlur={() => setIsFocused({...isFocused, confirmPassword: false})}
+              onSubmitEditing={handleSubmit}
+              returnKeyType="go"
+              blurOnSubmit={false}
             />
             <TouchableOpacity 
               style={styles.passwordToggle}
