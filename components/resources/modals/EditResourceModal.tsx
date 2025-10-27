@@ -375,7 +375,10 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
                 onImageSelected={(imageUrl) => setImages(prev => [...prev, imageUrl])}
                 onImageRemoved={() => setImages(prev => prev.slice(0, -1))}
                 currentImageUrl={images[0]}
+                imagesCount={images.length}
                 maxImages={5}
+                resourceId={resource.id}
+                folder="resources"
                 disabled={loading}
               />
             </View>

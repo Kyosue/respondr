@@ -17,6 +17,7 @@ export interface ImageUploadProps {
   onImageSelected: (imageUrl: string, publicId: string) => void;
   onImageRemoved?: () => void;
   currentImageUrl?: string;
+  imagesCount?: number; // Total number of images in parent's state
   placeholder?: string;
   maxImages?: number;
   resourceId?: string;
@@ -33,6 +34,7 @@ export function ImageUpload({
   onImageSelected,
   onImageRemoved,
   currentImageUrl,
+  imagesCount,
   placeholder = "Tap to add image",
   maxImages = 1,
   resourceId,
@@ -125,6 +127,9 @@ export function ImageUpload({
   };
 
   const displayImage = currentImageUrl || selectedImages[0];
+  // Use imagesCount from parent if provided, otherwise use local state
+  const totalImageCount = imagesCount !== undefined ? imagesCount : (currentImageUrl ? 1 : selectedImages.length);
+  const canAddMore = maxImages > 1 && totalImageCount < maxImages;
 
   return (
     <>
@@ -155,6 +160,20 @@ export function ImageUpload({
                 <Text style={styles.placeholderText}>{placeholder}</Text>
               </>
             )}
+          </TouchableOpacity>
+        )}
+
+        {/* Add More Images Button */}
+        {canAddMore && displayImage && (
+          <TouchableOpacity
+            style={styles.addMoreButton}
+            onPress={handleImagePicker}
+            disabled={disabled || uploading}
+          >
+            <Ionicons name="add-circle" size={20} color="#007AFF" />
+            <Text style={styles.addMoreText}>
+              Add Image ({totalImageCount}/{maxImages})
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -258,5 +277,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 2,
+  },
+  addMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: '#007AFF',
+    borderRadius: 8,
+    backgroundColor: '#007AFF10',
+  },
+  addMoreText: {
+    marginLeft: 6,
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

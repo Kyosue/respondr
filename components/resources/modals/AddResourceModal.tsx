@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  Alert,
-  Animated,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    Alert,
+    Animated,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -458,6 +458,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
                 onImageSelected={handleImageSelected}
                 onImageRemoved={handleImageRemoved}
                 currentImageUrl={images[0]}
+                imagesCount={images.length}
                 placeholder="Tap to add resource photo"
                 maxImages={5}
                 resourceId="temp" // Will be updated after resource creation
@@ -672,6 +673,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
                 onImageSelected={handleImageSelected}
                 onImageRemoved={handleImageRemoved}
                 currentImageUrl={images[0]}
+                imagesCount={images.length}
                 placeholder="Tap to add resource photo"
                 maxImages={5}
                 resourceId="temp" // Will be updated after resource creation
