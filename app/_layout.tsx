@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { MemoProvider } from '@/contexts/MemoContext';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import { ResourceProvider } from '@/contexts/ResourceContext';
 import { SitRepProvider } from '@/contexts/SitRepContext';
@@ -106,7 +107,9 @@ export default function RootLayout() {
           <AuthProvider>
             <ResourceProvider>
               <SitRepProvider>
-                <LayoutContent />
+                <MemoProvider>
+                  <LayoutContent />
+                </MemoProvider>
               </SitRepProvider>
             </ResourceProvider>
           </AuthProvider>

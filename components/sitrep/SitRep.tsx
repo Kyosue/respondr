@@ -22,6 +22,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { DocumentCard } from './DocumentCard';
 import { SitRepHeader } from './SitRepHeader';
+import { SitRepDetailModal } from './modals/SitRepDetailModal';
 import { UploadDocumentModal } from './modals/UploadDocumentModal';
 import { styles } from './styles/SitRep.styles';
 
@@ -37,6 +38,8 @@ export function SitRep() {
   const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
+  const [selectedDocument, setSelectedDocument] = useState<SitRepDocument | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const colorScheme = useColorScheme();
@@ -273,6 +276,11 @@ export function SitRep() {
     }
   };
 
+  const handleDocumentPress = (document: SitRepDocument) => {
+    setSelectedDocument(document);
+    setDetailModalVisible(true);
+  };
+
   const handleDownload = async (document: SitRepDocument) => {
     try {
       setDownloadingDocumentId(document.id);
@@ -306,10 +314,6 @@ export function SitRep() {
     );
   };
 
-  const handleDocumentPress = (document: SitRepDocument) => {
-    // Future: Open document preview modal
-    console.log('Document pressed:', document.title);
-  };
 
   // Show loading state while checking authentication
   if (authLoading) {
@@ -409,7 +413,7 @@ export function SitRep() {
                 <DocumentCard
                   key={document.id}
                   document={document}
-                  onDownload={handleDownload}
+                  onPress={handleDocumentPress}
                   onSelect={handleDocumentSelect}
                   isSelected={selectedDocuments.has(document.id)}
                   isDownloading={downloadingDocumentId === document.id}
@@ -458,6 +462,16 @@ export function SitRep() {
           clearDownloadError();
         }}
         fileInputRef={fileInputRef}
+      />
+
+      {/* Detail Modal */}
+      <SitRepDetailModal
+        visible={detailModalVisible}
+        document={selectedDocument}
+        onClose={() => {
+          setDetailModalVisible(false);
+          setSelectedDocument(null);
+        }}
       />
     </ThemedView>
   );

@@ -20,12 +20,12 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-start',
     ...Platform.select({
       web: {
-        paddingHorizontal: 12,
-        gap: 6,
+        paddingHorizontal: 20,
+        gap: 16,
       },
       default: {
-        paddingHorizontal: 6,
-        gap: 2,
+        paddingHorizontal: 16,
+        gap: 12,
       },
     }),
   },

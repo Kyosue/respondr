@@ -1,89 +1,80 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  documentItem: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  documentItemSelected: {
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+  },
+  documentCard: {
+    width: 320,
+    flexDirection: 'column',
+    marginBottom: 0,
+    padding: 14,
+  },
+  documentIcon: {
+    marginRight: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    width: 100, // Fixed width for consistent icon container size
-    ...Platform.select({
-      web: {
-        marginBottom: 20,
-      },
-    }),
+    width: 48,
+    height: 48,
+    borderRadius: 12,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    borderWidth: 0,
-    alignItems: 'center',
-    marginBottom: 2,
-    position: 'relative',
-    ...Platform.select({
-      web: {
-        width: 100,
-        height: 100,
-        borderRadius: 24,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-        },
-      },
-    }),
+  documentInfo: {
+    flex: 1,
   },
-  backgroundIcon: {
-    position: 'absolute',
-    zIndex: 0,
+  documentTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 6,
+    lineHeight: 20,
   },
-  fileTypeText: {
-    marginTop: 40,
+  documentMeta: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    backgroundColor: 'white',
-    width: '62%',
-    textAlign: 'center',
-    zIndex: 1,
-    ...Platform.select({
-      web: {
-        fontSize: 14,
-      },
-    }),
+    marginBottom: 4,
+  },
+  documentDate: {
+    fontSize: 12,
+  },
+  categoryBadge: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
   },
   selectedIndicator: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  fileName: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingHorizontal: 4,
-    lineHeight: 14,
-    ...Platform.select({
-      web: {
-        fontSize: 14,
-        maxWidth: 100,
-        lineHeight: 16,
-      },
-      default: {
-        maxWidth: 80,
-      },
-    }),
+    top: 8,
+    right: 8,
   },
 });

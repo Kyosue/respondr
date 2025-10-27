@@ -21,7 +21,8 @@ The app uses the following Firestore collections:
 - `multiTransactions` - Multi-resource transactions
 - `borrowers` - Borrower profiles
 - `resourceHistory` - Resource history logs
-- `sitrep_documents` - Situation report documents (NEW)
+- `sitrep_documents` - Situation report documents
+- `memo_documents` - Memo and local issuance documents
 
 ### 3. Firestore Security Rules
 
@@ -56,8 +57,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // SitRep Documents collection - NEW
+    // SitRep Documents collection
     match /sitrep_documents/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Memo Documents collection - NEW
+    match /memo_documents/{documentId} {
       allow read, write: if request.auth != null;
     }
   }
@@ -74,6 +80,11 @@ service firebase.storage {
   match /b/{bucket}/o {
     // SitRep documents - authenticated users only
     match /sitrep/documents/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Memo documents - authenticated users only
+    match /memos/{fileName} {
       allow read, write: if request.auth != null;
     }
     

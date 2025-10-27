@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useState } from 'react';
 import {
-    ActivityIndicator,
     Animated,
+    Platform,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SitRepDocument } from '@/types/Document';
 
@@ -17,7 +16,7 @@ import { styles } from './DocumentCard.styles';
 
 interface DocumentCardProps {
   document: SitRepDocument;
-  onDownload: (document: SitRepDocument) => void;
+  onPress: (document: SitRepDocument) => void;
   onSelect: (documentId: string, selected: boolean) => void;
   isSelected?: boolean;
   isDownloading?: boolean;
@@ -26,47 +25,16 @@ interface DocumentCardProps {
 
 export const DocumentCard = memo(function DocumentCard({ 
   document, 
-  onDownload,
+  onPress,
   onSelect,
   isSelected = false,
   isDownloading = false,
   isMultiSelectMode = false
 }: DocumentCardProps) {
   const colorScheme = useColorScheme();
-  const { isDark } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isWeb = Platform.OS === 'web';
   const [scaleValue] = useState(new Animated.Value(1));
-  const [isPressed, setIsPressed] = useState(false);
-
-  const handlePress = () => {
-    if (isMultiSelectMode) {
-      onSelect(document.id, !isSelected);
-    } else {
-      onDownload(document);
-    }
-  };
-
-  const handleLongPress = () => {
-    if (!isMultiSelectMode) {
-      onSelect(document.id, true);
-    }
-  };
-
-  const handlePressIn = () => {
-    setIsPressed(true);
-    Animated.spring(scaleValue, {
-      toValue: 0.95,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    setIsPressed(false);
-    Animated.spring(scaleValue, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const getFileIcon = (fileType: string): keyof typeof Ionicons.glyphMap => {
     if (fileType.includes('pdf')) return 'document-text';
@@ -80,28 +48,40 @@ export const DocumentCard = memo(function DocumentCard({
     return 'document';
   };
 
-  const getFileTypeText = (fileType: string): string => {
-    if (fileType.includes('pdf')) return 'PDF';
-    if (fileType.includes('doc')) return 'DOC';
-    if (fileType.includes('xls')) return 'XLS';
-    if (fileType.includes('ppt')) return 'PPT';
-    if (fileType.includes('image')) return 'IMG';
-    if (fileType.includes('video')) return 'VID';
-    if (fileType.includes('audio')) return 'AUD';
-    if (fileType.includes('zip') || fileType.includes('rar')) return 'ZIP';
-    return 'FILE';
+  const getCategoryColor = (category: string): string => {
+    switch (category) {
+      case 'report': return '#E53E3E';
+      case 'image': return '#805AD5';
+      case 'spreadsheet': return '#38A169';
+      case 'presentation': return '#D69E2E';
+      default: return '#4A5568';
+    }
   };
 
-  const getFileColor = (fileType: string): string => {
-    if (fileType.includes('pdf')) return '#E53E3E';
-    if (fileType.includes('doc')) return '#3182CE';
-    if (fileType.includes('xls')) return '#38A169';
-    if (fileType.includes('ppt')) return '#D69E2E';
-    if (fileType.includes('image')) return '#805AD5';
-    if (fileType.includes('video')) return '#DD6B20';
-    if (fileType.includes('audio')) return '#319795';
-    if (fileType.includes('zip') || fileType.includes('rar')) return '#718096';
-    return '#4A5568';
+  const getCategoryText = (category: string): string => {
+    return category.charAt(0).toUpperCase() + category.slice(1);
+  };
+
+  const handlePress = () => {
+    if (isMultiSelectMode) {
+      onSelect(document.id, !isSelected);
+    } else {
+      onPress(document);
+    }
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
   };
 
   return (
@@ -113,40 +93,70 @@ export const DocumentCard = memo(function DocumentCard({
         },
       ]}
     >
-       <TouchableOpacity
-         onPress={handlePress}
-         onLongPress={handleLongPress}
-         onPressIn={handlePressIn}
-         onPressOut={handlePressOut}
-         activeOpacity={0.8}
-         style={styles.iconContainer}
-       >
-         {isDownloading ? (
-           <ActivityIndicator size="large" color={isSelected ? '#fff' : colors.primary} />
-         ) : (
-           <>
-             <Ionicons 
-               name={getFileIcon(document.fileType)} 
-               size={72} 
-               color={isSelected ? 'rgba(221, 7, 7, 0.5)' : isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'} 
-               style={styles.backgroundIcon}
-             />
-             <Text style={[styles.fileTypeText, { color: isSelected ? 'red' : getFileColor(document.fileType) }]}>
-               {getFileTypeText(document.fileType)}
-             </Text>
-           </>
-         )}
-         
-         {isSelected && (
-           <View style={styles.selectedIndicator}>
-             <Ionicons name="checkmark" size={14} color="#fff" />
-           </View>
-         )}
-       </TouchableOpacity>
-      
-      <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>
-        {document.title}
-      </Text>
+      <TouchableOpacity
+        key={document.id}
+        style={[
+          styles.documentItem,
+          { backgroundColor: colors.surface },
+          isWeb && styles.documentCard,
+          isSelected && styles.documentItemSelected,
+        ]}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.95}
+      >
+        {isWeb ? (
+          <>
+            <View style={styles.cardHeader}>
+              <View style={[styles.documentIcon, { backgroundColor: `${getCategoryColor(document.category)}20` }]}>
+                <Ionicons name={getFileIcon(document.fileType)} size={32} color={getCategoryColor(document.category)} />
+              </View>
+            </View>
+            <View style={styles.documentInfo}>
+              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
+                {document.title}
+              </Text>
+              <View style={[styles.categoryBadge, { backgroundColor: `${getCategoryColor(document.category)}20` }]}>
+                <Text style={[styles.categoryText, { color: getCategoryColor(document.category) }]}>
+                  {getCategoryText(document.category)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.cardFooter}>
+              <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
+                {new Date(document.uploadedAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={[styles.documentIcon, { backgroundColor: `${getCategoryColor(document.category)}20` }]}>
+              <Ionicons 
+                name={getFileIcon(document.fileType)} 
+                size={32} 
+                color={getCategoryColor(document.category)} 
+              />
+            </View>
+            <View style={styles.documentInfo}>
+              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
+                {document.title}
+              </Text>
+              <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]}>
+                {getCategoryText(document.category)}
+              </Text>
+              <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
+                {new Date(document.uploadedAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </>
+        )}
+        {isSelected && (
+          <View style={styles.selectedIndicator}>
+            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+          </View>
+        )}
+      </TouchableOpacity>
     </Animated.View>
   );
 });
