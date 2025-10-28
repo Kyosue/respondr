@@ -15,9 +15,11 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useScreenSize } from '@/hooks/useScreenSize';
 import { About } from '../components/about/About';
 import { Dashboard } from '../components/dashboard/Dashboard';
 import { Help } from '../components/help/Help';
+import { DesktopLayout } from '../components/layout/DesktopLayout';
 import { BottomNavigation } from '../components/navigation/BottomNavigation';
 import { Header } from '../components/navigation/Header';
 import { Operations } from '../components/operations/Operations';
@@ -34,6 +36,7 @@ export default function IndexScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { isDesktop } = useScreenSize();
   
   // Animation values
   const fadeAnim = new Animated.Value(0);
@@ -135,6 +138,17 @@ export default function IndexScreen() {
     return null;
   }
 
+  // Render desktop layout for larger screens
+  if (isDesktop) {
+    return (
+      <DesktopLayout 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+      />
+    );
+  }
+
+  // Render mobile layout for smaller screens
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
