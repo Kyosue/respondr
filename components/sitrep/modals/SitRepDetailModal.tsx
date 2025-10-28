@@ -1,20 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated, Linking, Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated, Linking, Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { SitRepDocument } from '@/types/Document';
+import { SyncManager } from '@/utils/syncManager';
 
 import { styles } from './SitRepDetailModal.styles';
 
@@ -38,12 +39,39 @@ export function SitRepDetailModal({
   });
 
   const [downloading, setDownloading] = useState(false);
+  const [uploaderName, setUploaderName] = useState<string>('');
 
   React.useEffect(() => {
     if (!visible) {
       setDownloading(false);
     }
   }, [visible]);
+
+  // Fetch uploader name
+  useEffect(() => {
+    const fetchUploaderName = async () => {
+      if (!document?.uploadedBy) {
+        setUploaderName('');
+        return;
+      }
+
+      try {
+        const syncManager = SyncManager.getInstance();
+        const userData = await syncManager.getUserData(document.uploadedBy);
+        
+        if (userData) {
+          setUploaderName(userData.fullName || userData.displayName || userData.email);
+        } else {
+          setUploaderName(document.uploadedBy);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch uploader name:', error);
+        setUploaderName(document.uploadedBy);
+      }
+    };
+
+    fetchUploaderName();
+  }, [document?.uploadedBy]);
 
   const handleView = async () => {
     if (!document) return;
@@ -87,7 +115,7 @@ export function SitRepDetailModal({
     return 'document';
   };
 
-  const getCategoryColor = (category: string): string => {
+  const getCategoryColor = (category?: string): string => {
     switch (category) {
       case 'report': return '#E53E3E';
       case 'image': return '#805AD5';
@@ -97,8 +125,8 @@ export function SitRepDetailModal({
     }
   };
 
-  const getCategoryText = (category: string): string => {
-    return category.charAt(0).toUpperCase() + category.slice(1);
+  const getCategoryText = (category?: string): string => {
+    return category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Other';
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -189,7 +217,7 @@ export function SitRepDetailModal({
             <View style={styles.infoRow}>
               <Ionicons name="person" size={16} color={colors.tabIconDefault} />
               <Text style={[styles.infoLabel, { color: colors.tabIconDefault }]}>Uploaded By:</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>{document.uploadedBy}</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>{uploaderName || 'Loading...'}</Text>
             </View>
           )}
         </View>
@@ -271,5 +299,3 @@ export function SitRepDetailModal({
     </>
   );
 }
-
-export { SitRepDetailModal };

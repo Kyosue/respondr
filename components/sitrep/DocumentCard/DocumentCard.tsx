@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useState } from 'react';
 import {
-    Animated,
-    Platform,
-    Text,
-    TouchableOpacity,
-    View
+  Animated,
+  Platform,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
@@ -48,7 +48,7 @@ export const DocumentCard = memo(function DocumentCard({
     return 'document';
   };
 
-  const getCategoryColor = (category: string): string => {
+  const getCategoryColor = (category?: string): string => {
     switch (category) {
       case 'report': return '#E53E3E';
       case 'image': return '#805AD5';
@@ -58,8 +58,8 @@ export const DocumentCard = memo(function DocumentCard({
     }
   };
 
-  const getCategoryText = (category: string): string => {
-    return category.charAt(0).toUpperCase() + category.slice(1);
+  const getCategoryText = (category?: string): string => {
+    return category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Other';
   };
 
   const handlePress = () => {
