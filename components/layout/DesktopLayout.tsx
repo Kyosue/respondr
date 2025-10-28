@@ -1,7 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import {
     Animated,
+    Platform,
     StyleSheet,
     View
 } from 'react-native';
@@ -9,9 +11,7 @@ import {
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { About } from '../about/About';
 import { Dashboard } from '../dashboard/Dashboard';
-import { Help } from '../help/Help';
 import { DesktopHeader } from '../navigation/DesktopHeader';
 import { Sidebar } from '../navigation/Sidebar';
 import { Operations } from '../operations/Operations';
@@ -35,8 +35,6 @@ const getPageTitle = (activeTab: string): string => {
     'user-management': 'User Management',
     reports: 'Reports',
     settings: 'Settings',
-    help: 'Help & Support',
-    about: 'About',
   };
   return titles[activeTab] || 'Dashboard';
 };
@@ -49,6 +47,14 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
   // Animation values
   const fadeAnim = new Animated.Value(1);
   const slideAnim = new Animated.Value(0);
+
+  // Update document title for web based on active tab
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const pageTitle = getPageTitle(activeTab);
+      document.title = `Respondr - ${pageTitle}`;
+    }
+  }, [activeTab]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -91,8 +97,6 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
               {activeTab === 'user-management' && <UserManagement />}
               {activeTab === 'reports' && <Reports />}
               {activeTab === 'settings' && <Settings />}
-              {activeTab === 'help' && <Help />}
-              {activeTab === 'about' && <About />}
             </Animated.View>
           </View>
         </View>

@@ -2,8 +2,9 @@ import { Colors } from '@/constants/Colors';
 import { Municipality } from '@/data/davaoOrientalData';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useScreenSize } from '@/hooks/useScreenSize';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { DavaoOrientalMap } from './OperationsMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
 
@@ -11,6 +12,7 @@ const Operations = React.memo(() => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
+  const { isDesktop } = useScreenSize();
   const [selectedMunicipality, setSelectedMunicipality] = useState<Municipality | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showOperationsModal, setShowOperationsModal] = useState(false);
@@ -20,12 +22,26 @@ const Operations = React.memo(() => {
   // Memoize screen dimensions to prevent unnecessary recalculations
   const screenDimensions = useMemo(() => {
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-    const mapHeight = screenHeight - bottomNavHeight - 20; // Account for bottom nav + padding
-    return {
-      width: screenWidth,
-      height: mapHeight
-    };
-  }, [bottomNavHeight]);
+    
+    if (isDesktop) {
+      // For desktop, use most of the available space with padding
+      const sidebarWidth = 250; // Approximate sidebar width
+      const headerHeight = 80; // Approximate header height
+      const padding = 10; // Total padding
+      
+      return {
+        width: screenWidth - sidebarWidth - padding,
+        height: screenHeight - headerHeight - padding
+      };
+    } else {
+      // For mobile, account for bottom nav
+      const mapHeight = screenHeight - bottomNavHeight - 20;
+      return {
+        width: screenWidth,
+        height: mapHeight
+      };
+    }
+  }, [bottomNavHeight, isDesktop]);
 
   // Memoized handlers to prevent unnecessary re-renders
   const handleMunicipalityPress = useCallback((municipality: Municipality) => {
@@ -93,7 +109,12 @@ const Operations = React.memo(() => {
   }, [operationsByMunicipality]);
 
   return (
-    <View style={styles.container}>
+    <View 
+      style={Platform.OS === 'web' 
+        ? [styles.container, { userSelect: 'none' }]
+        : styles.container
+      }
+    >
       <View style={[styles.mapContainer, { backgroundColor: colors.surface }]}>
         <DavaoOrientalMap 
           width={screenDimensions.width}
@@ -140,6 +161,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    minHeight: 400, // Ensure minimum height for desktop
   },
 });
 

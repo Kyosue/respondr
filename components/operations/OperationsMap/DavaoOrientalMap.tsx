@@ -3,7 +3,7 @@ import { davaoOrientalData, getMunicipalities, Municipality } from '@/data/davao
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import SvgPanZoom from 'react-native-svg-pan-zoom';
@@ -314,7 +314,7 @@ const getLabelPosition = (
       'Governor Generoso': { x: center.x - 50, y: center.y - 20 }, 
       'Lupon': { x: center.x + 25, y: center.y - 50 }, 
       'Manay': { x: center.x - 10, y: center.y - 10}, 
-      'City of Mati': { x: center.x, y: center.y - 100 }, // Alternative name
+      'City of Mati': { x: center.x, y: center.y - 90 }, // Alternative name
       'San Isidro': { x: center.x - 35, y: center.y + 5 }, 
       'Tarragona': { x: center.x -5, y: center.y - 5 }, 
     };
@@ -401,6 +401,7 @@ const MunicipalityFeature = memo<{
         fill={'white'}
         textAnchor="middle"
         fontWeight="800"
+        fontFamily="Gabarito"
         onPress={onPress}
       >
         {feature.properties.adm3_en}
@@ -411,7 +412,7 @@ const MunicipalityFeature = memo<{
 
 const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({ 
   width = Dimensions.get('window').width - 32, 
-  height = 300,
+  height = Dimensions.get('window').height - 200, // Better default height
   onMunicipalityPress,
   selectedMunicipality,
   operationsByMunicipality
@@ -420,7 +421,8 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   const colors = Colors[colorScheme ?? 'light'];
   
   // State for zoom control
-  const [currentZoom, setCurrentZoom] = useState(1);
+  const initialZoom = Platform.OS === 'web' ? 1.2 : 1; // Default zoom-in for web
+  const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [resetKey, setResetKey] = useState(0);
   const [isReset, setIsReset] = useState(false);
   
@@ -449,10 +451,10 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   
   // Reset zoom function
   const resetZoom = useCallback(() => {
-    setCurrentZoom(1);
+    setCurrentZoom(initialZoom);
     setIsReset(true);
     setResetKey(prev => prev + 1); // Force re-render to reset zoom
-  }, []);
+  }, [initialZoom]);
   
   // Clear cache when dimensions change
   useMemo(() => {
@@ -461,14 +463,19 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.container, { width, height }]}>
+      <View 
+        style={Platform.OS === 'web' 
+          ? [styles.container, { width, height }, { userSelect: 'none' }]
+          : [styles.container, { width, height }]
+        }
+      >
         <SvgPanZoomWithChildren
           key={resetKey}
           canvasWidth={width}
           canvasHeight={height}
           minScale={0.8}
           maxScale={3}
-          initialZoom={1}
+          initialZoom={initialZoom}
           onZoom={handleZoom}
           canvasStyle={styles.canvas}
           enablePan={true}
@@ -503,7 +510,7 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
         <View style={styles.zoomControls}>
           <View style={[styles.zoomButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
             <Text style={[styles.zoomButtonText, { color: 'white' }]}>
-              {isReset ? '100%' : `${Math.round(currentZoom * 100)}%`}
+              {isReset ? `${Math.round(initialZoom * 100)}%` : `${Math.round(currentZoom * 100)}%`}
             </Text>
           </View>
           <TouchableOpacity style={[styles.resetButton, { backgroundColor: colors.primary }]} onPress={resetZoom}>
@@ -524,7 +531,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   canvas: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#cec9bd',
   },
   zoomControls: {
     position: 'absolute',

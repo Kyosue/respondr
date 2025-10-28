@@ -22,18 +22,6 @@ const ALL_MENU_ITEMS = [
     requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
   {
-    id: 'help',
-    title: 'Help',
-    icon: 'help-circle-outline',
-    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
-  },
-  {
-    id: 'about',
-    title: 'About',
-    icon: 'information-circle-outline',
-    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
-  },
-  {
     id: 'logout',
     title: 'Logout',
     icon: 'log-out-outline',

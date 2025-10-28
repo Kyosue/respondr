@@ -47,7 +47,7 @@ function LayoutContent() {
 
 export default function RootLayout() {
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Gabarito: require('../assets/fonts/Gabarito-VariableFont_wght.ttf'),
   });
   const [isReady, setIsReady] = useState(false);
 

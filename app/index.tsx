@@ -16,9 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
-import { About } from '../components/about/About';
 import { Dashboard } from '../components/dashboard/Dashboard';
-import { Help } from '../components/help/Help';
 import { DesktopLayout } from '../components/layout/DesktopLayout';
 import { BottomNavigation } from '../components/navigation/BottomNavigation';
 import { Header } from '../components/navigation/Header';
@@ -107,6 +105,26 @@ export default function IndexScreen() {
       // Instant transition for hamburger menu items
       fadeAnim.setValue(1);
       slideAnim.setValue(0);
+    }
+  }, [activeTab]);
+
+  // Update document title for web based on active tab
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const getPageTitle = (tab: string): string => {
+        const titles: Record<string, string> = {
+          dashboard: 'Dashboard',
+          operations: 'Operations',
+          resources: 'Resources',
+          sitrep: 'Situation Report',
+          'user-management': 'User Management',
+          reports: 'Reports',
+          settings: 'Settings',
+        };
+        return titles[tab] || 'Dashboard';
+      };
+      
+      document.title = `Respondr - ${getPageTitle(activeTab)}`;
     }
   }, [activeTab]);
 
@@ -215,16 +233,6 @@ export default function IndexScreen() {
           {activeTab === 'settings' && (
             <View style={{ flex: 1 }}>
               <Settings />
-            </View>
-          )}
-          {activeTab === 'help' && (
-            <View style={{ flex: 1 }}>
-              <Help />
-            </View>
-          )}
-          {activeTab === 'about' && (
-            <View style={{ flex: 1 }}>
-              <About />
             </View>
           )}
         </Animated.View>

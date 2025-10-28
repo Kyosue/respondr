@@ -2,15 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Animated,
-    Image,
-    Modal,
-    Platform,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Animated,
+  Image,
+  Modal,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
+import { LogoutModal } from '@/components/modals/LogoutModal';
 import { ThemedText } from '@/components/ThemedText';
 import { getMenuItems } from '@/config/navigation';
 import { Colors } from '@/constants/Colors';
@@ -32,6 +33,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [menuAnimation] = useState(new Animated.Value(-300)); // Start from -300 (left side)
   
   // Get menu items based on user role
@@ -68,10 +70,19 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogoutPress = () => {
     toggleMenu();
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutModal(false);
     await logout();
     router.replace('/login');
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
   };
 
   const handleMenuItemPress = (itemId: string) => {
@@ -136,7 +147,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
                 resizeMode="contain"
               />
               <ThemedText type="subtitle" style={styles.appName}>
-                Provicial Disaster Risk Reduction and Management System
+                Respondr
               </ThemedText>
             </View>
             
@@ -182,7 +193,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
             {/* Logout button at the bottom */}
             <TouchableOpacity 
               style={[styles.logoutButton, { borderTopColor: colors.border }]}
-              onPress={handleLogout}
+              onPress={handleLogoutPress}
             >
               <Ionicons 
                 name={menuItems.find(item => item.id === 'logout')?.icon as any} 
@@ -196,6 +207,13 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Logout Modal */}
+      <LogoutModal
+        visible={showLogoutModal}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
     </>
   );
 }
@@ -283,8 +301,8 @@ const styles = StyleSheet.create({
   },
   appName: {
     marginTop: -5,
-    fontWeight: '800',
-    fontSize: 16,
+    fontWeight: 'bold',
+    fontSize: 24,
     textAlign: 'center',
   },
   menuItems: {

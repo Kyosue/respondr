@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { LogoutModal } from '@/components/modals/LogoutModal';
 import { ThemedText } from '@/components/ThemedText';
 import { BOTTOM_TABS, getMenuItems } from '@/config/navigation';
 import { Colors } from '@/constants/Colors';
@@ -31,6 +32,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   
   // Get menu items based on user role
   const menuItems = user?.userType ? getMenuItems(user.userType) : [];
@@ -39,9 +41,18 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
-  const handleLogout = async () => {
+  const handleLogoutPress = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutModal(false);
     await logout();
     router.replace('/login');
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
   };
 
   return (
@@ -56,58 +67,64 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       ]}
       edges={['top', 'left']}
     >
-      {/* Logo Section */}
+      {/* Logo Section with Toggle */}
       <View style={styles.logoSection}>
-        <Image
-          source={require('@/assets/images/logo-1.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <TouchableOpacity 
+          style={styles.logoContainer}
+          onPress={isCollapsed ? toggleCollapse : undefined}
+          activeOpacity={isCollapsed ? 0.7 : 1}
+        >
+          <Image
+            source={require('@/assets/images/logo-1.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+        
         {!isCollapsed && (
           <View style={styles.logoTextContainer}>
             <ThemedText type="subtitle" style={styles.appName}>
-              Provincial Disaster Risk Reduction
-            </ThemedText>
-            <ThemedText type="defaultSemiBold" style={styles.appSubtitle}>
-              and Management System
+              Respondr
             </ThemedText>
           </View>
         )}
+        
+        {!isCollapsed && (
+          <TouchableOpacity 
+            style={styles.toggleButton}
+            onPress={toggleCollapse}
+            activeOpacity={0.7}
+          >
+            <View style={{ transform: [{ rotate: '180deg' }] }}>
+              <Svg viewBox="0 0 24 24" width={24} height={24}>
+                <Path 
+                  d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2z" 
+                  stroke={colors.text} 
+                  fill="none" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                />
+                <Path 
+                  d="M15 4v16" 
+                  stroke={colors.text} 
+                  fill="none" 
+                  strokeWidth="2" 
+                />
+                <Path 
+                  d="m9 10 2 2 -2 2" 
+                  stroke={colors.text} 
+                  fill="none" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                />
+              </Svg>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Toggle Button */}
-      <TouchableOpacity 
-        style={[styles.toggleButton, { borderBottomColor: colors.border }]}
-        onPress={toggleCollapse}
-        activeOpacity={0.7}
-      >
-        <View style={{ transform: [{ rotate: isCollapsed ? '0deg' : '180deg' }] }}>
-          <Svg viewBox="0 0 24 24" width={24} height={24}>
-            <Path 
-              d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2z" 
-              stroke={colors.text} 
-              fill="none" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-            />
-            <Path 
-              d="M15 4v16" 
-              stroke={colors.text} 
-              fill="none" 
-              strokeWidth="2" 
-            />
-            <Path 
-              d="m9 10 2 2 -2 2" 
-              stroke={colors.text} 
-              fill="none" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-            />
-          </Svg>
-        </View>
-      </TouchableOpacity>
 
       {/* Bottom Tabs (Primary Navigation) */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -227,7 +244,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       {/* Logout Button */}
       <TouchableOpacity
         style={[styles.logoutButton, { borderTopColor: colors.border }]}
-        onPress={handleLogout}
+        onPress={handleLogoutPress}
         activeOpacity={0.7}
       >
         <Ionicons
@@ -241,6 +258,13 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           </ThemedText>
         )}
       </TouchableOpacity>
+
+      {/* Logout Modal */}
+      <LogoutModal
+        visible={showLogoutModal}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -275,6 +299,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(150, 150, 150, 0.1)',
   },
+  logoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   logo: {
     width: 50,
     height: 50,
@@ -283,15 +311,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appName: {
-    fontWeight: '800',
-    fontSize: 16,
+    fontWeight: 'bold',
+    fontSize: 24,
     lineHeight: 16,
-  },
-  appSubtitle: {
-    fontSize: 13,
-    opacity: 0.7,
-    marginTop: 2,
-    lineHeight: 14,
   },
   scrollView: {
     flex: 1,
@@ -338,10 +360,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   toggleButton: {
-    padding: 12,
+    padding: 8,
+    borderRadius: 8,
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+    justifyContent: 'center',
   },
   divider: {
     height: 1,
