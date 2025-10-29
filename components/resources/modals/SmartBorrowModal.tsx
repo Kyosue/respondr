@@ -5,6 +5,7 @@ import {
   Animated,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -1413,57 +1414,122 @@ const styles = StyleSheet.create({
   resourcesScroll: {
     marginBottom: 16,
     maxHeight: 400,
+    ...Platform.select({
+      web: {
+        maxHeight: 320,
+      },
+    }),
   },
   resourcesGridContent: {
     paddingHorizontal: 4,
+    ...Platform.select({
+      default: {
+        paddingBottom: 8,
+      },
+    }),
   },
   resourcesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    ...Platform.select({
+      web: {
+        justifyContent: 'space-between',
+        paddingHorizontal: 4,
+      },
+      default: {
+        justifyContent: 'space-between',
+        paddingHorizontal: 2,
+      },
+    }),
   },
   resourceGridCard: {
-    width: '31%',
-    aspectRatio: 1,
-    padding: 12,
+    ...Platform.select({
+      web: {
+        width: '31%',
+        height: 140,
+        justifyContent: 'center',
+      },
+      default: {
+        width: '48%',
+        minHeight: 130,
+        justifyContent: 'flex-start',
+      },
+    }),
+    padding: 10,
     marginBottom: 12,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
   resourceGridImageContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
+    ...Platform.select({
+      web: {
+        width: 50,
+        height: 50,
+        borderRadius: 10,
+        marginBottom: 8,
+      },
+      default: {
+        width: 44,
+        height: 44,
+        borderRadius: 8,
+        marginBottom: 6,
+      },
+    }),
     overflow: 'hidden',
-    marginBottom: 8,
   },
   resourceGridImage: {
     width: '100%',
     height: '100%',
   },
   resourceGridIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    ...Platform.select({
+      web: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+      },
+      default: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+      },
+    }),
     alignItems: 'center',
     justifyContent: 'center',
   },
   resourceCardName: {
-    fontSize: 11,
+    ...Platform.select({
+      web: {
+        fontSize: 11,
+        lineHeight: 14,
+        marginBottom: 4,
+      },
+      default: {
+        fontSize: 10,
+        lineHeight: 12,
+        marginBottom: 4,
+        minHeight: 24,
+      },
+    }),
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 3,
-    lineHeight: 14,
-    flex: 1,
+    width: '100%',
   },
   resourceQuantity: {
-    fontSize: 9,
+    ...Platform.select({
+      web: {
+        fontSize: 12,
+      },
+      default: {
+        fontSize: 10,
+      },
+    }),
     opacity: 0.7,
     textAlign: 'center',
     marginTop: 'auto',
+    width: '100%',
   },
   noResourcesContainer: {
     alignItems: 'center',

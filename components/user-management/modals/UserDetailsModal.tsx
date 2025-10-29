@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
+    Animated,
     Dimensions,
     Modal,
     ScrollView,
@@ -11,6 +12,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { UserData, UserStatus } from '@/types/UserData';
 import { UserType } from '@/types/UserType';
 
@@ -37,6 +39,7 @@ export function UserDetailsModal({
 }: UserDetailsModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
 
   if (!user) return null;
 
@@ -134,14 +137,27 @@ export function UserDetailsModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      animationType={isWeb ? 'none' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
+      onRequestClose={handleClose}
     >
-      <ThemedView style={styles.container}>
+      {isWeb && (
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+      )}
+
+      <Animated.View
+        style={[
+          isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
+          isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
+        ]}
+      >
+      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>User Details</ThemedText>
@@ -330,6 +346,7 @@ export function UserDetailsModal({
           )}
         </ScrollView>
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }

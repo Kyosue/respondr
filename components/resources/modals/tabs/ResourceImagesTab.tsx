@@ -1,21 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { usePlatform } from '@/hooks/usePlatform';
 import { Resource } from '@/types/Resource';
 
@@ -63,10 +65,11 @@ export function ResourceImagesTab({ resource }: ResourceImagesTabProps) {
         <View style={[styles.contentWrapper, isWeb && styles.webContentWrapper]}>
           <View style={styles.imagesGrid}>
             {validImages.map((image, index) => (
-              <ImageWithErrorHandling 
-                key={`${image}-${index}`} 
-                imageUrl={image} 
+              <MemoizedImageTile
+                key={image}
+                imageUrl={image}
                 resourceId={resource.id}
+                index={index}
                 onPress={() => setSelectedImageIndex(index)}
               />
             ))}
@@ -89,14 +92,17 @@ export function ResourceImagesTab({ resource }: ResourceImagesTabProps) {
 interface ImageWithErrorHandlingProps {
   imageUrl: string;
   resourceId: string;
+  index: number;
   onPress: () => void;
 }
 
-function ImageWithErrorHandling({ imageUrl, resourceId, onPress }: ImageWithErrorHandlingProps) {
+function ImageWithErrorHandling({ imageUrl, resourceId, index, onPress }: ImageWithErrorHandlingProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { isWeb } = usePlatform();
+  const hasLoadedRef = useRef(false);
 
   // Check if this looks like a Cloudinary URL that might be deleted
   const isCloudinaryUrl = imageUrl.includes('cloudinary.com');
@@ -121,12 +127,22 @@ function ImageWithErrorHandling({ imageUrl, resourceId, onPress }: ImageWithErro
   };
 
   const handleLoad = () => {
+    hasLoadedRef.current = true;
     setIsLoading(false);
   };
 
   const handleLoadStart = () => {
+    // On web, avoid toggling back to loading if image already loaded to prevent flicker
+    if (isWeb && hasLoadedRef.current) return;
     setIsLoading(true);
   };
+
+  const imageSource = useMemo(() => {
+    if (isWeb) {
+      return { uri: imageUrl } as const;
+    }
+    return { uri: imageUrl, cache: 'force-cache' as const };
+  }, [imageUrl, isWeb]);
 
   return (
     <TouchableOpacity 
@@ -135,17 +151,14 @@ function ImageWithErrorHandling({ imageUrl, resourceId, onPress }: ImageWithErro
       activeOpacity={0.8}
     >
       <Image 
-        source={{ 
-          uri: imageUrl,
-          cache: 'force-cache' // Use cached images for better performance
-        }} 
+        source={imageSource}
         style={styles.image}
         onError={handleError}
         onLoad={handleLoad}
         onLoadStart={handleLoadStart}
         resizeMode="cover"
-        fadeDuration={150} // Smooth fade-in animation
-        loadingIndicatorSource={undefined} // Disable default loading indicator
+        fadeDuration={isWeb ? 0 : 150}
+        loadingIndicatorSource={undefined}
       />
       {isLoading && (
         <View style={styles.loadingOverlay}>
@@ -155,6 +168,8 @@ function ImageWithErrorHandling({ imageUrl, resourceId, onPress }: ImageWithErro
     </TouchableOpacity>
   );
 }
+
+const MemoizedImageTile = memo(ImageWithErrorHandling);
 
 interface FullScreenImageViewerProps {
   visible: boolean;
@@ -176,6 +191,9 @@ function FullScreenImageViewer({
   const { width, height } = Dimensions.get('window');
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const { isWeb } = usePlatform();
+  const hasLoadedRef = useRef(false);
+  const { fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
 
   const currentImage = currentIndex !== null ? images[currentIndex] : null;
 
@@ -209,6 +227,7 @@ function FullScreenImageViewer({
   const handleImageChange = (newIndex: number) => {
     setImageError(false);
     setImageLoading(true);
+    hasLoadedRef.current = false;
     onImageChange(newIndex);
     
     // Preload adjacent images after a short delay
@@ -237,26 +256,34 @@ function FullScreenImageViewer({
   const handleImageLoad = () => {
     setImageLoading(false);
     setImageError(false);
+    hasLoadedRef.current = true;
   };
 
   const handleImageLoadStart = () => {
+    // On web, avoid toggling back to loading if we've already loaded once to prevent flicker
+    if (isWeb && hasLoadedRef.current) return;
     setImageLoading(true);
     setImageError(false);
   };
 
+  const imageSource = useMemo(() => {
+    if (!currentImage) return undefined;
+    if (isWeb) {
+      return { uri: currentImage } as const;
+    }
+    return { uri: currentImage, cache: 'force-cache' as const };
+  }, [currentImage, isWeb]);
+
   // Early return after all hooks
   if (!visible || currentIndex === null) return null;
 
-  const handleSwipe = (event: any) => {
-    const { translationX } = event.nativeEvent;
-    const threshold = 50; // Minimum swipe distance
-    
-    if (Math.abs(translationX) > threshold) {
-      if (translationX > 0 && currentIndex !== null && currentIndex > 0) {
-        // Swipe right - go to previous image
+  const handleSwipeStateChange = (event: any) => {
+    const { state, translationX } = event.nativeEvent;
+    if (state === State.END) {
+      const threshold = 50; // Minimum swipe distance
+      if (translationX > threshold && currentIndex !== null && currentIndex > 0) {
         goToPrevious();
-      } else if (translationX < 0 && currentIndex !== null && currentIndex < images.length - 1) {
-        // Swipe left - go to next image
+      } else if (translationX < -threshold && currentIndex !== null && currentIndex < images.length - 1) {
         goToNext();
       }
     }
@@ -266,19 +293,30 @@ function FullScreenImageViewer({
     <Modal
       visible={visible}
       transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
+      animationType={isWeb ? 'none' : 'fade'}
+      onRequestClose={handleClose}
     >
+      {isWeb && (
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+      )}
+      <Animated.View
+        style={[
+          isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
+          isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
+        ]}
+      >
       <StatusBar 
         barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} 
         backgroundColor={colors.background}
       />
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <PanGestureHandler onGestureEvent={handleSwipe} onHandlerStateChange={handleSwipe}>
-          <SafeAreaView style={[styles.fullScreenContainer, { backgroundColor: colors.background }]}>
+        <PanGestureHandler onHandlerStateChange={handleSwipeStateChange}>
+          <SafeAreaView style={[styles.fullScreenContainer, isWeb && styles.webPanel, { backgroundColor: colors.background }]}>
         {/* Header */}
         <View style={[styles.fullScreenHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
@@ -314,17 +352,14 @@ function FullScreenImageViewer({
           ) : (
             <View style={styles.fullScreenImageContainer}>
               <Image
-                source={{ 
-                  uri: currentImage!,
-                  cache: 'force-cache' // Use cached images for better performance
-                }}
+                source={imageSource as any}
                 style={styles.fullScreenImage}
                 resizeMode="contain"
                 onError={handleImageError}
                 onLoad={handleImageLoad}
                 onLoadStart={handleImageLoadStart}
-                fadeDuration={200} // Smooth fade-in animation
-                loadingIndicatorSource={undefined} // Disable default loading indicator
+                fadeDuration={isWeb ? 0 : 200}
+                loadingIndicatorSource={undefined}
               />
               {imageLoading && (
                 <View style={[styles.fullScreenLoadingOverlay, { backgroundColor: colors.background + 'CC' }]}>
@@ -339,6 +374,7 @@ function FullScreenImageViewer({
           </SafeAreaView>
         </PanGestureHandler>
       </GestureHandlerRootView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -347,6 +383,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+  },
+  // Hybrid RAMP styles for web full view
+  mobilePanelContainer: {
+    flex: 1,
+  },
+  webPanelContainer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100000,
+    pointerEvents: 'box-none',
+  },
+  webPanel: {
+    width: '96%',
+    maxWidth: 1200,
+    maxHeight: '94%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 99999,
+  },
+  backdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   contentWrapper: {
     flex: 1,

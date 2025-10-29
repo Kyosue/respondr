@@ -1,9 +1,52 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+  },
+  // Hybrid RAMP styles for web
+  mobilePanelContainer: {
+    flex: 1,
+  },
+  webPanelContainer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100000,
+    pointerEvents: 'box-none',
+  },
+  webPanel: {
+    width: '90%',
+    maxWidth: 700,
+    maxHeight: '80%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+      },
+      default: {},
+    }),
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 99999,
+  },
+  backdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   header: {
     flexDirection: 'row',

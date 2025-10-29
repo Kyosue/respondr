@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
     Alert,
+    Animated,
     Modal,
     StyleSheet,
+    TouchableOpacity,
     View
 } from 'react-native';
 
@@ -11,6 +13,7 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Resource } from '@/types/Resource';
 
 import { ResourceDetailFooter } from './ResourceDetailFooter';
@@ -43,6 +46,9 @@ export function ResourceDetailModal({
   const { getResourceHistory, getActiveTransactions, cleanupBrokenImages, state } = useResources();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'details' | 'history' | 'images' | 'borrowed'>('details');
+
+  // Hybrid RAMP
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
 
   // Clean up broken images when modal opens
   useEffect(() => {
@@ -85,14 +91,27 @@ export function ResourceDetailModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      animationType={isWeb ? 'none' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
+      onRequestClose={handleClose}
     >
-      <ThemedView style={styles.container}>
+      {isWeb && (
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+      )}
+
+      <Animated.View
+        style={[
+          isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
+          isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
+        ]}
+      >
+      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
         <ResourceDetailHeader
           resource={resource}
-          onClose={onClose}
+          onClose={handleClose}
           onEdit={() => onEdit(resource)}
         />
 
@@ -124,6 +143,7 @@ export function ResourceDetailModal({
           onReturn={handleReturn}
         />
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -131,6 +151,46 @@ export function ResourceDetailModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  mobilePanelContainer: {
+    flex: 1,
+  },
+  webPanelContainer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100000,
+    pointerEvents: 'box-none',
+  },
+  webPanel: {
+    width: '90%',
+    maxWidth: 1000,
+    maxHeight: '90%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...StyleSheet.create({ shadow: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16,
+    }}).shadow,
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 99999,
+  },
+  backdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   tabContent: {
     flex: 1,

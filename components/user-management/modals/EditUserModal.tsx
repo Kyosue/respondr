@@ -3,6 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { updateUser } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { UserData, UserStatus } from '@/types/UserData';
 import { UserType } from '@/types/UserType';
 import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
@@ -31,6 +32,7 @@ interface EditUserModalProps {
 export function EditUserModal({ user, visible, onClose, onUserUpdated }: EditUserModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampClose } = useHybridRamp({ visible, onClose });
   
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -133,7 +135,7 @@ export function EditUserModal({ user, visible, onClose, onUserUpdated }: EditUse
     }
     setFullNameError('');
     setEmailError('');
-    onClose();
+    rampClose();
   };
 
   const handleFullNameChange = (text: string) => {
@@ -168,11 +170,24 @@ export function EditUserModal({ user, visible, onClose, onUserUpdated }: EditUse
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType={isWeb ? 'none' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
       onRequestClose={handleClose}
     >
-      <ThemedView style={styles.container}>
+      {isWeb && (
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+      )}
+
+      <Animated.View
+        style={[
+          isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
+          isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
+        ]}
+      >
+      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
@@ -374,6 +389,7 @@ export function EditUserModal({ user, visible, onClose, onUserUpdated }: EditUse
           </View>
         </ScrollView>
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }

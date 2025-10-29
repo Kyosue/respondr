@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
     Alert,
+    Animated,
     Modal,
     ScrollView,
     StyleSheet,
@@ -19,6 +20,7 @@ import { RESOURCE_CATEGORIES, RESOURCE_CONDITIONS, RESOURCE_STATUSES } from '@/c
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Resource, ResourceCategory, ResourceCondition, ResourceStatus } from '@/types/Resource';
 import { ResourceValidator } from '@/utils/resourceValidation';
 
@@ -148,21 +150,44 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
     }
   };
 
-  const handleClose = () => {
+  // Ensure we clear local errors before closing
+  const clearAndClose = () => {
     setErrors({});
     onClose();
   };
+
+  // Hybrid RAMP (Responsive Animated Modal Pattern)
+  const {
+    isWeb,
+    fadeAnim,
+    scaleAnim,
+    slideAnim,
+    handleClose,
+  } = useHybridRamp({ visible, onClose: clearAndClose });
 
   if (!resource) return null;
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType={isWeb ? 'none' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
       onRequestClose={handleClose}
     >
-      <ThemedView style={styles.container}>
+      {isWeb && (
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+      )}
+
+      <Animated.View
+        style={[
+          isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
+          isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
+        ]}
+      >
+      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
@@ -385,6 +410,7 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
           </View>
         </ScrollView>
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -392,6 +418,48 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // Mobile full-screen container placeholder
+  mobilePanelContainer: {
+    flex: 1,
+  },
+  // Web: centered panel container
+  webPanelContainer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100000,
+    pointerEvents: 'box-none',
+  },
+  webPanel: {
+    width: '90%',
+    maxWidth: 900,
+    maxHeight: '90%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...StyleSheet.create({ shadow: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16,
+    }}).shadow,
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 99999,
+  },
+  backdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   header: {
     paddingHorizontal: 16,

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   Image,
   Modal,
@@ -17,6 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { useResources } from '@/contexts/ResourceContext';
 import { useBorrowerCalculations } from '@/hooks/useBorrowerCalculations';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { BorrowerProfile, MultiResourceTransaction, ResourceTransaction } from '@/types/Resource';
 import { ActiveBorrowedTab } from './tabs/ActiveBorrowedTab';
 import { HistoryBorrowedTab } from './tabs/HistoryBorrowedTab';
@@ -47,6 +49,15 @@ export function BorrowerDashboard({ visible, borrowerName, onClose }: BorrowerDa
   const [borrowerProfile, setBorrowerProfile] = useState<BorrowerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+
+  // Hybrid RAMP (Responsive Animated Modal Pattern)
+  const {
+    isWeb,
+    fadeAnim,
+    scaleAnim,
+    slideAnim,
+    handleClose,
+  } = useHybridRamp({ visible, onClose: onClose || (() => {}) });
 
   // Load borrowers on component mount
   useEffect(() => {
@@ -328,16 +339,38 @@ export function BorrowerDashboard({ visible, borrowerName, onClose }: BorrowerDa
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      animationType={isWeb ? 'none' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
+      onRequestClose={handleClose}
     >
-      <ThemedView style={styles.container}>
+      {/* Backdrop for web */}
+      {isWeb && (
+        <Animated.View
+          style={[styles.backdrop, { opacity: fadeAnim }]}
+        >
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+      )}
+
+      {/* Centered animated panel on web; full screen on mobile */}
+      <Animated.View
+        style={[
+          isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
+          isWeb && {
+            transform: [
+              { scale: scaleAnim },
+              { translateY: slideAnim },
+            ],
+          },
+        ]}
+      >
+      <ThemedView style={[styles.container, isWeb && styles.webPanel] }>
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <ThemedText type="subtitle" style={styles.headerTitle}>Borrower Dashboard</ThemedText>
           {onClose && (
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           )}
@@ -386,6 +419,7 @@ export function BorrowerDashboard({ visible, borrowerName, onClose }: BorrowerDa
         )}
       </ScrollView>
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -395,6 +429,49 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // Mobile full-screen container placeholder
+  mobilePanelContainer: {
+    flex: 1,
+  },
+  // Web: centered panel container with no flex growth to allow centering
+  webPanelContainer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100000,
+    pointerEvents: 'box-none',
+  },
+  webPanel: {
+    width: '90%',
+    maxWidth: 1100,
+    maxHeight: '90%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    // simple elevation/shadow across platforms
+    ...StyleSheet.create({ shadow: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16,
+    }}).shadow,
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 99999,
+  },
+  backdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   header: {
     paddingHorizontal: 16,

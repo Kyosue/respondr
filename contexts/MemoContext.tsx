@@ -2,6 +2,7 @@ import { auth } from '@/firebase/config';
 import { MemoService } from '@/firebase/memos';
 import { MemoDocument, MemoFilter, MemoUploadOptions } from '@/types/MemoDocument';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { useAuth } from './AuthContext';
 
 interface MemoContextType {
   documents: MemoDocument[];
@@ -59,20 +60,32 @@ export function MemoProvider({ children }: MemoProviderProps) {
   const [currentUploadProgress, setCurrentUploadProgress] = useState(0);
 
   const memoService = MemoService.getInstance();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Fetch documents on mount
+  // Fetch documents after authentication is ready
   useEffect(() => {
-    fetchDocuments();
-  }, []);
+    if (!isLoading && isAuthenticated) {
+      fetchDocuments();
+    }
+  }, [isLoading, isAuthenticated]);
 
   const fetchDocuments = async (filters?: MemoFilter) => {
     try {
+      // Guard: only attempt when authenticated
+      if (!isAuthenticated) {
+        setDocuments([]);
+        setError(null);
+        return;
+      }
       setLoading(true);
       setError(null);
       const docs = await memoService.getMemoDocuments(filters);
       setDocuments(docs);
     } catch (err) {
-      console.error('Error fetching documents:', err);
+      // Suppress noisy unauthenticated logs; surface other errors
+      if (!(err instanceof Error && err.message.includes('User must be authenticated'))) {
+        console.error('Error fetching documents:', err);
+      }
       setError(err instanceof Error ? err.message : 'Failed to fetch documents');
     } finally {
       setLoading(false);

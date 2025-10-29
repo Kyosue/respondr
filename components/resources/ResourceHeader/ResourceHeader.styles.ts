@@ -4,6 +4,13 @@ export const styles = StyleSheet.create({
   header: {
     paddingTop: 0,
     paddingBottom: 8,
+    ...Platform.select({
+      web: {
+        position: 'relative',
+        zIndex: 10,
+        overflow: 'visible',
+      },
+    }),
   },
   headerTop: {
     flexDirection: 'row',

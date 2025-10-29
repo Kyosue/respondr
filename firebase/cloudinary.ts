@@ -59,8 +59,24 @@ export class CloudinaryService {
       
       // Handle different file types
       if (typeof file === 'string') {
-        // Check if it's a local file URI (starts with file://)
-        if (file.startsWith('file://')) {
+        // Check if it's a blob URL (web)
+        if (file.startsWith('blob:')) {
+          try {
+            // Fetch the blob URL and convert to Blob
+            const response = await fetch(file);
+            const blob = await response.blob();
+            // Determine file name from content type or use default
+            const extension = blob.type.split('/')[1] || 'jpg';
+            const fileName = `image.${extension}`;
+            // Convert Blob to File for better compatibility
+            const fileObj = new File([blob], fileName, { type: blob.type });
+            formData.append('file', fileObj);
+          } catch (error) {
+            console.error('Error converting blob URL to file:', error);
+            throw new Error('Failed to process image file from blob URL');
+          }
+        } else if (file.startsWith('file://')) {
+          // Check if it's a local file URI (starts with file://)
           // For React Native, read the file as base64
           try {
             const base64 = await FileSystem.readAsStringAsync(file, {
