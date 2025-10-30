@@ -1,5 +1,7 @@
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { Municipality } from '@/data/davaoOrientalData';
+import { OperationRecord, operationsService } from '@/firebase/operations';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
@@ -7,9 +9,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { DavaoOrientalMap } from './OperationsMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
-import { operationsService, OperationRecord } from '@/firebase/operations';
 
 const Operations = React.memo(() => {
+  const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
@@ -89,12 +91,12 @@ const Operations = React.memo(() => {
 
   const handleConcludeOperation = useCallback(async (operationId: string) => {
     try {
-      await operationsService.updateStatus(operationId, 'concluded');
+      await operationsService.updateStatus(operationId, 'concluded', user?.id);
       // Real-time listener will reflect the move between tabs
     } catch (e) {
       console.error('Failed to conclude operation:', e);
     }
-  }, []);
+  }, [user?.id]);
 
   return (
     <View 

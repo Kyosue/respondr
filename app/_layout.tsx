@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 // import 'react-native-reanimated';
 import { Platform } from 'react-native';
@@ -34,6 +35,16 @@ function LayoutContent() {
   
   return (
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      {Platform.OS === 'web' && (
+        <Head>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Gabarito:wght@400..900&family=Luckiest+Guy&family=Patrick+Hand&display=swap"
+            rel="stylesheet"
+          />
+        </Head>
+      )}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="signup" />
@@ -46,9 +57,14 @@ function LayoutContent() {
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
-    Gabarito: require('../assets/fonts/Gabarito-VariableFont_wght.ttf'),
-  });
+  const isWeb = Platform.OS === 'web';
+  const [loaded] = useFonts(
+    isWeb
+      ? {}
+      : {
+          Gabarito: require('../assets/fonts/Gabarito-VariableFont_wght.ttf'),
+        }
+  );
   const [isReady, setIsReady] = useState(false);
 
   // Set document title and favicon for web
@@ -96,7 +112,8 @@ export default function RootLayout() {
     }
   }, []);
 
-  if (!loaded || !isReady) {
+  const fontsReady = isWeb ? true : loaded;
+  if (!fontsReady || !isReady) {
     return null;
   }
 

@@ -6,9 +6,12 @@ import {
     doc,
     getDoc,
     getDocs,
+    getCountFromServer,
     onSnapshot,
     orderBy,
     query,
+    startAfter,
+    limit,
     serverTimestamp,
     Timestamp,
     updateDoc,
@@ -187,6 +190,52 @@ export const resourceService = {
     } catch (error: any) {
       console.error('Error getting resource history:', error);
       return [];
+    }
+  }
+  ,
+  // Get resource history with pagination without requiring composite indexes
+  async getResourceHistoryPage(resourceId: string, pageSize: number, afterId?: string): Promise<{ items: ResourceHistory[]; nextCursorId: string | null; }>{
+    try {
+      let q;
+      const base = query(
+        collection(db, HISTORY_COLLECTION),
+        where('resourceId', '==', resourceId),
+      );
+
+      if (afterId) {
+        const lastDocRef = doc(db, HISTORY_COLLECTION, afterId);
+        const lastSnap = await getDoc(lastDocRef);
+        q = query(base, startAfter(lastSnap), limit(pageSize));
+      } else {
+        q = query(base, limit(pageSize));
+      }
+
+      const snap = await getDocs(q);
+      const items = snap.docs.map(d => convertTimestamps({ id: d.id, ...d.data() }) as ResourceHistory);
+      // Sort client-side by timestamp desc for stable display
+      items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      const last = snap.docs[snap.docs.length - 1];
+      const nextCursorId = last ? last.id : null;
+      return { items, nextCursorId };
+    } catch (error) {
+      console.error('Error getting paged resource history:', error);
+      return { items: [], nextCursorId: null };
+    }
+  }
+  ,
+  // Get total count of history entries for a resource (no listeners)
+  async getResourceHistoryCount(resourceId: string): Promise<number> {
+    try {
+      const q = query(
+        collection(db, HISTORY_COLLECTION),
+        where('resourceId', '==', resourceId),
+      );
+      const snapshot = await getCountFromServer(q);
+      // @ts-ignore - value property exists on AggregateQuerySnapshot
+      return snapshot.data().count ?? snapshot.data().aggregate?.count ?? 0;
+    } catch (error) {
+      console.error('Error getting resource history count:', error);
+      return 0;
     }
   }
 };

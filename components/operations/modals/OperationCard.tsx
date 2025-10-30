@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { OperationCompleteModal } from './OperationCompleteModal';
 
@@ -30,6 +30,8 @@ interface OperationCardProps {
     }>;
     createdAt: string | Date | number;
     updatedAt: string | Date | number;
+    createdBy?: string;
+    updatedBy?: string;
   };
   onConclude?: (operationId: string) => void;
   onDelete?: (operationId: string) => void;
@@ -39,6 +41,8 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [creatorName, setCreatorName] = useState<string | null>(null);
+  const [updaterName, setUpdaterName] = useState<string | null>(null);
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
@@ -54,6 +58,60 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
         return '#FFA500';
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCreator = async () => {
+      try {
+        if (!operation.createdBy) {
+          setCreatorName(null);
+          return;
+        }
+        const { db } = await import('@/firebase/config');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const userRef = doc(db, 'users', operation.createdBy);
+        const snap = await getDoc(userRef);
+        if (!isMounted) return;
+        if (snap.exists()) {
+          const data = snap.data() as { fullName?: string; displayName?: string };
+          setCreatorName(data.displayName || data.fullName || 'Unknown');
+        } else {
+          setCreatorName('Unknown');
+        }
+      } catch (e) {
+        setCreatorName('Unknown');
+      }
+    };
+    fetchCreator();
+    return () => { isMounted = false; };
+  }, [operation.createdBy]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUpdater = async () => {
+      try {
+        if (!operation.updatedBy) {
+          setUpdaterName(null);
+          return;
+        }
+        const { db } = await import('@/firebase/config');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const userRef = doc(db, 'users', operation.updatedBy);
+        const snap = await getDoc(userRef);
+        if (!isMounted) return;
+        if (snap.exists()) {
+          const data = snap.data() as { fullName?: string; displayName?: string };
+          setUpdaterName(data.displayName || data.fullName || 'Unknown');
+        } else {
+          setUpdaterName('Unknown');
+        }
+      } catch (e) {
+        setUpdaterName('Unknown');
+      }
+    };
+    fetchUpdater();
+    return () => { isMounted = false; };
+  }, [operation.updatedBy]);
 
 
   const formatDate = (value: string | Date | number) => {
@@ -130,6 +188,8 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
           </View>
         </View>
 
+        
+
         {/* Location Information */}
         {operation.exactLocation && (
           <View style={styles.detailsRow}>
@@ -195,9 +255,21 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
 
       {/* Footer - compact */}
       <View style={styles.operationFooter}>
-        <ThemedText style={[styles.operationId, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
-          ID: {operation.id}
-        </ThemedText>
+        <View style={{ flex: 1 }}>
+          <ThemedText style={[styles.operationId, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
+            ID: {operation.id}
+          </ThemedText>
+          {operation.createdBy && (
+            <ThemedText style={[styles.operationId, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
+              {`Created by ${creatorName ?? '…'}`}
+            </ThemedText>
+          )}
+          {operation.status === 'concluded' && operation.updatedBy && (
+            <ThemedText style={[styles.operationId, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
+              {`Concluded by ${updaterName ?? '…'}`}
+            </ThemedText>
+          )}
+        </View>
         <ThemedText style={[styles.operationDate, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
           {formatDate(operation.startDate)}
         </ThemedText>

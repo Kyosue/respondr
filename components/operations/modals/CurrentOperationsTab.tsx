@@ -24,13 +24,25 @@ export function CurrentOperationsTab({
   const [items, setItems] = React.useState(operations);
   const { isAdminOrSupervisor } = usePermissions();
 
+  const sortOperations = React.useCallback((list: any[]) => {
+    const priorityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+    return [...(list || [])].sort((a, b) => {
+      const ra = priorityRank[(a.priority || '').toLowerCase()] || 0;
+      const rb = priorityRank[(b.priority || '').toLowerCase()] || 0;
+      if (rb !== ra) return rb - ra;
+      const aTime = new Date(a.startDate || a.createdAt || 0).getTime();
+      const bTime = new Date(b.startDate || b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+  }, []);
+
   React.useEffect(() => {
-    setItems(operations);
-  }, [operations]);
+    setItems(sortOperations(operations));
+  }, [operations, sortOperations]);
 
   const handleDelete = async (id: string) => {
     try {
-      await operationsService.deleteOperation(id);
+      await operationsService.deleteOperationAndReturnResources(id);
       // Real-time listener in parent will refresh; optimistically update local list
       setItems(prev => prev.filter(op => op.id !== id));
     } catch (e) {

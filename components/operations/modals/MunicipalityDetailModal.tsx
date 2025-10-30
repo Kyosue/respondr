@@ -5,7 +5,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { CurrentOperationsTab } from './CurrentOperationsTab';
 import { HistoryOperationsTab } from './HistoryOperationsTab';
@@ -36,6 +36,28 @@ export function MunicipalityDetailModal({
   const screenHeight = Dimensions.get('window').height;
   const [activeTab, setActiveTab] = useState<TabType>('current');
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollBtnAnim = useRef(new Animated.Value(0)).current;
+
+  const handleScroll = useCallback((event: any) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    setShowScrollTop(y > 200);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    try {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(scrollBtnAnim, {
+      toValue: showScrollTop ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [showScrollTop, scrollBtnAnim]);
 
   // Weather-based gradient colors and icons
   const getWeatherGradient = (weatherCondition: string) => {
@@ -109,7 +131,13 @@ export function MunicipalityDetailModal({
             </View>
 
             {/* Content */}
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={scrollRef}
+              style={styles.content}
+              showsVerticalScrollIndicator={false}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+            >
               {/* Weather Information */}
               <View style={styles.section}>
                 <View style={styles.weatherCard}>
@@ -253,6 +281,25 @@ export function MunicipalityDetailModal({
                 </View>
               </View>
             </ScrollView>
+            <Animated.View
+              pointerEvents={showScrollTop ? 'auto' : 'none'}
+              style={[
+                styles.scrollTopButton,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: scrollBtnAnim,
+                  transform: [
+                    {
+                      scale: scrollBtnAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] })
+                    }
+                  ]
+                }
+              ]}
+            >
+              <TouchableOpacity onPress={scrollToTop} activeOpacity={0.85} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 22 }}>
+                <Ionicons name="arrow-up" size={20} color={'white'} />
+              </TouchableOpacity>
+            </Animated.View>
           </Animated.View>
         </Animated.View>
       </Modal>
@@ -286,7 +333,13 @@ export function MunicipalityDetailModal({
           </View>
 
           {/* Content */}
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+          >
             {/* Weather Information */}
             <View style={styles.section}>
               <View style={styles.weatherCard}>
@@ -430,6 +483,25 @@ export function MunicipalityDetailModal({
               </View>
             </View>
           </ScrollView>
+          <Animated.View
+            pointerEvents={showScrollTop ? 'auto' : 'none'}
+            style={[
+              styles.scrollTopButton,
+              {
+                backgroundColor: colors.primary,
+                opacity: scrollBtnAnim,
+                transform: [
+                  {
+                    scale: scrollBtnAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] })
+                  }
+                ]
+              }
+            ]}
+          >
+            <TouchableOpacity onPress={scrollToTop} activeOpacity={0.85} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 22 }}>
+              <Ionicons name="arrow-up" size={20} color={'white'} />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
     </Modal>
@@ -461,6 +533,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     overflow: 'hidden',
+    position: 'relative',
   },
   containerWeb: {
     width: '100%',
@@ -468,6 +541,7 @@ const styles = StyleSheet.create({
     height: '85%',
     borderRadius: 16,
     overflow: 'hidden',
+    position: 'relative',
   },
   header: {
     paddingHorizontal: 16,
@@ -499,6 +573,21 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     ...Platform.select({ web: { height: '100%' }, default: { flex: 1 } }),
+  },
+  scrollTopButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   section: {
     marginBottom: 16,

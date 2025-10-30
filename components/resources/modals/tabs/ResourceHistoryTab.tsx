@@ -4,45 +4,72 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { resourceService } from '@/firebase/resources';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { usePlatform } from '@/hooks/usePlatform';
-import { HistoryAction, ResourceHistory } from '@/types/Resource';
+import { ResourceHistory } from '@/types/Resource';
 import { SyncManager } from '@/utils/syncManager';
 
 interface ResourceHistoryTabProps {
   resourceId: string;
-  history: ResourceHistory[];
+  history: ResourceHistory[]; // ignored for fetching; kept for backward-compat
 }
 
-export function ResourceHistoryTab({ history }: ResourceHistoryTabProps) {
+export function ResourceHistoryTab({ resourceId }: ResourceHistoryTabProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isWeb } = usePlatform();
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<ResourceHistory[]>([]);
+  const [nextCursorId, setNextCursorId] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
+  const [totalCount, setTotalCount] = useState<number>(0);
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  // Pagination state (server-side)
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const itemsPerPage = 20; // Load 20 items at a time (more compact design)
+  const itemsPerPage = 15;
   
   // Expansion state for individual history entries
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
-  // Reset pagination when history changes (new entries added)
+  // Load first page on mount and when resourceId changes
   useEffect(() => {
-    setCurrentPage(1);
-  }, [history.length]);
+    let isActive = true;
+    const load = async () => {
+      setLoading(true);
+      setInitialized(false);
+      setEntries([]);
+      setNextCursorId(null);
+      try {
+        const [page, count] = await Promise.all([
+          resourceService.getResourceHistoryPage(resourceId, itemsPerPage),
+          resourceService.getResourceHistoryCount(resourceId),
+        ]);
+        if (!isActive) return;
+        setEntries(page.items);
+        setNextCursorId(page.nextCursorId);
+        setTotalCount(count);
+      } finally {
+        if (isActive) {
+          setInitialized(true);
+          setLoading(false);
+        }
+      }
+    };
+    if (resourceId) load();
+    return () => { isActive = false; };
+  }, [resourceId]);
 
-  // Fetch user names for all unique user IDs in history
+  // Fetch user names for all unique user IDs in currently loaded entries
   useEffect(() => {
     const fetchUserNames = async () => {
-      if (history.length === 0) {
+      if (entries.length === 0) {
         setLoading(false);
         return;
       }
 
-      const uniqueUserIds = [...new Set(history.map(entry => entry.userId))];
+      const uniqueUserIds = [...new Set(entries.map(entry => entry.userId))];
       const syncManager = SyncManager.getInstance();
       const userNamesMap: Record<string, string> = {};
 
@@ -53,7 +80,7 @@ export function ResourceHistoryTab({ history }: ResourceHistoryTabProps) {
             try {
               const userData = await syncManager.getUserData(userId);
               if (userData) {
-                userNamesMap[userId] = userData.fullName || userData.username;
+                userNamesMap[userId] = userData.fullName
               } else {
                 userNamesMap[userId] = userId; // Fallback to ID if user not found
               }
@@ -78,9 +105,9 @@ export function ResourceHistoryTab({ history }: ResourceHistoryTabProps) {
     };
 
     fetchUserNames();
-  }, [history]);
+  }, [entries]);
 
-  if (history.length === 0) {
+  if (initialized && entries.length === 0) {
     return (
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.emptyState}>
@@ -102,16 +129,11 @@ export function ResourceHistoryTab({ history }: ResourceHistoryTabProps) {
     );
   }
 
-  // Calculate pagination
-  const totalItems = history.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const hasMore = currentPage < totalPages;
-  
-  // Get paginated history (first N items)
-  const paginatedHistory = history.slice(0, currentPage * itemsPerPage);
+  // Server-side pagination flags
+  const hasMore = nextCursorId !== null && entries.length < totalCount;
 
-  // Group paginated history by date
-  const groupedHistory = groupHistoryByDate(paginatedHistory);
+  // Group currently loaded entries by date
+  const groupedHistory = groupHistoryByDate(entries);
 
   // Sort date groups by date (newest first)
   const sortedDateGroups = Object.entries(groupedHistory).sort(([dateA], [dateB]) => {
@@ -125,15 +147,15 @@ export function ResourceHistoryTab({ history }: ResourceHistoryTabProps) {
 
   // Handle load more
   const handleLoadMore = async () => {
-    if (isLoadingMore || !hasMore) return;
-    
+    if (isLoadingMore || !hasMore || !nextCursorId) return;
     setIsLoadingMore(true);
-    
-    // Simulate loading delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setCurrentPage(prev => prev + 1);
-    setIsLoadingMore(false);
+    try {
+      const { items, nextCursorId: next } = await resourceService.getResourceHistoryPage(resourceId, itemsPerPage, nextCursorId);
+      setEntries(prev => [...prev, ...items]);
+      setNextCursorId(next);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   // Handle entry expansion toggle
@@ -170,18 +192,18 @@ export function ResourceHistoryTab({ history }: ResourceHistoryTabProps) {
             onPress={handleLoadMore}
             loading={isLoadingMore}
             hasMore={hasMore}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            loadedItems={paginatedHistory.length}
+            currentPage={0}
+            totalPages={0}
+            totalItems={totalCount}
+            loadedItems={entries.length}
           />
         )}
         
         {/* Show total count when all items are loaded */}
-        {!hasMore && totalItems > 0 && (
+        {!hasMore && entries.length > 0 && (
           <View style={styles.allLoadedIndicator}>
             <ThemedText style={[styles.allLoadedText, { color: colors.text }]} numberOfLines={1}>
-              All {totalItems} history entries loaded
+              Showing {entries.length} of {totalCount} entries
             </ThemedText>
           </View>
         )}
@@ -282,11 +304,11 @@ function HistoryItem({ entry, isLast = false, userName, isExpanded, onToggleExpa
         onPress={onToggleExpansion}
         activeOpacity={0.6}
       >
-        <View style={[styles.historyIcon, { backgroundColor: getActionColor(entry.action) + '15' }]}>
+        <View style={[styles.historyIcon, { backgroundColor: getActionColorForEntry(entry) + '15' }]}>
           <Ionicons 
-            name={getHistoryIcon(entry.action)} 
+            name={getHistoryIconForEntry(entry) as any} 
             size={18} 
-            color={getActionColor(entry.action)} 
+            color={getActionColorForEntry(entry)} 
           />
         </View>
         
@@ -295,7 +317,7 @@ function HistoryItem({ entry, isLast = false, userName, isExpanded, onToggleExpa
           <View style={styles.historyHeader}>
             <View style={styles.historyMainInfo}>
               <ThemedText style={[styles.historyAction, { color: colors.text }]}>
-                {formatAction(entry.action)}
+                {formatActionForEntry(entry)}
               </ThemedText>
             </View>
             <View style={styles.historyTimeInfo}>
@@ -320,7 +342,7 @@ function HistoryItem({ entry, isLast = false, userName, isExpanded, onToggleExpa
             <View style={styles.detailRow}>
               <ThemedText style={[styles.detailLabel, { color: colors.text }]}>Action:</ThemedText>
               <ThemedText style={[styles.detailValue, { color: colors.text }]}>
-                {formatAction(entry.action)}
+                {formatActionForEntry(entry)}
               </ThemedText>
             </View>
             <View style={styles.detailRow}>
@@ -357,8 +379,15 @@ function HistoryItem({ entry, isLast = false, userName, isExpanded, onToggleExpa
   );
 }
 
-function getHistoryIcon(action: HistoryAction) {
-  switch (action) {
+function getHistoryIconForEntry(entry: ResourceHistory) {
+  // Provide clearer icons for operation-related status changes
+  if (entry.action === 'status_changed') {
+    const details = (entry.details || '').toLowerCase();
+    if (details.includes('used in operation')) return 'briefcase-outline';
+    if (details.includes('returned from operation')) return 'return-down-back-outline';
+    return 'refresh-outline';
+  }
+  switch (entry.action) {
     case 'created': return 'add-circle-outline';
     case 'updated': return 'create-outline';
     case 'borrowed': return 'cart-outline';
@@ -366,16 +395,21 @@ function getHistoryIcon(action: HistoryAction) {
     case 'maintenance': return 'construct-outline';
     case 'transferred': return 'swap-horizontal-outline';
     case 'deleted': return 'trash-outline';
-    case 'status_changed': return 'refresh-outline';
     default: return 'ellipse-outline';
   }
 }
 
-function getActionColor(action: HistoryAction) {
+function getActionColorForEntry(entry: ResourceHistory) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
-  switch (action) {
+  if (entry.action === 'status_changed') {
+    const details = (entry.details || '').toLowerCase();
+    if (details.includes('used in operation')) return colors.warning;
+    if (details.includes('returned from operation')) return colors.success;
+    return colors.primary;
+  }
+  switch (entry.action) {
     case 'created': return colors.success;
     case 'updated': return colors.primary;
     case 'borrowed': return colors.warning;
@@ -383,13 +417,18 @@ function getActionColor(action: HistoryAction) {
     case 'maintenance': return colors.text;
     case 'transferred': return colors.primary;
     case 'deleted': return colors.error;
-    case 'status_changed': return colors.warning;
     default: return colors.text;
   }
 }
 
-function formatAction(action: HistoryAction) {
-  return action
+function formatActionForEntry(entry: ResourceHistory) {
+  if (entry.action === 'status_changed') {
+    const details = entry.details || '';
+    if (details.toLowerCase().includes('used in operation')) return 'Operation Used';
+    if (details.toLowerCase().includes('returned from operation')) return 'Operation Returned';
+    return 'Status Changed';
+  }
+  return entry.action
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
