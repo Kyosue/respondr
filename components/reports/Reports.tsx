@@ -4,8 +4,8 @@ import { useMemo } from '@/contexts/MemoContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MemoDocument, MemoFilter } from '@/types/MemoDocument';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Alert, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Dimensions, FlatList, Platform, Text, TouchableOpacity, View } from 'react-native';
 
 import { MemoFilters } from './MemoFilters';
 import { DistributionModal } from './modals/DistributionModal';
@@ -74,6 +74,181 @@ const Reports: React.FC = () => {
     if (!doc.acknowledgments || doc.acknowledgments.length === 0) return false;
     return doc.acknowledgments.some((ack) => ack.userId === user?.id);
   };
+
+  // Responsive columns for web
+  const [columns, setColumns] = useState<number>(isWeb ? 3 : 1);
+
+  useEffect(() => {
+    if (!isWeb) return;
+    const CARD_WIDTH_WEB = 260; // match Reports.styles.ts
+    const GAP = 16;             // match grid gap
+    const H_PADDING = 40;       // paddingHorizontal: 20 on both sides
+
+    const computeColumns = () => {
+      const { width } = Dimensions.get('window');
+      const available = Math.max(0, width - H_PADDING);
+      const col = Math.max(1, Math.floor(available / (CARD_WIDTH_WEB + GAP)));
+      setColumns(col);
+    };
+
+    computeColumns();
+    const sub = Dimensions.addEventListener('change', computeColumns);
+    return () => {
+      // @ts-ignore RN web compatibility
+      sub?.remove ? sub.remove() : Dimensions.removeEventListener?.('change', computeColumns);
+    };
+  }, [isWeb]);
+
+  // Memoize unique documents list
+  const uniqueDocuments = React.useMemo(() => {
+    return documents.filter((doc, index, self) => index === self.findIndex(d => d.id === doc.id));
+  }, [documents]);
+
+  const renderItem = useCallback(({ item: doc }: { item: MemoDocument }) => {
+    const isAssigned = isAssignedToMe(doc);
+    const hasAck = hasAcknowledged(doc);
+    const needsAcknowledgment = doc.acknowledgmentRequired && !hasAck;
+    return (
+      <TouchableOpacity
+        key={doc.id}
+        style={[
+          styles.documentItem,
+          { backgroundColor: colors.surface },
+          isWeb && styles.documentCard,
+        ]}
+        onPress={() => handleDocumentPress(doc)}
+      >
+        {isWeb ? (
+          <>
+            <View style={styles.cardHeader}>
+              <View style={styles.documentIcon}>
+                <Ionicons name="document-text" size={32} color={colors.tint} />
+              </View>
+              {canAssignDocuments && (
+                <TouchableOpacity
+                  style={styles.moreButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setDocumentToDistribute(doc);
+                    setDistributionModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="people" size={18} color={colors.tabIconDefault} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.documentInfo}>
+              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
+                {doc.title}
+              </Text>
+              <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]} numberOfLines={1}>
+                {doc.issuingAgency}
+              </Text>
+            </View>
+            <View style={styles.cardActions}>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor:
+                      doc.priority === 'urgent'
+                        ? '#FF3B30'
+                        : doc.priority === 'high'
+                        ? '#FF9500'
+                        : doc.priority === 'normal'
+                        ? '#34C759'
+                        : '#8E8E93',
+                  },
+                ]}
+              >
+                <Text style={styles.badgeText}>{doc.priority}</Text>
+              </View>
+              {isAssigned && (
+                <View style={[styles.badge, { backgroundColor: '#34C759' }]}> 
+                  <Ionicons name="checkmark-circle" size={12} color="#fff" />
+                  <Text style={styles.badgeText}>Assigned</Text>
+                </View>
+              )}
+              {needsAcknowledgment && (
+                <View style={[styles.badge, { backgroundColor: '#FF9500' }]}> 
+                  <Ionicons name="alert-circle" size={12} color="#fff" />
+                  <Text style={styles.badgeText}>Acknowledge</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.cardFooter}>
+              <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}> 
+                {new Date(doc.uploadedAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.documentIcon}>
+              <Ionicons name="document-text" size={32} color={colors.tint} />
+            </View>
+            <View style={styles.documentInfo}>
+              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
+                {doc.title}
+              </Text>
+              <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]}>
+                {doc.issuingAgency} • {doc.agencyLevel}
+              </Text>
+              <View style={styles.documentBadges}>
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor:
+                        doc.priority === 'urgent'
+                          ? '#FF3B30'
+                          : doc.priority === 'high'
+                          ? '#FF9500'
+                          : doc.priority === 'normal'
+                          ? '#34C759'
+                          : '#8E8E93',
+                    },
+                  ]}
+                >
+                  <Text style={styles.badgeText}>{doc.priority}</Text>
+                </View>
+                {isAssigned && (
+                  <View style={[styles.badge, { backgroundColor: '#34C759' }]}> 
+                    <Ionicons name="checkmark-circle" size={12} color="#fff" />
+                    <Text style={styles.badgeText}>Assigned</Text>
+                  </View>
+                )}
+                {needsAcknowledgment && (
+                  <View style={[styles.badge, { backgroundColor: '#FF9500' }]}> 
+                    <Ionicons name="alert-circle" size={12} color="#fff" />
+                    <Text style={styles.badgeText}>Acknowledge</Text>
+                  </View>
+                )}
+                <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
+                  {new Date(doc.uploadedAt).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+            {canAssignDocuments && (
+              <TouchableOpacity
+                style={styles.moreButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setDocumentToDistribute(doc);
+                  setDistributionModalVisible(true);
+                }}
+              >
+                <Ionicons name="people" size={20} color={colors.tabIconDefault} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.moreButton}>
+              <Ionicons name="chevron-forward" size={20} color={colors.tabIconDefault} />
+            </TouchableOpacity>
+          </>
+        )}
+      </TouchableOpacity>
+    );
+  }, [colors, isWeb, canAssignDocuments]);
 
   return (
     <View style={[styles.container, { backgroundColor: 'transparent'}]}>
@@ -148,173 +323,36 @@ const Reports: React.FC = () => {
       </View>
 
       {/* Content Area */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {loading ? (
+      <FlatList
+        key={`reports-grid-${isWeb ? columns : 1}`}
+        style={styles.content}
+        contentContainerStyle={[styles.documentsList]}
+        data={uniqueDocuments}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
+        numColumns={isWeb ? columns : 1}
+        columnWrapperStyle={isWeb ? { 
+          justifyContent: 'flex-start', 
+          gap: 16, 
+          paddingHorizontal: 20, 
+          marginBottom: 16 
+        } : undefined}
+        ListEmptyComponent={loading ? (
           <View style={styles.centerContent}>
             <Ionicons name="hourglass" size={32} color={colors.tabIconDefault} />
             <Text style={[styles.emptyText, { color: colors.text }]}>Loading documents...</Text>
           </View>
-        ) : documents.length === 0 ? (
+        ) : (
           <View style={styles.centerContent}>
             <Ionicons name="folder-open" size={64} color={colors.tabIconDefault} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>
-              No documents yet
-            </Text>
+            <Text style={[styles.emptyText, { color: colors.text }]}>No documents yet</Text>
             <Text style={[styles.emptySubtext, { color: colors.tabIconDefault }]}>
               Upload memos and local issuances to get started
             </Text>
           </View>
-        ) : (
-          <View style={[styles.documentsList, isWeb && styles.documentsGrid]}>
-            {documents.map((doc) => {
-              const isAssigned = isAssignedToMe(doc);
-              const hasAck = hasAcknowledged(doc);
-              const needsAcknowledgment = doc.acknowledgmentRequired && !hasAck;
-
-              return (
-                <TouchableOpacity
-                  key={doc.id}
-                  style={[
-                    styles.documentItem,
-                    { backgroundColor: colors.surface },
-                    isWeb && styles.documentCard,
-                  ]}
-                  onPress={() => handleDocumentPress(doc)}
-                >
-                  {isWeb ? (
-                    <>
-                      <View style={styles.cardHeader}>
-                        <View style={styles.documentIcon}>
-                          <Ionicons name="document-text" size={32} color={colors.tint} />
-                        </View>
-                        {canAssignDocuments && (
-                          <TouchableOpacity
-                            style={styles.moreButton}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              setDocumentToDistribute(doc);
-                              setDistributionModalVisible(true);
-                            }}
-                          >
-                            <Ionicons name="people" size={18} color={colors.tabIconDefault} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      <View style={styles.documentInfo}>
-                        <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
-                          {doc.title}
-                        </Text>
-                        <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]} numberOfLines={1}>
-                          {doc.issuingAgency}
-                        </Text>
-                      </View>
-                      <View style={styles.cardActions}>
-                        <View
-                          style={[
-                            styles.badge,
-                            {
-                              backgroundColor:
-                                doc.priority === 'urgent'
-                                  ? '#FF3B30'
-                                  : doc.priority === 'high'
-                                  ? '#FF9500'
-                                  : doc.priority === 'normal'
-                                  ? '#34C759'
-                                  : '#8E8E93',
-                            },
-                          ]}
-                        >
-                          <Text style={styles.badgeText}>{doc.priority}</Text>
-                        </View>
-                        {isAssigned && (
-                          <View style={[styles.badge, { backgroundColor: '#34C759' }]}>
-                            <Ionicons name="checkmark-circle" size={12} color="#fff" />
-                            <Text style={styles.badgeText}>Assigned</Text>
-                          </View>
-                        )}
-                        {needsAcknowledgment && (
-                          <View style={[styles.badge, { backgroundColor: '#FF9500' }]}>
-                            <Ionicons name="alert-circle" size={12} color="#fff" />
-                            <Text style={styles.badgeText}>Acknowledge</Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.cardFooter}>
-                        <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
-                          {new Date(doc.uploadedAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <View style={styles.documentIcon}>
-                        <Ionicons name="document-text" size={32} color={colors.tint} />
-                      </View>
-                      <View style={styles.documentInfo}>
-                        <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
-                          {doc.title}
-                        </Text>
-                        <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]}>
-                          {doc.issuingAgency} • {doc.agencyLevel}
-                        </Text>
-                        <View style={styles.documentBadges}>
-                          <View
-                            style={[
-                              styles.badge,
-                              {
-                                backgroundColor:
-                                  doc.priority === 'urgent'
-                                    ? '#FF3B30'
-                                    : doc.priority === 'high'
-                                    ? '#FF9500'
-                                    : doc.priority === 'normal'
-                                    ? '#34C759'
-                                    : '#8E8E93',
-                              },
-                            ]}
-                          >
-                            <Text style={styles.badgeText}>{doc.priority}</Text>
-                          </View>
-                          {isAssigned && (
-                            <View style={[styles.badge, { backgroundColor: '#34C759' }]}>
-                              <Ionicons name="checkmark-circle" size={12} color="#fff" />
-                              <Text style={styles.badgeText}>Assigned</Text>
-                            </View>
-                          )}
-                          {needsAcknowledgment && (
-                            <View style={[styles.badge, { backgroundColor: '#FF9500' }]}>
-                              <Ionicons name="alert-circle" size={12} color="#fff" />
-                              <Text style={styles.badgeText}>Acknowledge</Text>
-                            </View>
-                          )}
-                          <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
-                            {new Date(doc.uploadedAt).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      </View>
-                      {canAssignDocuments && (
-                        <TouchableOpacity
-                          style={styles.moreButton}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            setDocumentToDistribute(doc);
-                            setDistributionModalVisible(true);
-                          }}
-                        >
-                          <Ionicons name="people" size={20} color={colors.tabIconDefault} />
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity style={styles.moreButton}>
-                        <Ionicons name="chevron-forward" size={20} color={colors.tabIconDefault} />
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         )}
-      </ScrollView>
+      />
 
       {/* Upload Modal */}
       <MemoUploadModal

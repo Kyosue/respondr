@@ -93,6 +93,10 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
           const file = target.files?.[0];
           if (file) {
             setSelectedFile(file);
+            if (!title) {
+              const base = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+              setTitle(base);
+            }
           }
         };
         input.click();
@@ -115,6 +119,11 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
           };
           
           setSelectedFile(file as any);
+          if (!title) {
+            const name = asset.name || 'document';
+            const base = name.includes('.') ? name.substring(0, name.lastIndexOf('.')) : name;
+            setTitle(base);
+          }
         }
       }
     } catch (error) {

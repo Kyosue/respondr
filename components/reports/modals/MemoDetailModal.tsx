@@ -1,17 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Linking,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
@@ -277,7 +277,7 @@ export function MemoDetailModal({
           ) : (
             <>
               <Ionicons name="download" size={20} color="#fff" />
-              <Text style={styles.downloadButtonText}>Download</Text>
+              <Text style={styles.downloadButtonText}>View / Download</Text>
             </>
           )}
         </TouchableOpacity>
@@ -376,6 +376,4 @@ export function MemoDetailModal({
     </>
   );
 }
-
-export { MemoDetailModal };
 

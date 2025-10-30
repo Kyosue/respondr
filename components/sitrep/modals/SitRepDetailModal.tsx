@@ -243,7 +243,7 @@ export function SitRepDetailModal({
           ) : (
             <>
               <Ionicons name="download" size={20} color="#fff" />
-              <Text style={styles.downloadButtonText}>View/Download</Text>
+              <Text style={styles.downloadButtonText}>View / Download</Text>
             </>
           )}
         </TouchableOpacity>

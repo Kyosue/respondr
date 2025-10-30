@@ -3,7 +3,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { OperationCompleteModal } from './OperationCompleteModal';
 
 interface OperationCardProps {
@@ -12,9 +12,10 @@ interface OperationCardProps {
     title: string;
     description: string;
     operationType: string;
-    priority: 'low' | 'medium' | 'high';
-    startDate: string;
-    endDate?: string;
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    status?: 'active' | 'concluded';
+    startDate: string | Date | number;
+    endDate?: string | Date | number;
     exactLocation?: {
       barangay: string;
       purok: string;
@@ -23,23 +24,26 @@ interface OperationCardProps {
     resources: Array<{
       resourceId: string;
       resourceName: string;
-      quantity: number;
+      quantity: number; 
       category: string;
       status: string;
     }>;
-    createdAt: string;
-    updatedAt: string;
+    createdAt: string | Date | number;
+    updatedAt: string | Date | number;
   };
   onConclude?: (operationId: string) => void;
+  onDelete?: (operationId: string) => void;
 }
 
-export function OperationCard({ operation, onConclude }: OperationCardProps) {
+export function OperationCard({ operation, onConclude, onDelete }: OperationCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
+      case 'critical':
+        return '#7C2D12';
       case 'high':
         return '#F44336';
       case 'medium':
@@ -52,8 +56,9 @@ export function OperationCard({ operation, onConclude }: OperationCardProps) {
   };
 
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (value: string | Date | number) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return '—';
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -70,7 +75,11 @@ export function OperationCard({ operation, onConclude }: OperationCardProps) {
       .join(', ');
   };
 
+  const canConclude = !!onConclude && operation.status !== 'concluded';
+  const canDelete = !!onDelete;
+
   const handleConcludeOperation = () => {
+    if (!canConclude) return;
     setShowCompleteModal(true);
   };
 
@@ -80,9 +89,9 @@ export function OperationCard({ operation, onConclude }: OperationCardProps) {
     onConclude?.(operation.id);
   };
 
-  const handleUpdateOperation = () => {
-    // TODO: Implement update operation logic
-    Alert.alert('Update Operation', 'Update functionality will be implemented soon.');
+  // Update operation button removed per requirements
+  const handleDelete = () => {
+    onDelete?.(operation.id);
   };
 
   return (
@@ -110,16 +119,9 @@ export function OperationCard({ operation, onConclude }: OperationCardProps) {
         </ThemedText>
       )}
       
-      {/* Details in two columns */}
+      {/* Details */}
       <View style={styles.operationDetails}>
         <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <Ionicons name="calendar" size={14} color={colors.text} style={styles.detailIcon} />
-            <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
-              {formatDate(operation.startDate)}
-            </ThemedText>
-          </View>
-          
           <View style={styles.detailItem}>
             <Ionicons name="construct" size={14} color={colors.text} style={styles.detailIcon} />
             <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
@@ -165,21 +167,27 @@ export function OperationCard({ operation, onConclude }: OperationCardProps) {
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.updateButton, { borderColor: colors.primary }]}
-          onPress={handleUpdateOperation}
+          style={[
+            styles.iconButton,
+            { borderColor: colors.border, backgroundColor: canDelete ? colors.surface : colors.border }
+          ]}
+          onPress={canDelete ? handleDelete : undefined}
+          disabled={!canDelete}
         >
-          <Ionicons name="create-outline" size={16} color={colors.primary} />
-          <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>
-            Update
-          </ThemedText>
+          <Ionicons name="trash-outline" size={18} color={canDelete ? (colors.error || '#EF4444') : colors.text} />
         </TouchableOpacity>
-        
         <TouchableOpacity
-          style={[styles.actionButton, styles.completeButton, { backgroundColor: colors.success }]}
-          onPress={handleConcludeOperation}
+          style={[
+            styles.actionButton,
+            styles.completeButton,
+            { backgroundColor: canConclude ? colors.success : colors.border }
+          ]}
+          onPress={canConclude ? handleConcludeOperation : undefined}
+          disabled={!canConclude}
+          activeOpacity={canConclude ? 0.7 : 1}
         >
-          <Ionicons name="checkmark-circle-outline" size={16} color="white" />
-          <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
+          <Ionicons name="checkmark-circle-outline" size={16} color={canConclude ? 'white' : colors.text} />
+          <ThemedText style={[styles.actionButtonText, { color: canConclude ? 'white' : colors.text }]}>
             Conclude
           </ThemedText>
         </TouchableOpacity>
@@ -191,7 +199,7 @@ export function OperationCard({ operation, onConclude }: OperationCardProps) {
           ID: {operation.id}
         </ThemedText>
         <ThemedText style={[styles.operationDate, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
-          {formatDate(operation.createdAt)}
+          {formatDate(operation.startDate)}
         </ThemedText>
       </View>
 
@@ -304,6 +312,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     gap: 6,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   updateButton: {
     borderWidth: 1,

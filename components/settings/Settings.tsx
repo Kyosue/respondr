@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Switch,
-    TouchableOpacity,
-    View
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
+import { HelpSupportModal } from './modals/HelpSupportModal';
+import { TermsModal } from './modals/TermsModal';
 
 const Settings: React.FC = () => {
   const { isDark, setColorScheme } = useTheme();
@@ -19,7 +21,8 @@ const Settings: React.FC = () => {
   
   // Settings state
   const [notifications, setNotifications] = useState(true);
-  const [autoSync, setAutoSync] = useState(true);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleDarkModeToggle = (value: boolean) => {
     setColorScheme(value ? 'dark' : 'light');
@@ -121,20 +124,6 @@ const Settings: React.FC = () => {
               }
               showArrow={false}
             />
-            <SettingItem
-              icon="sync-outline"
-              title="Auto Sync"
-              subtitle="Automatically sync data when online"
-              rightComponent={
-                <Switch
-                  value={autoSync}
-                  onValueChange={setAutoSync}
-                  trackColor={{ false: colors.border, true: colors.primary + '40' }}
-                  thumbColor={autoSync ? colors.primary : colors.icon}
-                />
-              }
-              showArrow={false}
-            />
           </View>
         </View>
 
@@ -155,13 +144,13 @@ const Settings: React.FC = () => {
               icon="help-circle-outline"
               title="Help & Support"
               subtitle="Get help and contact support"
-              onPress={() => console.log('Help pressed')}
+              onPress={() => setShowHelp(true)}
             />
             <SettingItem
               icon="document-text-outline"
               title="Terms of Service"
               subtitle="Read our terms and conditions"
-              onPress={() => console.log('Terms pressed')}
+              onPress={() => setShowTerms(true)}
             />
           </View>
         </View>
@@ -170,6 +159,9 @@ const Settings: React.FC = () => {
         {/* Bottom spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      <TermsModal visible={showTerms} onClose={() => setShowTerms(false)} />
+      <HelpSupportModal visible={showHelp} onClose={() => setShowHelp(false)} />
     </ThemedView>
   );
 };

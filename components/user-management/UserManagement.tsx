@@ -20,7 +20,7 @@ import {
 import { deleteUserSecure, getAllUsers, toggleUserStatus } from '../../firebase/auth';
 import { UserCard } from './UserCard/UserCard';
 import { UserHeader } from './UserHeader/UserHeader';
-import { AddUserModal, EditUserModal, PasswordVerificationModal, UserDetailsModal } from './modals';
+import { EditUserModal, PasswordVerificationModal, UserDetailsModal } from './modals';
 import { styles } from './styles/UserManagement.styles';
 
 const UserManagement: React.FC = () => {
@@ -39,7 +39,6 @@ const UserManagement: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<UserStatus | 'all'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
-  const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -239,18 +238,7 @@ const UserManagement: React.FC = () => {
     );
   };
 
-  const handleAddUserPress = () => {
-    setShowAddUserModal(true);
-  };
-
-  const handleCloseAddUserModal = () => {
-    setShowAddUserModal(false);
-  };
-
-  const handleUserAdded = () => {
-    // Refresh the users list when a new user is added
-    fetchUsers();
-  };
+  
 
   const handleCloseEditUserModal = () => {
     setShowEditUserModal(false);
@@ -337,8 +325,6 @@ const UserManagement: React.FC = () => {
         onFilterSelect={handleFilterSelect}
         selectedStatusFilter={filterStatus}
         onStatusFilterSelect={handleStatusFilterSelect}
-        onSignupPress={canCreateUsers ? handleAddUserPress : undefined}
-        showAddButton={canCreateUsers}
       />
 
       <ScrollView 
@@ -429,12 +415,7 @@ const UserManagement: React.FC = () => {
         onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
       />
 
-      {/* Add User Modal */}
-      <AddUserModal
-        visible={showAddUserModal}
-        onClose={handleCloseAddUserModal}
-        onUserAdded={handleUserAdded}
-      />
+      
 
       {/* Edit User Modal */}
       <EditUserModal

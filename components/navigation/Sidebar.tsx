@@ -96,12 +96,12 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             activeOpacity={0.7}
           >
             <View style={{ transform: [{ rotate: '180deg' }] }}>
-              <Svg viewBox="0 0 24 24" width={24} height={24}>
+              <Svg viewBox="0 0 24 24" width={26} height={26}>
                 <Path 
                   d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2z" 
                   stroke={colors.text} 
                   fill="none" 
-                  strokeWidth="2" 
+                  strokeWidth="1.5" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
                 />
@@ -109,13 +109,13 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                   d="M15 4v16" 
                   stroke={colors.text} 
                   fill="none" 
-                  strokeWidth="2" 
+                  strokeWidth="1.5" 
                 />
                 <Path 
                   d="m9 10 2 2 -2 2" 
                   stroke={colors.text} 
                   fill="none" 
-                  strokeWidth="2" 
+                  strokeWidth="1.5" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
                 />

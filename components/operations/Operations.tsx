@@ -3,10 +3,11 @@ import { Municipality } from '@/data/davaoOrientalData';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { DavaoOrientalMap } from './OperationsMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
+import { operationsService, OperationRecord } from '@/firebase/operations';
 
 const Operations = React.memo(() => {
   const colorScheme = useColorScheme();
@@ -62,51 +63,38 @@ const Operations = React.memo(() => {
     setShowOperationsModal(false);
   }, []);
 
-  const handleOperationSubmit = useCallback((operation: any) => {
-    // Store operation under its municipalityId so it's only visible for that place
-    setOperationsByMunicipality(prev => {
-      const municipalityId = operation.municipalityId;
-      const existing = prev[municipalityId] || [];
-      return {
-        ...prev,
-        [municipalityId]: [operation, ...existing]
-      };
-    });
-
+  const handleOperationSubmit = useCallback((_operation: any) => {
+    // Real-time listener will update the list; just close the modal
     setShowOperationsModal(false);
   }, []);
 
-  const handleConcludeOperation = useCallback((operationId: string) => {
-    // Find the operation to conclude
-    let concludedOperation: any = null;
-    let municipalityId = '';
-    
-    Object.keys(operationsByMunicipality).forEach(muniId => {
-      const operation = operationsByMunicipality[muniId].find(op => op.id === operationId);
-      if (operation) {
-        concludedOperation = { ...operation, status: 'concluded', concludedAt: new Date() };
-        municipalityId = muniId;
+  // Subscribe to operations and group by municipality for map and modal
+  useEffect(() => {
+    const unsubscribe = operationsService.onAllOperations((ops: OperationRecord[]) => {
+      const grouped: Record<string, OperationRecord[]> = {};
+      const groupedConcluded: Record<string, OperationRecord[]> = {};
+      for (const op of ops) {
+        const key = op.municipalityId;
+        const target = (op.status === 'concluded')
+          ? groupedConcluded
+          : grouped;
+        if (!target[key]) target[key] = [];
+        target[key].push(op);
       }
+      setOperationsByMunicipality(grouped);
+      setConcludedOperationsByMunicipality(groupedConcluded);
     });
+    return unsubscribe;
+  }, []);
 
-    if (concludedOperation) {
-      // Remove from current operations
-      setOperationsByMunicipality(prev => {
-        const newState = { ...prev };
-        newState[municipalityId] = newState[municipalityId].filter(op => op.id !== operationId);
-        return newState;
-      });
-
-      // Add to concluded operations
-      setConcludedOperationsByMunicipality(prev => {
-        const existing = prev[municipalityId] || [];
-        return {
-          ...prev,
-          [municipalityId]: [concludedOperation, ...existing]
-        };
-      });
+  const handleConcludeOperation = useCallback(async (operationId: string) => {
+    try {
+      await operationsService.updateStatus(operationId, 'concluded');
+      // Real-time listener will reflect the move between tabs
+    } catch (e) {
+      console.error('Failed to conclude operation:', e);
     }
-  }, [operationsByMunicipality]);
+  }, []);
 
   return (
     <View 

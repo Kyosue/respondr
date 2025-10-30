@@ -108,9 +108,11 @@ export const styles = StyleSheet.create({
   documentsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
     paddingHorizontal: 20,
     paddingBottom: 20,
+    justifyContent: 'flex-start',
+    alignSelf: 'center',
   },
   documentItem: {
     flexDirection: 'row',
@@ -124,10 +126,10 @@ export const styles = StyleSheet.create({
     elevation: 3,
   },
   documentCard: {
-    width: 320,
+    width: 260,
     flexDirection: 'column',
     marginBottom: 0,
-    padding: 14,
+    padding: 10,
   },
   documentIcon: {
     marginRight: 12,
@@ -138,10 +140,10 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   documentTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 6,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   documentMeta: {
     fontSize: 12,

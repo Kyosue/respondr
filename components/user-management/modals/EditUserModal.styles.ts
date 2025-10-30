@@ -109,11 +109,15 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
+    paddingLeft: 48,
+    paddingRight: 16,
+    overflow: 'hidden',
   },
   picker: {
     flex: 1,
     height: 50,
     paddingLeft: 48,
+    fontSize: 16,
   },
   errorText: {
     fontSize: 14,

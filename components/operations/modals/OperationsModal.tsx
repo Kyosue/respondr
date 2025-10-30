@@ -12,6 +12,8 @@ import { ResourceCategory } from '@/types/Resource';
 import { getModalConfig } from '@/utils/modalUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { operationsService } from '@/firebase/operations';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Alert,
   Animated,
@@ -37,7 +39,7 @@ interface OperationData {
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'planned' | 'active' | 'completed' | 'cancelled';
+  status: 'active' | 'concluded';
   startDate: Date;
   endDate?: Date;
   exactLocation: {
@@ -69,6 +71,7 @@ export function OperationsModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { state: resourceState, getFilteredResources } = useResources();
+  const { user } = useAuth();
 
   // Hybrid RAMP hook
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
@@ -87,7 +90,7 @@ export function OperationsModal({
     title: '',
     description: '',
     priority: 'medium',
-    status: 'planned',
+    status: 'active',
     startDate: new Date(),
     exactLocation: {
       barangay: '',
@@ -152,7 +155,7 @@ export function OperationsModal({
   const handleClose = rampHandleClose;
 
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!operationData.title || !operationData.operationType || !municipality) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
@@ -170,7 +173,7 @@ export function OperationsModal({
       title: operationData.title,
       description: operationData.description || '',
       priority: operationData.priority || 'medium',
-      status: operationData.status || 'planned',
+      status: operationData.status || 'active',
       startDate: operationData.startDate || new Date(),
       endDate: operationData.endDate,
       exactLocation: {
@@ -185,9 +188,32 @@ export function OperationsModal({
       updatedAt: new Date()
     };
 
-    onSubmit(newOperation);
-    resetForm();
-    onClose();
+    try {
+      const created = await operationsService.createOperation({
+        municipalityId: newOperation.municipalityId,
+        operationType: newOperation.operationType,
+        title: newOperation.title,
+        description: newOperation.description,
+        priority: newOperation.priority,
+        status: newOperation.status,
+        startDate: newOperation.startDate,
+        endDate: newOperation.endDate,
+        exactLocation: newOperation.exactLocation,
+        resources: newOperation.resources,
+        assignedPersonnel: newOperation.assignedPersonnel,
+        notes: newOperation.notes,
+        createdAt: new Date(), // will be replaced by serverTimestamp in service
+        updatedAt: new Date(), // will be replaced by serverTimestamp in service
+        createdBy: user?.id,
+      } as any);
+
+      onSubmit(created as any);
+      resetForm();
+      onClose();
+    } catch (e) {
+      console.error('Failed to create operation:', e);
+      Alert.alert('Error', 'Failed to create operation. Please try again.');
+    }
   };
 
   if (!municipality) return null;

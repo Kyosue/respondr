@@ -21,8 +21,6 @@ interface UserHeaderProps {
   onFilterSelect: (filter: UserType | 'all') => void;
   selectedStatusFilter?: UserStatus | 'all';
   onStatusFilterSelect?: (filter: UserStatus | 'all') => void;
-  onSignupPress?: () => void;
-  showAddButton?: boolean;
 }
 
 export function UserHeader({
@@ -35,8 +33,6 @@ export function UserHeader({
   onFilterSelect,
   selectedStatusFilter,
   onStatusFilterSelect,
-  onSignupPress,
-  showAddButton = true,
 }: UserHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -51,19 +47,6 @@ export function UserHeader({
         </View>
         
         <View style={styles.headerActionsSection}>
-          {showAddButton && (
-            <TouchableOpacity 
-              style={[styles.signupButton, { 
-                backgroundColor: colors.primary,
-              }]}
-              onPress={onSignupPress}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="person-add" size={16} color="white" />
-              <ThemedText style={[styles.signupButtonText, { color: 'white' }]}>Add User</ThemedText>
-            </TouchableOpacity>
-          )}
-          
           <TouchableOpacity 
             style={[styles.searchButton, { 
               backgroundColor: colors.surface, 

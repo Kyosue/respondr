@@ -9,7 +9,7 @@ import { UserType } from '@/types/UserType';
 import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -53,18 +53,18 @@ export function EditUserModal({ user, visible, onClose, onUserUpdated }: EditUse
   // Animation values
   const [buttonScale] = useState(new Animated.Value(1));
 
-  // Initialize form when user changes
-  useState(() => {
-    if (user) {
-      setFullName(user.fullName);
-      setEmail(user.email);
-      setUserType(user.userType);
-      setStatus(user.status || 'active'); // Default to 'active' if status is undefined
-      // Clear errors
-      setFullNameError('');
-      setEmailError('');
-    }
-  });
+// Initialize form when user changes
+useEffect(() => {
+  if (user) {
+    setFullName(user.fullName);
+    setEmail(user.email);
+    setUserType(user.userType);
+    setStatus(user.status || 'active'); // Default to 'active' if status is undefined
+    setFullNameError('');
+    setEmailError('');
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user, visible]);
 
   const validateForm = (): boolean => {
     let isValid = true;

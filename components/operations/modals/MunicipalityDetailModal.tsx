@@ -2,10 +2,11 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Municipality } from '@/data/davaoOrientalData';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Dimensions, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { CurrentOperationsTab } from './CurrentOperationsTab';
 import { HistoryOperationsTab } from './HistoryOperationsTab';
 
@@ -34,6 +35,7 @@ export function MunicipalityDetailModal({
   const colors = Colors[colorScheme ?? 'light'];
   const screenHeight = Dimensions.get('window').height;
   const [activeTab, setActiveTab] = useState<TabType>('current');
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
 
   // Weather-based gradient colors and icons
   const getWeatherGradient = (weatherCondition: string) => {
@@ -78,12 +80,191 @@ export function MunicipalityDetailModal({
 
   if (!municipality) return null;
 
+  if (isWeb) {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+        <Animated.View style={[styles.overlayWeb, { opacity: fadeAnim }] }>
+          <TouchableOpacity style={styles.overlayCloseButton} onPress={handleClose} activeOpacity={0.7} />
+          <Animated.View
+            style={[
+              styles.containerWeb,
+              { backgroundColor: colors.surface, opacity: fadeAnim, transform: [{ scale: scaleAnim }, { translateY: slideAnim }] }
+            ]}
+          >
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+              <View style={styles.headerContent}>
+                <View style={styles.titleContainer}>
+                  <ThemedText style={[styles.title, { color: colors.primary }]}>
+                    {municipality.name}
+                  </ThemedText>
+                  <ThemedText style={[styles.subtitle, { color: colors.text, opacity: 0.7 }]}>
+                    {municipality.type === 'City' ? 'City' : 'Municipality'} • Davao Oriental
+                  </ThemedText>
+                </View>
+                <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Content */}
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+              {/* Weather Information */}
+              <View style={styles.section}>
+                <View style={styles.weatherCard}>
+                  <LinearGradient
+                    colors={getWeatherGradient('Rainy') as [string, string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.weatherGradient}
+                  >
+                    {/* Decorative Elements */}
+                    <View style={styles.decorativeElements}>
+                      <View style={styles.whiteCircle1} />
+                      <View style={styles.whiteCircle2} />
+                      <View style={styles.whiteTriangle} />
+                    </View>
+
+                    {/* Weather Content */}
+                    <View style={styles.weatherContent}>
+                      {/* Weather Condition and Temperature */}
+                      <View style={styles.weatherMainInfo}>
+                        <View style={styles.weatherConditionContainer}>
+                          <View style={styles.weatherIconContainer}>
+                            <Ionicons 
+                              name={getWeatherIcon('Rainy').name as any} 
+                              size={20} 
+                              color={getWeatherIcon('Rainy').color} 
+                            />
+                          </View> 
+                          <View style={styles.weatherTextContainer}>
+                            <ThemedText style={styles.weatherCondition}>
+                              Rainy
+                            </ThemedText>
+                            <ThemedText style={styles.temperature}>
+                              36°
+                            </ThemedText>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Weather Details - Horizontal Layout */}
+                      <View style={styles.weatherDetailsContainer}>
+                        <View style={styles.weatherDetailItem}>
+                          <View style={styles.detailIconContainer}>
+                            <Ionicons name="water" size={12} color="white" />
+                          </View>
+                          <ThemedText style={styles.weatherDetailLabel}>
+                            Rain
+                          </ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            0.2 mm/h
+                          </ThemedText>
+                        </View>
+
+                        <View style={styles.weatherDetailItem}>
+                          <View style={styles.detailIconContainer}>
+                            <Ionicons name="leaf" size={12} color="white" />
+                          </View>
+                          <ThemedText style={styles.weatherDetailLabel}>
+                            Wind
+                          </ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            12 km/h
+                          </ThemedText>
+                        </View>
+
+                        <View style={styles.weatherDetailItem}>
+                          <View style={styles.detailIconContainer}>
+                            <Ionicons name="compass" size={12} color="white" />
+                          </View>
+                          <ThemedText style={styles.weatherDetailLabel}>
+                            Direction
+                          </ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            NE
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </View>
+              </View>
+
+              {/* Operations Section with Tabs */}
+              <View style={styles.section}>
+                {/* Tab Navigation */}
+                <View style={[styles.tabContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.tabButton,
+                      activeTab === 'current' && [styles.activeTab, { backgroundColor: colors.primary }]
+                    ]}
+                    onPress={() => setActiveTab('current')}
+                  >
+                    <Ionicons 
+                      name="list" 
+                      size={16} 
+                      color={activeTab === 'current' ? 'white' : colors.text} 
+                    />
+                    <ThemedText style={[
+                      styles.tabText,
+                      { color: activeTab === 'current' ? 'white' : colors.text }
+                    ]}>
+                      Current ({recentOperations?.length || 0})
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.tabButton,
+                      activeTab === 'history' && [styles.activeTab, { backgroundColor: colors.primary }]
+                    ]}
+                    onPress={() => setActiveTab('history')}
+                  >
+                    <Ionicons 
+                      name="time" 
+                      size={16} 
+                      color={activeTab === 'history' ? 'white' : colors.text} 
+                    />
+                    <ThemedText style={[
+                      styles.tabText,
+                      { color: activeTab === 'history' ? 'white' : colors.text }
+                    ]}>
+                      History ({concludedOperations?.length || 0})
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Tab Content */}
+                <View style={styles.tabContent}>
+                  {activeTab === 'current' ? (
+                    <CurrentOperationsTab
+                      operations={recentOperations || []}
+                      onConcludeOperation={onConcludeOperation}
+                      onAddOperation={onAddOperation}
+                    />
+                  ) : (
+                    <HistoryOperationsTab
+                      operations={concludedOperations || []}
+                    />
+                  )}
+                </View>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
@@ -98,7 +279,7 @@ export function MunicipalityDetailModal({
                   {municipality.type === 'City' ? 'City' : 'Municipality'} • Davao Oriental
                 </ThemedText>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
@@ -260,8 +441,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
+  overlayWeb: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)'
+  },
+  overlayCloseButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   modalContainer: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  containerWeb: {
+    width: '100%',
+    maxWidth: 1030,
+    height: '85%',
+    borderRadius: 16,
     overflow: 'hidden',
   },
   header: {
@@ -292,8 +497,8 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 16,
+    ...Platform.select({ web: { height: '100%' }, default: { flex: 1 } }),
   },
   section: {
     marginBottom: 16,

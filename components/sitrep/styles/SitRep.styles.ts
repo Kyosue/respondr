@@ -12,7 +12,8 @@ export const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   documentsContainer: {
-    marginTop: 2,
+    marginTop: -30,
+    marginBottom: 20,
     paddingTop: 2,
     flexDirection: 'row',
     flexWrap: 'wrap',

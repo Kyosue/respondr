@@ -1,11 +1,9 @@
 import {
-  createUserWithEmailAndPassword,
   EmailAuthProvider,
   User as FirebaseUser,
   reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
-  updateProfile,
   UserCredential
 } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
@@ -31,46 +29,7 @@ export interface UserData {
   avatarUrl?: string;
 }
 
-// Register a new user
-export const registerUser = async (
-  email: string,
-  password: string,
-  fullName: string,
-  displayName: string,
-  userType: UserType
-): Promise<UserData> => {
-  try {
-    // Create user in Firebase Auth
-    const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    // Update profile with display name
-    await updateProfile(user, {
-      displayName: fullName
-    });
-    
-    
-    // Create user document in Firestore
-    const userData: UserData = {
-      id: user.uid,
-      fullName,
-      displayName,
-      email,
-      userType,
-      status: 'active',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    
-    // Save user data to Firestore
-    await setDoc(doc(db, 'users', user.uid), userData);
-    
-    return userData;
-  } catch (error) {
-    console.error('Error registering user:', error);
-    throw error;
-  }
-};
+// Removed legacy registerUser in favor of self-signup flow
 
 // Sign in user
 export const signInUser = async (

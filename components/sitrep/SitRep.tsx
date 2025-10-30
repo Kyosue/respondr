@@ -6,13 +6,12 @@ import { useDocumentUpload } from '@/hooks/useDocumentUpload';
 import { usePlatform } from '@/hooks/usePlatform';
 import { SitRepDocument } from '@/types/Document';
 import * as DocumentPicker from 'expo-document-picker';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Platform,
-  RefreshControl,
-  ScrollView,
+  SectionList,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -92,12 +91,20 @@ export function SitRep() {
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      searchDocuments(query);
-    } else {
-      loadDocuments();
-    }
   };
+
+  // Debounce search to reduce query thrash
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    const timer = setTimeout(() => {
+      if (trimmed) {
+        searchDocuments(trimmed);
+      } else {
+        loadDocuments();
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleActionsMenuToggle = (documentId: string) => {
     setActionsMenuOpen(actionsMenuOpen === documentId ? null : documentId);
@@ -202,6 +209,14 @@ export function SitRep() {
     
     return sortedGroups;
   };
+
+  // Memoize sections for virtualization
+  const sections = useMemo(() => {
+    const uniqueDocs = documents.filter((document, index, self) =>
+      index === self.findIndex(d => d.id === document.id)
+    );
+    return groupDocumentsByDate(uniqueDocs).map(([title, data]) => ({ title, data }));
+  }, [documents]);
 
   const handleFileSelect = async () => {
     try {
@@ -353,27 +368,43 @@ export function SitRep() {
         onClearSearch={handleClearSearch}
       />
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: bottomNavHeight + 20 }
-        ]}
-        refreshControl={
-          <RefreshControl 
-            refreshing={isLoading} 
-            onRefresh={refresh}
-            tintColor={colors.primary}
-          />
-        }
-        onScrollEndDrag={() => {
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.documentGroup}>
+            <ThemedText style={[styles.groupHeader, { color: colors.text }]}>
+              {section.title}
+            </ThemedText>
+          </View>
+        )}
+        renderItem={({ item }) => (
+          <View style={styles.documentsContainer}>
+            <DocumentCard
+              key={item.id}
+              document={item}
+              onPress={handleDocumentPress}
+              onSelect={handleDocumentSelect}
+              isSelected={selectedDocuments.has(item.id)}
+              isDownloading={downloadingDocumentId === item.id}
+              isMultiSelectMode={isMultiSelectMode}
+            />
+          </View>
+        )}
+        refreshing={isLoading}
+        onRefresh={refresh}
+        onEndReachedThreshold={0.2}
+        onEndReached={() => {
           if (hasMore && !isLoading) {
             loadMore();
           }
         }}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: bottomNavHeight + 20 }
+        ]}
         showsVerticalScrollIndicator={false}
-      >
-        {isMultiSelectMode && (
+        ListHeaderComponent={isMultiSelectMode ? (
           <View style={styles.multiSelectBar}>
             <View style={styles.multiSelectContent}>
               <ThemedText style={[styles.selectedCount, { color: colors.text }]}>
@@ -397,49 +428,22 @@ export function SitRep() {
               </View>
             </View>
           </View>
-        )}
-
-        {groupDocumentsByDate(
-          documents.filter((document, index, self) => 
-            index === self.findIndex(d => d.id === document.id)
-          )
-        ).map(([groupName, groupDocs]) => (
-          <View key={groupName} style={styles.documentGroup}>
-            <ThemedText style={[styles.groupHeader, { color: colors.text }]}>
-              {groupName}
-            </ThemedText>
-            <View style={styles.documentsContainer}>
-              {groupDocs.map((document) => (
-                <DocumentCard
-                  key={document.id}
-                  document={document}
-                  onPress={handleDocumentPress}
-                  onSelect={handleDocumentSelect}
-                  isSelected={selectedDocuments.has(document.id)}
-                  isDownloading={downloadingDocumentId === document.id}
-                  isMultiSelectMode={isMultiSelectMode}
-                />
-              ))}
-            </View>
-          </View>
-        ))}
-        
-        {isLoading && documents.length > 0 && (
+        ) : null}
+        ListFooterComponent={isLoading && documents.length > 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <ThemedText style={styles.loadingText}>Loading more documents...</ThemedText>
           </View>
-        )}
-        
-        {documents.length === 0 && !isLoading && (
+        ) : null}
+        ListEmptyComponent={!isLoading ? (
           <View style={styles.emptyContainer}>
             <ThemedText style={styles.emptyTitle}>No documents found</ThemedText>
             <ThemedText style={styles.emptySubtitle}>
               Upload your first document to get started
             </ThemedText>
           </View>
-        )}
-      </ScrollView>
+        ) : null}
+      />
 
       <UploadDocumentModal
         visible={showUploadModal}

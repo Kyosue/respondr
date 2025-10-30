@@ -1,8 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { operationsService } from '@/firebase/operations';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import React from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { OperationCard } from './OperationCard';
 
 interface HistoryOperationsTabProps {
@@ -12,6 +15,21 @@ interface HistoryOperationsTabProps {
 export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [items, setItems] = React.useState(operations);
+  const { isAdminOrSupervisor } = usePermissions();
+
+  React.useEffect(() => {
+    setItems(operations);
+  }, [operations]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await operationsService.deleteOperation(id);
+      setItems(prev => prev.filter(op => op.id !== id));
+    } catch (e) {
+      console.error('Failed to delete operation:', e);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -28,14 +46,15 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
       </View>
 
       {/* Operations List */}
-      <View style={styles.content}>
-        {operations && operations.length > 0 ? (
-          <View>
-            {operations.map((operation, index) => (
-              <View key={operation.id} style={styles.operationItem}>
+      <View style={[styles.content, Platform.OS === 'web' && styles.gridContainer]}>
+        {items && items.length > 0 ? (
+          <View style={Platform.OS === 'web' ? styles.gridInner : undefined}>
+            {items.map((operation, index) => (
+              <View key={operation.id} style={[styles.operationItem, Platform.OS === 'web' && styles.operationItemWeb]}>
                 <OperationCard 
                   operation={operation} 
-                  onConclude={undefined} // No action buttons for history
+                  onConclude={undefined}
+                  onDelete={isAdminOrSupervisor ? handleDelete : undefined}
                 />
               </View>
             ))}
@@ -85,16 +104,34 @@ const styles = StyleSheet.create({
     color: '#6C757D',
   },
   content: {
-    flex: 1,
+    ...Platform.select({ default: { flex: 1 }, web: {} }),
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    width: '100%',
+    justifyContent: 'flex-start',
+    gap: 12,
+  },
+  gridInner: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
   },
   operationItem: {
     marginBottom: 12,
+  },
+  operationItemWeb: {
+    width: 320,
+    marginRight: 12,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
     paddingHorizontal: 24,
+    width: '100%',
   },
   emptyIcon: {
     opacity: 0.3,
