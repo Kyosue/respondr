@@ -1,12 +1,24 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+    ...Platform.select({
+      web: {
+        position: 'relative',
+        zIndex: 0,
+      },
+    }),
   },
   scrollView: {
     flex: 1,
+    ...Platform.select({
+      web: {
+        position: 'relative',
+        zIndex: 0,
+      },
+    }),
   },
   contentContainer: {
     flexGrow: 1,
@@ -15,7 +27,7 @@ export const styles = StyleSheet.create({
   usersContainer: {
     marginTop: 2,
     paddingTop: 8,
-    zIndex: 1,
+    zIndex: 0,
   },
   usersGrid: {
     paddingHorizontal: 16,

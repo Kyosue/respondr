@@ -3,6 +3,13 @@ import { Platform, StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   header: {
     paddingTop: 0,
+    ...Platform.select({
+      web: {
+        backgroundColor: 'transparent',
+        position: 'relative',
+        zIndex: 10,
+      },
+    }),
   },
   headerMain: {
     flexDirection: 'row',
@@ -84,6 +91,18 @@ export const styles = StyleSheet.create({
   },
   filtersSection: {
     paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+    position: 'relative',
+    marginBottom: 4,
+    ...Platform.select({
+      web: {
+        position: 'relative',
+        zIndex: 10,
+        backgroundColor: 'transparent',
+        marginBottom: 8,
+      },
+    }),
   },
   // Legacy styles - keeping for backward compatibility with UserSearch and UserFilters components
   searchContainer: {
@@ -131,6 +150,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 2,
     zIndex: 1000,
     position: 'relative',
+    backgroundColor: 'transparent',
+    ...Platform.select({
+      web: {
+        position: 'relative',
+        zIndex: 1000,
+        isolation: 'isolate',
+      },
+    }),
   },
   filtersContent: {
     paddingHorizontal: 4,
@@ -207,6 +234,11 @@ export const styles = StyleSheet.create({
       },
       android: {
         elevation: 20,
+      },
+      web: {
+        zIndex: 9999,
+        position: 'absolute',
+        isolation: 'isolate',
       },
     }),
   },
