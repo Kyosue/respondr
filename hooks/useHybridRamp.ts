@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Dimensions } from 'react-native';
+import { Animated, Dimensions, Platform } from 'react-native';
 
 interface UseHybridRampOptions {
   visible: boolean;
@@ -27,9 +27,9 @@ interface UseHybridRampReturn {
  * Provides platform detection, animation values, and handlers for modal animations
  */
 export function useHybridRamp({ visible, onClose }: UseHybridRampOptions): UseHybridRampReturn {
-  // Platform detection
+  // Platform detection - use Platform.OS to properly distinguish web from iOS/Android
   const { width: screenWidth } = Dimensions.get('window');
-  const isWeb = screenWidth > 768;
+  const isWeb = Platform.OS === 'web';
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;

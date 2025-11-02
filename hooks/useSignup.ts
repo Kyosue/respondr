@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { ResilientAuthService } from '@/firebase/resilientAuth';
+import { UserType } from '@/types/UserType';
 import { FirebaseError } from 'firebase/app';
 import { useState } from 'react';
 
@@ -15,7 +16,9 @@ export function useSignup() {
     fullName: string, 
     displayName: string,
     email: string, 
-    password: string
+    password: string,
+    userType?: UserType,
+    status?: 'active' | 'inactive'
   ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
@@ -31,8 +34,14 @@ export function useSignup() {
         email,
         password,
         fullName,
-        displayName
+        displayName,
+        userType // Pass userType if provided (for admin-created users)
       );
+      
+      // If status is provided (for admin-created users), update it
+      if (status && status !== 'inactive') {
+        await authService.updateUserData(userData.id, { status });
+      }
       
       // Don't automatically log in the user since their account is inactive
       // The user will need to wait for admin activation before they can log in

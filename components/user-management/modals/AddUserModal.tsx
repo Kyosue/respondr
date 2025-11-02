@@ -7,16 +7,19 @@ import { UserType } from '@/types/UserType';
 import { generateDisplayName, validateFullName } from '@/utils/nameUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    Modal,
-    ScrollView,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Animated,
+  Modal,
+  Platform,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './AddUserModal.styles';
 
 interface AddUserModalProps {
@@ -225,10 +228,12 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={handleClose}
     >
-      <ThemedView style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <ThemedView style={styles.container}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
@@ -518,7 +523,8 @@ export function AddUserModal({ visible, onClose, onUserAdded }: AddUserModalProp
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </ThemedView>
+        </ThemedView>
+      </SafeAreaView>
     </Modal>
   );
 }

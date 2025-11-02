@@ -14,6 +14,7 @@ import {
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { MobileModalSafeAreaWrapper, getMobileModalConfig } from '@/components/ui/MobileModalWrapper';
 import { Colors } from '@/constants/Colors';
 import { useResources } from '@/contexts/ResourceContext';
 import { useBorrowerCalculations } from '@/hooks/useBorrowerCalculations';
@@ -341,7 +342,7 @@ export function BorrowerDashboard({ visible, borrowerName, onClose }: BorrowerDa
       visible={visible}
       animationType={isWeb ? 'none' : 'slide'}
       transparent={isWeb}
-      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
+      presentationStyle={isWeb ? 'overFullScreen' : getMobileModalConfig().presentationStyle}
       onRequestClose={handleClose}
     >
       {/* Backdrop for web */}
@@ -365,7 +366,8 @@ export function BorrowerDashboard({ visible, borrowerName, onClose }: BorrowerDa
           },
         ]}
       >
-      <ThemedView style={[styles.container, isWeb && styles.webPanel] }>
+      {isWeb ? (
+        <ThemedView style={[styles.container, styles.webPanel]}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <ThemedText type="subtitle" style={styles.headerTitle}>Borrower Dashboard</ThemedText>
@@ -418,7 +420,65 @@ export function BorrowerDashboard({ visible, borrowerName, onClose }: BorrowerDa
           </>
         )}
       </ScrollView>
-      </ThemedView>
+        </ThemedView>
+      ) : (
+        <MobileModalSafeAreaWrapper>
+          <ThemedView style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <ThemedText type="subtitle" style={styles.headerTitle}>Borrower Dashboard</ThemedText>
+          {onClose && (
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'active' && { borderBottomColor: colors.primary }]}
+            onPress={() => setActiveTab('active')}
+          >
+            <ThemedText style={[styles.tabText, activeTab === 'active' && { color: colors.primary }]}>
+              Active ({allBorrowersActiveTransactions})
+            </ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'history' && { borderBottomColor: colors.primary }]}
+            onPress={() => setActiveTab('history')}
+          >
+            <ThemedText style={[styles.tabText, activeTab === 'history' && { color: colors.primary }]}>
+              History
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ThemedText style={styles.loadingText}>Loading borrowers...</ThemedText>
+          </View>
+        ) : (
+          <>
+            {renderBorrowerSelector()}
+            {selectedBorrower && renderBorrowerProfile()}
+            {selectedBorrower && activeTab === 'active' && (
+              <ActiveBorrowedTab
+                selectedBorrower={selectedBorrower}
+                onReturnSingle={handleReturnSingle}
+                onReturnMultiItem={handleReturnMultiItem}
+              />
+            )}
+            {selectedBorrower && activeTab === 'history' && (
+              <HistoryBorrowedTab selectedBorrower={selectedBorrower} />
+            )}
+          </>
+        )}
+      </ScrollView>
+          </ThemedView>
+        </MobileModalSafeAreaWrapper>
+      )}
       </Animated.View>
     </Modal>
   );

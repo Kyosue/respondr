@@ -5,8 +5,10 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CurrentOperationsTab } from './CurrentOperationsTab';
 import { HistoryOperationsTab } from './HistoryOperationsTab';
 
@@ -313,10 +315,12 @@ export function MunicipalityDetailModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerContent}>
               <View style={styles.titleContainer}>
                 <ThemedText style={[styles.title, { color: colors.primary }]}>
@@ -502,8 +506,9 @@ export function MunicipalityDetailModal({
               <Ionicons name="arrow-up" size={20} color={'white'} />
             </TouchableOpacity>
           </Animated.View>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

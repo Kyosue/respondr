@@ -5,7 +5,9 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { BorrowerNameInput } from '@/components/ui/BorrowerNameInput';
 import { FormImagePicker, FormInput } from '@/components/ui/FormComponents';
+import { Colors } from '@/constants/Colors';
 import { useResources } from '@/contexts/ResourceContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export interface BorrowerInfo {
   borrowerName: string;
@@ -29,6 +31,8 @@ export function BorrowerForm({
 }: BorrowerFormProps) {
   const { getBorrowerNameSuggestions, getBorrowerProfile } = useResources();
   const [isLoadingBorrower, setIsLoadingBorrower] = useState(false);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   const updateBorrowerInfo = (field: keyof BorrowerInfo, value: string | null) => {
     onBorrowerInfoChange({
@@ -72,11 +76,11 @@ export function BorrowerForm({
         <ThemedText style={styles.sectionTitle}>Borrower Information</ThemedText>
       </View>
       
-      <View style={styles.formCard}>
+      <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.inputGroup}>
-          <ThemedText style={styles.label}>
+          <ThemedText style={[styles.label, { color: colors.text }]}>
             Borrower Name
-            <ThemedText style={styles.required}> *</ThemedText>
+            <ThemedText style={[styles.required, { color: colors.error }]}> *</ThemedText>
           </ThemedText>
           <BorrowerNameInput
             value={borrowerInfo.borrowerName}
@@ -147,11 +151,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formCard: {
-    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e9ecef',
   },
   inputGroup: {
     marginBottom: 16,
@@ -173,9 +175,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
-    color: '#333',
   },
   required: {
-    color: '#ff4444',
+    // Color applied via style prop for dark mode support
   },
 });

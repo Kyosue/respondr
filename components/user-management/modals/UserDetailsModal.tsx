@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    Animated,
-    Dimensions,
-    Modal,
-    ScrollView,
-    TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Modal,
+  ScrollView,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { MobileModalSafeAreaWrapper, getMobileModalConfig } from '@/components/ui/MobileModalWrapper';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
@@ -139,7 +140,7 @@ export function UserDetailsModal({
       visible={visible}
       animationType={isWeb ? 'none' : 'slide'}
       transparent={isWeb}
-      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
+      presentationStyle={isWeb ? 'overFullScreen' : getMobileModalConfig().presentationStyle}
       onRequestClose={handleClose}
     >
       {isWeb && (
@@ -154,7 +155,8 @@ export function UserDetailsModal({
           isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
         ]}
       >
-      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
+      {isWeb ? (
+        <ThemedView style={[styles.container, styles.webPanel]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
@@ -345,7 +347,203 @@ export function UserDetailsModal({
             </View>
           )}
         </ScrollView>
-      </ThemedView>
+        </ThemedView>
+      ) : (
+        <MobileModalSafeAreaWrapper>
+          <ThemedView style={styles.container}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+            <Ionicons name="close" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>User Details</ThemedText>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.contentContainer}
+        >
+          {/* User Avatar Section */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarContainer}>
+              <View style={[styles.largeAvatar, { backgroundColor: userTypeColor }]}>
+                <ThemedText style={styles.largeAvatarText}>
+                  {user.fullName.charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+              {/* Status indicator */}
+              <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
+                <Ionicons name={statusIcon} size={12} color="#fff" />
+              </View>
+            </View>
+            
+            <View style={styles.userInfoHeader}>
+              <ThemedText style={[styles.userName, { color: colors.text }]}>
+                {user.fullName}
+              </ThemedText>
+              <ThemedText style={[styles.userEmail, { color: colors.text + '80' }]}>
+                {user.email}
+              </ThemedText>
+            </View>
+
+            <View style={styles.badgesContainer}>
+              <View style={[styles.roleBadge, { backgroundColor: userTypeColor }]}>
+                <Ionicons 
+                  name={getUserTypeIcon(user.userType)} 
+                  size={14} 
+                  color="#fff" 
+                />
+                <ThemedText style={styles.badgeText}>
+                  {user.userType.toUpperCase()}
+                </ThemedText>
+              </View>
+              
+              <View style={[styles.statusBadge, { backgroundColor: statusColor + '20', borderColor: statusColor }]}>
+                <Ionicons name={statusIcon} size={14} color={statusColor} />
+                <ThemedText style={[styles.badgeText, { color: statusColor }]}>
+                  {getStatusText(user.status)}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* Personal Information Section */}
+          <View style={[styles.infoSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</ThemedText>
+            
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                <Ionicons name="person" size={20} color={userTypeColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Full Name</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{user.fullName}</ThemedText>
+              </View>
+            </View>
+
+            {user.displayName && user.displayName !== user.fullName && (
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                  <Ionicons name="at" size={20} color={userTypeColor} />
+                </View>
+                <View style={styles.infoContent}>
+                  <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Display Name</ThemedText>
+                  <ThemedText style={[styles.infoValue, { color: colors.text }]}>{user.displayName}</ThemedText>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                <Ionicons name="mail" size={20} color={userTypeColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Email Address</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{user.email}</ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                <Ionicons name="calendar" size={20} color={userTypeColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Member Since</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>
+                  {formatDate(user.createdAt)}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* Activity Information Section */}
+          <View style={[styles.infoSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Activity Information</ThemedText>
+            
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: statusColor + '15' }]}>
+                <Ionicons name="time" size={20} color={statusColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Last Login</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>
+                  {formatRelativeTime(user.lastLoginAt)}
+                </ThemedText>
+                {user.lastLoginAt && (
+                  <ThemedText style={[styles.infoSubtext, { color: colors.text + '40' }]}>
+                    {formatDate(user.lastLoginAt)}
+                  </ThemedText>
+                )}
+              </View>
+            </View>
+
+
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIcon, { backgroundColor: userTypeColor + '15' }]}>
+                <Ionicons name="refresh" size={20} color={userTypeColor} />
+              </View>
+              <View style={styles.infoContent}>
+                <ThemedText style={[styles.infoLabel, { color: colors.text + '60' }]}>Last Updated</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: colors.text }]}>
+                  {formatRelativeTime(user.updatedAt)}
+                </ThemedText>
+                {user.updatedAt && (
+                  <ThemedText style={[styles.infoSubtext, { color: colors.text + '40' }]}>
+                    {formatDate(user.updatedAt)}
+                  </ThemedText>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Actions Section */}
+          {(onEdit || onDelete || onToggleStatus) && (
+            <View style={[styles.actionsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Actions</ThemedText>
+              
+              {onToggleStatus && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, { borderColor: statusColor }]}
+                  onPress={() => onToggleStatus(user)}
+                >
+                  <Ionicons 
+                    name={userStatus === 'active' ? 'pause' : 'play'} 
+                    size={20} 
+                    color={statusColor} 
+                  />
+                  <ThemedText style={[styles.actionText, { color: statusColor }]}>
+                    {userStatus === 'active' ? 'Deactivate User' : 'Activate User'}
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+
+              {onEdit && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, { borderColor: colors.primary }]}
+                  onPress={() => onEdit(user)}
+                >
+                  <Ionicons name="create" size={20} color={colors.primary} />
+                  <ThemedText style={[styles.actionText, { color: colors.primary }]}>Edit User</ThemedText>
+                </TouchableOpacity>
+              )}
+
+              {onDelete && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, { borderColor: '#EF4444' }]}
+                  onPress={() => onDelete(user)}
+                >
+                  <Ionicons name="trash" size={20} color="#EF4444" />
+                  <ThemedText style={[styles.actionText, { color: '#EF4444' }]}>Delete User</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </ScrollView>
+          </ThemedView>
+        </MobileModalSafeAreaWrapper>
+      )}
       </Animated.View>
     </Modal>
   );

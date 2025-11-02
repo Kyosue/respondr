@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
     Alert,
     Animated,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -187,31 +190,32 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
           isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
         ]}
       >
-      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-              <Ionicons name="close" size={20} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <ThemedText type="subtitle" style={styles.title}>Edit Resource</ThemedText>
-              <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
-                Update resource information
-              </ThemedText>
-            </View>
-            <View style={styles.headerButton}>
-              <FormButton
-                title="Update"
-                onPress={handleSubmit}
-                variant="primary"
-                disabled={loading}
-                loading={loading}
-              />
+      {isWeb ? (
+        <ThemedView style={[styles.container, styles.webPanel]}>
+          <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+                <Ionicons name="close" size={20} color={colors.text} />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <ThemedText type="subtitle" style={styles.title}>Edit Resource</ThemedText>
+                <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                  Update resource information
+                </ThemedText>
+              </View>
+              <View style={styles.headerButton}>
+                <FormButton
+                  title="Update"
+                  onPress={handleSubmit}
+                  variant="primary"
+                  disabled={loading}
+                  loading={loading}
+                />
+              </View>
             </View>
           </View>
-        </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
@@ -408,8 +412,236 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
               />
             </View>
           </View>
-        </ScrollView>
-      </ThemedView>
+          </ScrollView>
+        </ThemedView>
+      ) : (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <ThemedView style={styles.container}>
+            <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+              <View style={styles.headerTop}>
+                <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="close" size={20} color={colors.text} />
+                </TouchableOpacity>
+                <View style={styles.headerTitleContainer}>
+                  <ThemedText type="subtitle" style={styles.title}>Edit Resource</ThemedText>
+                  <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                    Update resource information
+                  </ThemedText>
+                </View>
+                <View style={styles.headerButton}>
+                  <FormButton
+                    title="Update"
+                    onPress={handleSubmit}
+                    variant="primary"
+                    disabled={loading}
+                    loading={loading}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionIconContainer}>
+                    <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+                  </View>
+                  <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
+                </View>
+                
+                <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <FormInput
+                    label="Name"
+                    value={formData.name}
+                    onChangeText={(value) => handleInputChange('name', value)}
+                    placeholder="Enter resource name"
+                    required
+                    error={errors.name}
+                  />
+
+                  <FormInput
+                    label="Description"
+                    value={formData.description}
+                    onChangeText={(value) => handleInputChange('description', value)}
+                    placeholder="Enter resource description"
+                    multiline
+                    numberOfLines={3}
+                  />
+
+                  <View style={styles.inputGroup}>
+                    <ThemedText style={styles.label}>Category</ThemedText>
+                    <View style={styles.categoryContainer}>
+                      {categories.map((category) => (
+                        <TouchableOpacity
+                          key={category.value}
+                          style={[
+                            styles.categoryButton,
+                            { borderColor: colors.border },
+                            formData.category === category.value && { 
+                              backgroundColor: colors.primary,
+                              borderColor: colors.primary 
+                            }
+                          ]}
+                          onPress={() => handleInputChange('category', category.value)}
+                        >
+                          <Ionicons 
+                            name={category.icon as keyof typeof Ionicons.glyphMap} 
+                            size={16} 
+                            color={formData.category === category.value ? '#fff' : colors.primary} 
+                            style={styles.categoryIcon}
+                          />
+                          <ThemedText style={[
+                            styles.categoryButtonText,
+                            formData.category === category.value && { color: '#fff' }
+                          ]}>
+                            {category.label}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.quantityRow}>
+                    <View style={styles.quantityHalf}>
+                      <FormQuantityInput
+                        label="Total Quantity"
+                        value={formData.totalQuantity}
+                        onChangeValue={(value) => handleInputChange('totalQuantity', value)}
+                        required
+                        error={errors.totalQuantity}
+                      />
+                    </View>
+                    
+                    <View style={styles.quantityHalf}>
+                      <FormQuantityInput
+                        label="Available Quantity"
+                        value={formData.availableQuantity}
+                        onChangeValue={(value) => handleInputChange('availableQuantity', value)}
+                        required
+                        error={errors.availableQuantity}
+                      />
+                    </View>
+                  </View>
+
+                  <LocationInput
+                    value={formData.location}
+                    onChangeText={(value) => handleInputChange('location', value)}
+                    placeholder="Enter or select location"
+                    suggestions={getLocationSuggestions(formData.location)}
+                    error={errors.location}
+                    helperText="Where can others find this resource? Select from existing locations or type a new one."
+                    disabled={loading}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionIconContainer}>
+                    <Ionicons name="settings-outline" size={20} color="#007AFF" />
+                  </View>
+                  <ThemedText style={styles.sectionTitle}>Status & Condition</ThemedText>
+                </View>
+                
+                <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View style={styles.inputGroup}>
+                    <ThemedText style={styles.label}>Status</ThemedText>
+                    <View style={styles.statusContainer}>
+                      {statuses.map((status) => (
+                        <TouchableOpacity
+                          key={status.value}
+                          style={[
+                            styles.statusButton,
+                            { borderColor: colors.border },
+                            formData.status === status.value && { 
+                              backgroundColor: status.color,
+                              borderColor: status.color 
+                            }
+                          ]}
+                          onPress={() => handleInputChange('status', status.value)}
+                        >
+                          <View style={[
+                            styles.statusIndicator,
+                            { backgroundColor: formData.status === status.value ? '#fff' : status.color }
+                          ]} />
+                          <ThemedText style={[
+                            styles.statusButtonText,
+                            formData.status === status.value && { color: '#fff' }
+                          ]}>
+                            {status.label}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <ThemedText style={styles.label}>Condition</ThemedText>
+                    <View style={styles.conditionContainer}>
+                      {conditions.map((condition) => (
+                        <TouchableOpacity
+                          key={condition.value}
+                          style={[
+                            styles.conditionButton,
+                            { borderColor: colors.border },
+                            formData.condition === condition.value && { 
+                              backgroundColor: condition.color,
+                              borderColor: condition.color 
+                            }
+                          ]}
+                          onPress={() => handleInputChange('condition', condition.value)}
+                        >
+                          <View style={[
+                            styles.conditionIndicator,
+                            { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
+                          ]} />
+                          <ThemedText style={[
+                            styles.conditionButtonText,
+                            formData.condition === condition.value && { color: '#fff' }
+                          ]}>
+                            {condition.label}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <FormInput
+                    label="Tags"
+                    value={formData.tags}
+                    onChangeText={(value) => handleInputChange('tags', value)}
+                    placeholder="Enter tags separated by commas"
+                    helperText="Separate multiple tags with commas"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionIconContainer}>
+                    <Ionicons name="images-outline" size={20} color="#007AFF" />
+                  </View>
+                  <ThemedText style={styles.sectionTitle}>Images</ThemedText>
+                </View>
+                
+                <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <ImageUpload
+                    onImageSelected={(imageUrl) => setImages(prev => [...prev, imageUrl])}
+                    onImageRemoved={() => setImages(prev => prev.slice(0, -1))}
+                    currentImageUrl={images[0]}
+                    imagesCount={images.length}
+                    maxImages={5}
+                    resourceId={resource.id}
+                    folder="resources"
+                    disabled={loading}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </ThemedView>
+        </SafeAreaView>
+      )}
       </Animated.View>
     </Modal>
   );

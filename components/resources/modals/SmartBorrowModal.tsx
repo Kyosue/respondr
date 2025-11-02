@@ -16,6 +16,7 @@ import {
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FormButton } from '@/components/ui/FormComponents';
+import { MobileModalSafeAreaWrapper, getMobileModalConfig } from '@/components/ui/MobileModalWrapper';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
@@ -778,11 +779,11 @@ export function SmartBorrowModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      {...getMobileModalConfig()}
       onRequestClose={handleClose}
     >
-      <ThemedView style={styles.mobileContainer}>
+      <MobileModalSafeAreaWrapper>
+        <ThemedView style={styles.mobileContainer}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
@@ -1141,7 +1142,8 @@ export function SmartBorrowModal({
             </View>
           </View>
         </ScrollView>
-      </ThemedView>
+        </ThemedView>
+      </MobileModalSafeAreaWrapper>
     </Modal>
   );
 }

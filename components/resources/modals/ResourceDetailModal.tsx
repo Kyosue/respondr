@@ -1,12 +1,14 @@
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Modal,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
@@ -108,41 +110,80 @@ export function ResourceDetailModal({
           isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
         ]}
       >
-      <ThemedView style={[styles.container, isWeb && styles.webPanel]}>
-        <ResourceDetailHeader
-          resource={resource}
-          onClose={handleClose}
-          onEdit={() => onEdit(resource)}
-        />
+      {isWeb ? (
+        <ThemedView style={[styles.container, styles.webPanel]}>
+          <ResourceDetailHeader
+            resource={resource}
+            onClose={handleClose}
+            onEdit={() => onEdit(resource)}
+          />
 
-        <ResourceDetailTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          activeTransactionsCount={activeTransactions.length}
-        />
+          <ResourceDetailTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
 
-        <View style={styles.tabContent}>
-          {activeTab === 'details' && (
-            <ResourceDetailsTab resource={resource} />
-          )}
-          {activeTab === 'history' && (
-            <ResourceHistoryTab resourceId={resource.id} history={history} />
-          )}
-          {activeTab === 'images' && (
-            <ResourceImagesTab resource={resource} />
-          )}
-          {activeTab === 'borrowed' && (
-            <ResourceBorrowedTab resourceId={resource.id} />
-          )}
-        </View>
+          <View style={styles.tabContent}>
+            {activeTab === 'details' && (
+              <ResourceDetailsTab resource={resource} />
+            )}
+            {activeTab === 'history' && (
+              <ResourceHistoryTab resourceId={resource.id} history={history} />
+            )}
+            {activeTab === 'images' && (
+              <ResourceImagesTab resource={resource} />
+            )}
+            {activeTab === 'borrowed' && (
+              <ResourceBorrowedTab resourceId={resource.id} />
+            )}
+          </View>
 
-        <ResourceDetailFooter
-          resource={resource}
-          activeTransactions={activeTransactions}
-          onBorrow={handleBorrow}
-          onReturn={handleReturn}
-        />
-      </ThemedView>
+          <ResourceDetailFooter
+            resource={resource}
+            activeTransactions={activeTransactions}
+            onBorrow={handleBorrow}
+            onReturn={handleReturn}
+          />
+        </ThemedView>
+      ) : (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <ThemedView style={styles.container}>
+            <ResourceDetailHeader
+              resource={resource}
+              onClose={handleClose}
+              onEdit={() => onEdit(resource)}
+            />
+
+            <ResourceDetailTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+
+            <View style={styles.tabContent}>
+              {activeTab === 'details' && (
+                <ResourceDetailsTab resource={resource} />
+              )}
+              {activeTab === 'history' && (
+                <ResourceHistoryTab resourceId={resource.id} history={history} />
+              )}
+              {activeTab === 'images' && (
+                <ResourceImagesTab resource={resource} />
+              )}
+              {activeTab === 'borrowed' && (
+                <ResourceBorrowedTab resourceId={resource.id} />
+              )}
+            </View>
+
+            <ResourceDetailFooter
+              resource={resource}
+              activeTransactions={activeTransactions}
+              onBorrow={handleBorrow}
+              onReturn={handleReturn}
+            />
+          </ThemedView>
+        </SafeAreaView>
+      )}
       </Animated.View>
     </Modal>
   );

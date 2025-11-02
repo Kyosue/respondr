@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
     Alert,
     Animated,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -482,10 +485,13 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
   return (
     <Modal
       visible={visible}
-      {...getModalConfig()}
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={handleClose}
     >
-      <ThemedView style={styles.mobileContainer}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <ThemedView style={styles.mobileContainer}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
@@ -686,7 +692,8 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
             </View>
           </View>
         </ScrollView>
-      </ThemedView>
+        </ThemedView>
+      </SafeAreaView>
     </Modal>
   );
 }

@@ -18,10 +18,13 @@ import {
   Alert,
   Animated,
   Modal,
+  Platform,
   ScrollView,
   TouchableOpacity,
   View
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './OperationsModal.styles';
 import { ResourceSelectionModal } from './ResourceSelectionModal';
 
@@ -526,11 +529,13 @@ export function OperationsModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={handleClose}
     >
-      <ThemedView style={styles.mobileContainer}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <ThemedView style={styles.mobileContainer}>
+          <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
               <Ionicons name="close" size={20} color={colors.text} />
@@ -788,17 +793,18 @@ export function OperationsModal({
             </View>
           </View>
         </ScrollView>
-      </ThemedView>
+        </ThemedView>
 
-      {/* Resource Selection Modal */}
-      <ResourceSelectionModal
-        visible={showResourceModal}
-        onClose={() => setShowResourceModal(false)}
-        onConfirm={handleResourceModalConfirm}
-        availableResources={allAvailableResources}
-        selectedResources={selectedResources}
-        colors={colors}
-      />
+        {/* Resource Selection Modal */}
+        <ResourceSelectionModal
+          visible={showResourceModal}
+          onClose={() => setShowResourceModal(false)}
+          onConfirm={handleResourceModalConfirm}
+          availableResources={allAvailableResources}
+          selectedResources={selectedResources}
+          colors={colors}
+        />
+      </SafeAreaView>
     </Modal>
   );
 }

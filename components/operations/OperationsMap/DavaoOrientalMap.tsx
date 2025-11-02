@@ -4,7 +4,13 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import SvgPanZoom from 'react-native-svg-pan-zoom';
 
@@ -426,6 +432,18 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   const [resetKey, setResetKey] = useState(0);
   const [isReset, setIsReset] = useState(false);
   
+  // Animated values for pan/zoom (mobile only)
+  const scale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedScale = useSharedValue(1);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+  
+  // Min and max scale constraints
+  const minScale = 0.8;
+  const maxScale = 3;
+  
   // Memoize expensive calculations
   const bounds = useMemo(() => calculateOverallBounds(davaoOrientalData.features), []);
   const municipalities = useMemo(() => getMunicipalities(), []);
@@ -449,18 +467,142 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
     setIsReset(false); // Clear reset state when user zooms
   }, []);
   
+  // Update currentZoom when scale changes (for mobile)
+  const updateZoom = useCallback((newScale: number) => {
+    setCurrentZoom(newScale);
+    setIsReset(false);
+  }, []);
+  
   // Reset zoom function
   const resetZoom = useCallback(() => {
-    setCurrentZoom(initialZoom);
-    setIsReset(true);
-    setResetKey(prev => prev + 1); // Force re-render to reset zoom
-  }, [initialZoom]);
+    if (Platform.OS === 'web') {
+      setCurrentZoom(initialZoom);
+      setIsReset(true);
+      setResetKey(prev => prev + 1); // Force re-render to reset zoom
+    } else {
+      // Reset animated values for mobile
+      scale.value = withSpring(1);
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      savedScale.value = 1;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+      setCurrentZoom(1);
+      setIsReset(true);
+    }
+  }, [initialZoom, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY]);
+  
+  // Pinch gesture handler for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      const newScale = Math.max(minScale, Math.min(maxScale, savedScale.value * e.scale));
+      scale.value = newScale;
+      runOnJS(updateZoom)(newScale);
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      // Clamp scale to bounds
+      if (scale.value < minScale) {
+        scale.value = withSpring(minScale);
+        savedScale.value = minScale;
+        runOnJS(updateZoom)(minScale);
+      } else if (scale.value > maxScale) {
+        scale.value = withSpring(maxScale);
+        savedScale.value = maxScale;
+        runOnJS(updateZoom)(maxScale);
+      }
+      
+      // Clamp pan position to new bounds after zoom
+      const scaledWidth = width * scale.value;
+      const scaledHeight = height * scale.value;
+      const maxTranslateX = Math.max(0, (scaledWidth - width) / 2);
+      const maxTranslateY = Math.max(0, (scaledHeight - height) / 2);
+      
+      translateX.value = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX.value));
+      translateY.value = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY.value));
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+  
+  // Pan gesture handler - activates easily for dragging while still allowing quick taps
+  const panGesture = Gesture.Pan()
+    .minDistance(5) // Very small distance threshold - allows taps while enabling drag
+    .minPointers(1) // Allow single finger pan
+    .shouldCancelWhenOutside(false) // Don't cancel when finger goes outside bounds
+    .onStart(() => {
+      // Save current values when pan starts
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      let newTranslateX = savedTranslateX.value + e.translationX;
+      let newTranslateY = savedTranslateY.value + e.translationY;
+      
+      // Calculate bounds based on current scale
+      const scaledWidth = width * scale.value;
+      const scaledHeight = height * scale.value;
+      const maxTranslateX = Math.max(0, (scaledWidth - width) / 2);
+      const maxTranslateY = Math.max(0, (scaledHeight - height) / 2);
+      
+      // Clamp translation to bounds
+      newTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, newTranslateX));
+      newTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, newTranslateY));
+      
+      translateX.value = newTranslateX;
+      translateY.value = newTranslateY;
+    })
+    .onEnd(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+  
+  // Combined gesture - pinch and pan can work simultaneously
+  // Taps will still work because pan uses activeOffset (3px), allowing Path onPress to fire for quick taps
+  const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
+  
+  // Animated style for transforms
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+    };
+  });
   
   // Clear cache when dimensions change
   useMemo(() => {
     featureCache.clear();
   }, [width, height]);
   
+  // Render SVG content - shared between platforms
+  const svgContent = (
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <G>
+        {davaoOrientalData.features.map((feature) => {
+          const municipality = municipalityMap.get(String(feature.id));
+          const isSelected = selectedMunicipality?.id === feature.id;
+          
+          return (
+            <MunicipalityFeature
+              key={feature.id}
+              feature={feature}
+              bounds={bounds}
+              width={width}
+              height={height}
+              municipality={municipality}
+              isSelected={isSelected}
+              colors={colors}
+              onPress={() => handleMunicipalityPress(municipality!)}
+              operationsByMunicipality={operationsByMunicipality}
+            />
+          );
+        })}
+      </G>
+    </Svg>
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 , backgroundColor: '#cec9bd'}}>
       <View 
@@ -469,48 +611,39 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
           : [styles.container, { width, height }]
         }
       >
-        <SvgPanZoomWithChildren
-          key={resetKey}
-          canvasWidth={width}
-          canvasHeight={height}
-          minScale={0.8}
-          maxScale={3}
-          initialZoom={initialZoom}
-          onZoom={handleZoom}
-          canvasStyle={styles.canvas}
-          enablePan={true}
-          enableZoom={true}
-        >
-            <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-              <G>
-                {davaoOrientalData.features.map((feature) => {
-                  const municipality = municipalityMap.get(String(feature.id));
-                  const isSelected = selectedMunicipality?.id === feature.id;
-                  
-                  return (
-                    <MunicipalityFeature
-                      key={feature.id}
-                      feature={feature}
-                      bounds={bounds}
-                      width={width}
-                      height={height}
-                      municipality={municipality}
-                      isSelected={isSelected}
-                      colors={colors}
-                      onPress={() => handleMunicipalityPress(municipality!)}
-                      operationsByMunicipality={operationsByMunicipality}
-                    />
-                  );
-                })}
-              </G>
-            </Svg>
-        </SvgPanZoomWithChildren>
+        {Platform.OS === 'web' ? (
+          // Web: Use SvgPanZoom for pan/zoom functionality
+          <SvgPanZoomWithChildren
+            key={resetKey}
+            canvasWidth={width}
+            canvasHeight={height}
+            minScale={0.8}
+            maxScale={3}
+            initialZoom={initialZoom}
+            onZoom={handleZoom}
+            canvasStyle={styles.canvas}
+            enablePan={true}
+            enableZoom={true}
+          >
+            {svgContent}
+          </SvgPanZoomWithChildren>
+        ) : (
+          // iOS/Android: Use gesture handlers for native pan/zoom
+          <GestureDetector gesture={composedGesture}>
+            <Animated.View style={[styles.canvas, animatedStyle]}>
+              {svgContent}
+            </Animated.View>
+          </GestureDetector>
+        )}
         
-        {/* Zoom Controls */}
+        {/* Zoom Controls - Show on both web and mobile */}
         <View style={styles.zoomControls}>
           <View style={[styles.zoomButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
             <Text style={[styles.zoomButtonText, { color: 'white' }]}>
-              {isReset ? `${Math.round(initialZoom * 100)}%` : `${Math.round(currentZoom * 100)}%`}
+              {Platform.OS === 'web' 
+                ? (isReset ? `${Math.round(initialZoom * 100)}%` : `${Math.round(currentZoom * 100)}%`)
+                : (isReset ? '100%' : `${Math.round(currentZoom * 100)}%`)
+              }
             </Text>
           </View>
           <TouchableOpacity style={[styles.resetButton, { backgroundColor: colors.primary }]} onPress={resetZoom}>
@@ -532,6 +665,8 @@ const styles = StyleSheet.create({
   },
   canvas: {
     backgroundColor: 'transparent',
+    width: '100%',
+    height: '100%',
   },
   zoomControls: {
     position: 'absolute',

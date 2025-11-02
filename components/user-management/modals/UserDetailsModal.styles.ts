@@ -59,7 +59,7 @@ export const styles = StyleSheet.create({
         paddingTop: 50,
       },
       android: {
-        paddingTop: 20,
+        paddingTop: 10,
       },
     }),
   },

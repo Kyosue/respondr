@@ -3,15 +3,16 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  StyleSheet,
-  View
+    Animated,
+    Dimensions,
+    Platform,
+    StyleSheet,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/Colors';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -129,26 +130,31 @@ export default function IndexScreen() {
   }, [activeTab]);
 
   // Redirect to login if not authenticated
+  // Optimistically redirect if no user, even while loading (faster UX)
   useEffect(() => {
-    // Add a small delay to ensure Firebase auth state is properly initialized
-    const redirectTimer = setTimeout(() => {
-      if (!isLoading && !isAuthenticated) {
-        console.log('Redirecting to login - not authenticated');
-        router.replace('/login');
-      }
-    }, 100); // Small delay to ensure auth state is stable
-
-    return () => clearTimeout(redirectTimer);
-  }, [isLoading, isAuthenticated, router]);
+    // If we've checked auth and user is not authenticated, redirect immediately
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+    // Also redirect immediately if auth is loading but we already know there's no user
+    // This prevents showing loading screen unnecessarily when user is clearly not logged in
+    else if (isLoading && !user) {
+      // Set a short timeout to allow auth to resolve quickly, but don't wait too long
+      const redirectTimer = setTimeout(() => {
+        // Only redirect if still loading and no user after 300ms
+        // This gives Firebase a chance to respond quickly, but doesn't wait the full timeout
+        if (!isAuthenticated) {
+          router.replace('/login');
+        }
+      }, 300);
+      
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [isLoading, isAuthenticated, user, router]);
 
   // Show loading state if auth is still loading
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        {/* You can add a loading spinner here */}
-      </View>
-    );
+    return <LoadingScreen message="Checking authentication..." />;
   }
 
   // Don't render anything if not authenticated (will redirect)

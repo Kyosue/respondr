@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
@@ -13,7 +14,11 @@ import { NetworkProvider } from '@/contexts/NetworkContext';
 import { ResourceProvider } from '@/contexts/ResourceContext';
 import { SitRepProvider } from '@/contexts/SitRepContext';
 import { AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useEffect, useState } from 'react';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
 
 // Initialize Firebase with error handling
 let firebaseInitialized = false;
@@ -103,18 +108,52 @@ export default function RootLayout() {
       }
     };
 
-    // Add a small delay in development to prevent rapid re-initialization
-    if (process.env.NODE_ENV === 'development') {
-      const timeoutId = setTimeout(initializeApp, 100);
-      return () => clearTimeout(timeoutId);
-    } else {
-      initializeApp();
-    }
+    // Initialize immediately - no delay needed
+    initializeApp();
   }, []);
 
   const fontsReady = isWeb ? true : loaded;
-  if (!fontsReady || !isReady) {
-    return null;
+  const appReady = fontsReady && isReady;
+  const [canHideSplash, setCanHideSplash] = useState(false);
+
+  // Wait for everything to be ready before hiding splash
+  useEffect(() => {
+    if (appReady) {
+      // Give contexts time to initialize - NetworkProvider, AuthProvider, etc.
+      // This delay ensures contexts are mounted and ready before splash hides
+      // The blank screen was happening because splash hid before contexts initialized
+      const timer = setTimeout(() => {
+        setCanHideSplash(true);
+      }, 600); // Wait for context initialization to complete (NetworkProvider, AuthProvider mount)
+      
+      return () => clearTimeout(timer);
+    }
+  }, [appReady]);
+
+  // Hide splash screen only after everything is ready
+  useEffect(() => {
+    if (canHideSplash) {
+      // Small delay to ensure smooth transition from splash to app
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync().catch(() => {
+          // Ignore errors if splash screen is already hidden
+        });
+      }, 50);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [canHideSplash]);
+
+  // Keep splash visible until everything is ready
+  // Show custom loading screen while contexts initialize
+  if (!appReady || !canHideSplash) {
+    return (
+      <SafeAreaProvider>
+        <AppThemeProvider>
+          <LoadingScreen message="Initializing app..." />
+        </AppThemeProvider>
+      </SafeAreaProvider>
+    );
   }
 
   return (

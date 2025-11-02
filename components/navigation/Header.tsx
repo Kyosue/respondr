@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(150, 150, 150, 0.2)',
-    paddingTop: Platform.OS === 'android' ? 16 : 12, // Add extra padding for Android status bar
+    paddingTop: Platform.OS === 'android' ? 5 : 12, // Add extra padding for Android status bar
   },
   menuButton: {
     padding: 8,

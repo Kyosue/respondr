@@ -83,14 +83,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     let authStateResolved = false;
     
+    // Try to load user data from local storage immediately for faster initial render
+    const loadCachedUser = async () => {
+      try {
+        const cachedUser = await getUserData();
+        if (cachedUser) {
+          // Optimistically set cached user data while Firebase verifies
+          setUser(cachedUser);
+          // Still keep loading true until Firebase confirms
+        }
+      } catch (error) {
+        // Ignore cache errors, Firebase will handle auth state
+      }
+    };
+    
+    loadCachedUser();
+    
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       try {
-        console.log('🔍 Auth state changed:', { 
-          hasFirebaseUser: !!fbUser, 
-          platform: Platform.OS,
-          authStateResolved 
-        });
-        
         if (fbUser) {
           // User is signed in
           setFirebaseUser(fbUser);
@@ -99,14 +109,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const userData = await authService.getCurrentUserData(fbUser);
           
           if (userData) {
-            console.log('🔍 User data loaded:', { userId: userData.id, fullName: userData.fullName });
             setUser(userData);
             // Store user data using platform-specific storage
             await setUserData(userData);
           }
         } else {
-          // User is signed out
-          console.log('🔍 User signed out');
           setFirebaseUser(null);
           setUser(null);
           // Clear storage
@@ -118,19 +125,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Only set loading to false after Firebase auth state is determined
         if (!authStateResolved) {
           authStateResolved = true;
-          console.log('🔍 Setting loading to false');
           setIsLoading(false);
         }
       }
     });
 
-    // Set a timeout to ensure loading state is reset even if Firebase is slow
+    // Reduced timeout to 800ms for faster login screen appearance
     const timeoutId = setTimeout(() => {
       if (!authStateResolved) {
         authStateResolved = true;
         setIsLoading(false);
       }
-    }, 2000); // Increased timeout to 2 seconds
+    }, 800);
 
     // Cleanup subscription on unmount
     return () => {
