@@ -17,7 +17,8 @@ import {
   ScrollView,
   View
 } from 'react-native';
-import { deleteUserSecure, getAllUsers, toggleUserStatus } from '../../firebase/auth';
+import { getAllUsers, reauthenticateUser, toggleUserStatus } from '../../firebase/auth';
+import { deleteUserByAdmin } from '../../firebase/functions';
 import { UserCard } from './UserCard/UserCard';
 import { UserHeader } from './UserHeader/UserHeader';
 import { EditUserModal, PasswordVerificationModal, UserDetailsModal } from './modals';
@@ -193,7 +194,15 @@ const UserManagement: React.FC = () => {
     if (!userToDelete) return;
 
     try {
-      await deleteUserSecure(userToDelete.id, password, true); // Hard delete with password verification
+      // First, verify the admin's password for security
+      await reauthenticateUser(password);
+      
+      // Then use Cloud Function to delete user (hard delete - removes from Firebase Auth and Firestore)
+      await deleteUserByAdmin({
+        userId: userToDelete.id,
+        hardDelete: true, // This will delete from both Firebase Auth and Firestore
+      });
+      
       await fetchUsers(); // Refresh the list
       setShowPasswordModal(false);
       setUserToDelete(null);

@@ -143,4 +143,39 @@ export const styles = StyleSheet.create({
   buttonIcon: {
     marginLeft: 4,
   },
+  // Hybrid RAMP styles for mobile
+  mobileContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  mobileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  mobileCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  mobileHeaderSpacer: {
+    width: 40,
+  },
+  mobileScrollView: {
+    flex: 1,
+  },
+  mobileContent: {
+    padding: 20,
+    paddingBottom: 24,
+  },
 });

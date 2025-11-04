@@ -1,18 +1,22 @@
 import { ThemedText } from '@/components/ThemedText';
+import { MobileModalSafeAreaWrapper, getMobileModalConfig } from '@/components/ui/MobileModalWrapper';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { styles } from './PasswordVerificationModal.styles';
 
@@ -39,40 +43,11 @@ export function PasswordVerificationModal({
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [scaleAnim] = useState(new Animated.Value(0.8));
-
-  // Animation effects
-  React.useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.8,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible]);
+  
+  // Hybrid RAMP hook - handles platform detection and animations
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
+  
+  const screenWidth = Dimensions.get('window').width;
 
   const handleVerify = async () => {
     if (!password.trim()) {
@@ -100,49 +75,51 @@ export function PasswordVerificationModal({
     }
   };
 
-  const handleClose = () => {
-    setPassword('');
-    setError(null);
-    onClose();
-  };
-
   const handleCancel = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPassword('');
+    setError(null);
+    handleClose();
+  };
+  
+  const handleModalClose = () => {
+    setPassword('');
+    setError(null);
     handleClose();
   };
 
   return (
     <Modal
       visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={handleClose}
+      animationType={isWeb ? 'none' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : getMobileModalConfig().presentationStyle}
+      onRequestClose={handleModalClose}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <Animated.View 
-          style={[
-            styles.overlay,
-            { opacity: fadeAnim }
-          ]}
-        >
+      {isWeb ? (
+        // Web: Animated backdrop and modal
+        <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
           <TouchableOpacity 
             style={styles.backdrop} 
             activeOpacity={1} 
-            onPress={handleClose}
+            onPress={handleModalClose}
           />
-          <Animated.View
-            style={[
-              styles.modal,
-              { 
-                backgroundColor: colors.background, 
-                borderColor: colors.border,
-                transform: [{ scale: scaleAnim }]
-              }
-            ]}
+          <KeyboardAvoidingView
+            style={styles.overlay}
+            behavior="padding"
           >
+            <Animated.View
+              style={[
+                styles.modal,
+                styles.webModal,
+                { 
+                  backgroundColor: colors.background, 
+                  borderColor: colors.border,
+                  transform: [{ scale: scaleAnim }, { translateY: slideAnim }],
+                  maxWidth: Math.min(480, screenWidth - 40),
+                }
+              ]}
+            >
             {/* Header with icon and gradient */}
             <View style={[styles.header, { backgroundColor: colors.surface }]}>
               <View style={styles.headerContent}>
@@ -160,7 +137,7 @@ export function PasswordVerificationModal({
               </View>
               <TouchableOpacity
                 style={[styles.closeButton, { backgroundColor: colors.border + '30' }]}
-                onPress={handleClose}
+                onPress={handleModalClose}
               >
                 <Ionicons name="close" size={20} color={colors.text} />
               </TouchableOpacity>
@@ -283,9 +260,153 @@ export function PasswordVerificationModal({
                 )}
               </TouchableOpacity>
             </View>
-          </Animated.View>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </Animated.View>
-      </KeyboardAvoidingView>
+      ) : (
+        // Mobile: Native modal with safe area wrapper
+        <MobileModalSafeAreaWrapper>
+          <KeyboardAvoidingView
+            style={styles.mobileContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={[styles.mobileHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.mobileCloseButton}
+                onPress={handleModalClose}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <ThemedText style={[styles.mobileTitle, { color: colors.text }]}>
+                {title}
+              </ThemedText>
+              <View style={styles.mobileHeaderSpacer} />
+            </View>
+            
+            <ScrollView 
+              style={styles.mobileScrollView}
+              contentContainerStyle={styles.mobileContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Warning message */}
+              <View style={[styles.warningContainer, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+                <Ionicons name="warning" size={20} color="#F59E0B" />
+                <ThemedText style={[styles.warningText, { color: '#92400E' }]}>
+                  This action cannot be undone
+                </ThemedText>
+              </View>
+
+              <ThemedText style={[styles.message, { color: colors.text }]}>
+                {message}
+              </ThemedText>
+              
+              {userFullName && (
+                <View style={[styles.userInfoContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Ionicons name="person" size={16} color={colors.primary} />
+                  <ThemedText style={[styles.userName, { color: colors.primary }]}>
+                    Deleting: {userFullName}
+                  </ThemedText>
+                </View>
+              )}
+
+              <View style={styles.inputContainer}>
+                <ThemedText style={[styles.label, { color: colors.text }]}>
+                  Your Password
+                </ThemedText>
+                <View style={[
+                  styles.passwordInput, 
+                  { 
+                    borderColor: error ? '#EF4444' : colors.border,
+                    backgroundColor: colors.surface
+                  }
+                ]}>
+                  <Ionicons 
+                    name="lock-closed" 
+                    size={20} 
+                    color={colors.text + '60'} 
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[styles.textInput, { color: colors.text }]}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      setError(null);
+                    }}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.text + '60'}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={20}
+                      color={colors.text + '60'}
+                    />
+                  </TouchableOpacity>
+                </View>
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                    <ThemedText style={styles.errorText}>
+                      {error}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+            
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[
+                  styles.button, 
+                  styles.cancelButton, 
+                  { 
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface
+                  }
+                ]}
+                onPress={handleCancel}
+                disabled={isLoading}
+              >
+                <Ionicons name="close" size={18} color={colors.text} />
+                <ThemedText style={[styles.buttonText, { color: colors.text }]}>
+                  Cancel
+                </ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  styles.confirmButton,
+                  { backgroundColor: '#EF4444' },
+                  isLoading && styles.disabledButton
+                ]}
+                onPress={handleVerify}
+                disabled={isLoading || !password.trim()}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="trash" size={18} color="white" />
+                    <ThemedText style={styles.confirmButtonText}>
+                      Verify & Delete
+                    </ThemedText>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </MobileModalSafeAreaWrapper>
+      )}
     </Modal>
   );
 }

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import { Auth, browserLocalPersistence, getAuth, initializeAuth } from 'firebase/auth';
 import { disableNetwork, enableNetwork, Firestore, getFirestore } from 'firebase/firestore';
+import { Functions, getFunctions } from 'firebase/functions';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 
@@ -32,6 +33,7 @@ let app: FirebaseApp;
 let firebaseAuth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
+let functions: Functions;
 
 try {
   if (getApps().length === 0) {
@@ -64,6 +66,9 @@ try {
   
   // Initialize Firebase Storage
   storage = getStorage(app);
+
+  // Initialize Firebase Functions
+  functions = getFunctions(app);
 } catch (error) {
   console.error('Firebase initialization error:', error);
   // Fallback initialization for web
@@ -73,6 +78,7 @@ try {
       firebaseAuth = getAuth(app);
       db = getFirestore(app);
       storage = getStorage(app);
+      functions = getFunctions(app);
     } catch (fallbackError) {
       console.error('Firebase fallback initialization failed:', fallbackError);
       throw fallbackError;
@@ -86,5 +92,5 @@ try {
 export const enableFirestoreNetwork = () => enableNetwork(db);
 export const disableFirestoreNetwork = () => disableNetwork(db);
 
-export { app, firebaseAuth as auth, db, storage };
+export { app, firebaseAuth as auth, db, functions, storage };
 
