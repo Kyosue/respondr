@@ -101,9 +101,19 @@ export class ResilientAuthService {
       if (userData.status === 'inactive' || userData.status === 'suspended') {
         // Sign out the user immediately since they shouldn't be able to login
         await signOut(auth);
-        const statusMessage = userData.status === 'suspended' 
-          ? 'This account has been suspended. Please contact an administrator.'
-          : 'This account has been deactivated. Please contact an administrator.';
+        
+        // Determine appropriate message based on user's login history
+        let statusMessage: string;
+        if (userData.status === 'suspended') {
+          statusMessage = 'This account has been suspended. Please contact an administrator.';
+        } else if (!userData.lastLoginAt) {
+          // New user who hasn't logged in yet - account is pending activation
+          statusMessage = 'Your account is pending activation. Please wait for an administrator to activate your account before signing in.';
+        } else {
+          // User has logged in before but account was deactivated
+          statusMessage = 'This account has been deactivated. Please contact an administrator.';
+        }
+        
         throw new Error(statusMessage);
       }
       
