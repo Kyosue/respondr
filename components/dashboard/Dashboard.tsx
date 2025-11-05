@@ -1,28 +1,140 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { Colors } from '@/constants/Colors';
+import { useResources } from '@/contexts/ResourceContext';
+import { OperationRecord, operationsService } from '@/firebase/operations';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useDocumentDownload } from '@/hooks/useDocumentDownload';
+import { useScreenSize } from '@/hooks/useScreenSize';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityStream } from './ActivityStream';
+import { DashboardMetrics } from './DashboardMetrics';
+import { OperationsTable } from './OperationsTable';
+import { ResourceStatus } from './ResourceStatus';
+import { dashboardStyles } from './styles';
 
 export function Dashboard() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const { isMobile } = useScreenSize();
+  const { state: resourceState } = useResources();
+  const { documents, loadDocuments } = useDocumentDownload();
+  
+  const [operations, setOperations] = useState<OperationRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load operations
+  useEffect(() => {
+    const unsubscribe = operationsService.onAllOperations((ops: OperationRecord[]) => {
+      setOperations(ops);
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Load documents (only once on mount, with refresh to avoid duplicates)
+  useEffect(() => {
+    loadDocuments(undefined, true); // refresh: true to replace, not append
+  }, []); // Empty dependency array - only run once on mount
+
+  // Calculate metrics
+  const activeOperations = operations.filter(op => op.status === 'active').length;
+  const criticalOperations = operations.filter(
+    op => op.status === 'active' && op.priority === 'critical'
+  ).length;
+  
+  // Calculate resource utilization from total quantities, not resource count
+  const totalQuantity = resourceState.resources.reduce((sum, r) => sum + (r.totalQuantity || 0), 0);
+  const borrowedQuantity = resourceState.resources.reduce((sum, r) => sum + ((r.totalQuantity || 0) - (r.availableQuantity || 0)), 0);
+  const resourceUtilization = totalQuantity > 0
+    ? Math.round((borrowedQuantity / totalQuantity) * 100)
+    : 0;
+
+  // Recent documents (last 7 days) - deduplicate by ID first
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  // Deduplicate documents by ID to prevent counting duplicates
+  const uniqueDocuments = Array.from(
+    new Map(documents.map(doc => [doc.id, doc])).values()
+  );
+  
+  const recentDocuments = uniqueDocuments.filter(doc => {
+    const uploadDate = typeof doc.uploadedAt === 'string' || typeof doc.uploadedAt === 'number'
+      ? new Date(doc.uploadedAt)
+      : doc.uploadedAt;
+    return uploadDate >= sevenDaysAgo;
+  }).length;
+
+  if (isLoading) {
+    return (
+      <ThemedView style={dashboardStyles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText style={{ marginTop: 16, opacity: 0.7 }}>
+            Loading dashboard...
+          </ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
-      <Text style={styles.subtitle}>Welcome to the dashboard</Text>
-    </View>
+    <ThemedView style={dashboardStyles.container}>
+      <ScrollView
+        style={dashboardStyles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={dashboardStyles.scrollContent}
+      >
+        {/* Header */}
+        <View style={dashboardStyles.header}>
+          <View>
+            <ThemedText style={[dashboardStyles.title, { color: colors.text }]}>
+              Dashboard
+            </ThemedText>
+            <ThemedText style={[dashboardStyles.subtitle, { color: colors.text, opacity: 0.7 }]}>
+              Overview of your operations, resources, and activities
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Metrics Section */}
+        <DashboardMetrics
+          activeOperations={activeOperations}
+          criticalOperations={criticalOperations}
+          resourceUtilization={resourceUtilization}
+          recentDocuments={recentDocuments}
+        />
+
+        {/* Main Content */}
+        {isMobile ? (
+          <View style={dashboardStyles.mobileLayout}>
+            <OperationsTable operations={operations} />
+            <ResourceStatus />
+            <ActivityStream
+              operations={operations}
+              documents={documents}
+              transactions={resourceState.transactions}
+            />
+          </View>
+        ) : (
+          <View style={dashboardStyles.desktopLayout}>
+            <View style={dashboardStyles.desktopLeft}>
+              <OperationsTable operations={operations} />
+              <ActivityStream
+                operations={operations}
+                documents={documents}
+                transactions={resourceState.transactions}
+              />
+            </View>
+            <View style={dashboardStyles.desktopRight}>
+              <ResourceStatus />
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-});
