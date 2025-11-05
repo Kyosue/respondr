@@ -8,6 +8,7 @@ interface UseResourceActionsProps {
   onEdit?: (resource: Resource) => void;
   onBorrow?: (resource: Resource) => void;
   onReturn?: (resource: Resource) => void;
+  onDelete?: (resource: Resource) => void;
 }
 
 export function useResourceActions(props?: UseResourceActionsProps) {
@@ -34,29 +35,34 @@ export function useResourceActions(props?: UseResourceActionsProps) {
   };
 
   const handleDelete = (resource: Resource) => {
-    Alert.alert(
-      'Delete Resource',
-      `Are you sure you want to delete "${resource.name}"? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteResource(resource.id);
-            } catch (error) {
-              console.error('Error deleting resource:', error);
-              const errorMessage = error instanceof Error ? error.message : 'Failed to delete resource';
-              Alert.alert('Error', `Failed to delete resource: ${errorMessage}`);
-            }
+    if (props?.onDelete) {
+      props.onDelete(resource);
+    } else {
+      // Fallback to default Alert behavior if no custom handler provided
+      Alert.alert(
+        'Delete Resource',
+        `Are you sure you want to delete "${resource.name}"? This action cannot be undone.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteResource(resource.id);
+              } catch (error) {
+                console.error('Error deleting resource:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Failed to delete resource';
+                Alert.alert('Error', `Failed to delete resource: ${errorMessage}`);
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleActionsMenuToggle = (resourceId: string) => {

@@ -5,6 +5,7 @@ import {
   View
 } from 'react-native';
 
+import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
 import { SuccessModal } from '@/components/modals/SuccessModal';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -12,6 +13,7 @@ import { Colors } from '@/constants/Colors';
 import { useResources } from '@/contexts/ResourceContext';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useConfirmationModal } from '@/hooks/useConfirmationModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { usePlatform } from '@/hooks/usePlatform';
 import { Resource } from '@/types/Resource';
@@ -42,7 +44,8 @@ export function Resources() {
     getFilteredResources, 
     refreshResources,
     getAllAgencies,
-    addResource
+    addResource,
+    deleteResource
   } = useResources();
   
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
@@ -58,6 +61,9 @@ export function Resources() {
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const [agencies, setAgencies] = useState<any[]>([]);
   const [loadingAgencies, setLoadingAgencies] = useState(false);
+  
+  // Confirmation modal hook
+  const confirmationModal = useConfirmationModal();
 
   // Load agencies on component mount
   useEffect(() => {
@@ -85,13 +91,17 @@ export function Resources() {
   const handleBorrowResource = (resource: Resource) => {
     // Prevent borrowing external resources
     if (resource.resourceType === 'external' || resource.isBorrowable === false) {
-      Alert.alert(
-        'Cannot Borrow',
-        resource.resourceType === 'external' 
+      confirmationModal.showConfirmation({
+        title: 'Cannot Borrow',
+        message: resource.resourceType === 'external' 
           ? 'External resources cannot be borrowed.' 
           : 'This resource is not available for borrowing.',
-        [{ text: 'OK' }]
-      );
+        variant: 'info',
+        confirmLabel: 'OK',
+        onConfirm: () => {
+          // Modal will close automatically after onConfirm
+        },
+      });
       return;
     }
     
@@ -102,6 +112,28 @@ export function Resources() {
   const handleReturnResource = (resource: Resource) => {
     setSelectedResource(resource);
     setShowDetailModal(true);
+  };
+
+  // Delete handler with confirmation
+  const handleDeleteResource = (resource: Resource) => {
+    confirmationModal.showConfirmation({
+      title: 'Delete Resource',
+      message: `Are you sure you want to delete "${resource.name}"? This action cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteResource(resource.id);
+        } catch (error) {
+          console.error('Error deleting resource:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete resource';
+          Alert.alert('Error', `Failed to delete resource: ${errorMessage}`);
+          // Don't hide modal on error - let user retry
+          throw error;
+        }
+        // Modal will close automatically after successful onConfirm
+      },
+    });
   };
 
   // Custom hooks
@@ -119,6 +151,7 @@ export function Resources() {
     onEdit: handleEditResource,
     onBorrow: handleBorrowResource,
     onReturn: handleReturnResource,
+    onDelete: handleDeleteResource,
   });
 
   const {
@@ -357,6 +390,21 @@ export function Resources() {
         message={successMessage}
         onClose={handleModalClose}
       />
+
+      {/* Confirmation Modal */}
+      {confirmationModal.options && (
+        <ConfirmationModal
+          visible={confirmationModal.visible}
+          title={confirmationModal.options.title}
+          message={confirmationModal.options.message}
+          variant={confirmationModal.options.variant}
+          confirmLabel={confirmationModal.options.confirmLabel}
+          cancelLabel={confirmationModal.options.cancelLabel}
+          icon={confirmationModal.options.icon}
+          onConfirm={confirmationModal.handleConfirm}
+          onCancel={confirmationModal.hideConfirmation}
+        />
+      )}
     </ThemedView>
   );
 }

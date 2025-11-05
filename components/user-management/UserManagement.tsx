@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserData, UserStatus } from '@/firebase/auth';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useConfirmationModal } from '@/hooks/useConfirmationModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { UserType } from '@/types/UserType';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +46,9 @@ const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
+  
+  // Confirmation modal hook
+  const confirmationModal = useConfirmationModal();
 
   // Responsive grid logic
   const screenWidth = Dimensions.get('window').width;
@@ -162,32 +167,32 @@ const UserManagement: React.FC = () => {
     handleCloseModal();
   };
 
-  const handleDeleteUser = async (user: UserData) => {
+  const handleDeleteUser = (user: UserData) => {
     // Check if trying to delete own account
     if (user.id === firebaseUser?.uid) {
-      Alert.alert(
-        'Cannot Delete Account',
-        'You cannot delete your own account. Please ask another administrator to delete your account.',
-        [{ text: 'OK' }]
-      );
+      confirmationModal.showConfirmation({
+        title: 'Cannot Delete Account',
+        message: 'You cannot delete your own account. Please ask another administrator to delete your account.',
+        variant: 'info',
+        confirmLabel: 'OK',
+        onConfirm: () => {
+          // Modal will close automatically after onConfirm
+        },
+      });
       return;
     }
 
-    Alert.alert(
-      'Delete User',
-      `Are you sure you want to delete ${user.fullName}? This action cannot be undone and will require your password verification.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => {
-            setUserToDelete(user);
-            setShowPasswordModal(true);
-          }
-        }
-      ]
-    );
+    confirmationModal.showConfirmation({
+      title: 'Delete User',
+      message: `Are you sure you want to delete ${user.fullName}? This action cannot be undone and will require your password verification.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: () => {
+        setUserToDelete(user);
+        setShowPasswordModal(true);
+        // Modal will close automatically after onConfirm
+      },
+    });
   };
 
   const handlePasswordVerification = async (password: string) => {
@@ -220,31 +225,34 @@ const UserManagement: React.FC = () => {
     setUserToDelete(null);
   };
 
-  const handleToggleUserStatus = async (user: UserData) => {
+  const handleToggleUserStatus = (user: UserData) => {
     const currentStatus = user.status || 'active'; // Default to 'active' if status is undefined
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     const action = newStatus === 'active' ? 'activate' : 'deactivate';
+    const actionCapitalized = action.charAt(0).toUpperCase() + action.slice(1);
     
-    Alert.alert(
-      `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
-      `Are you sure you want to ${action} ${user.fullName}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: action.charAt(0).toUpperCase() + action.slice(1), 
-          onPress: async () => {
-            try {
-              await toggleUserStatus(user.id, newStatus);
-              await fetchUsers(); // Refresh the list
-              Alert.alert('Success', `User ${action}d successfully`);
-            } catch (error) {
-              console.error(`Error ${action}ing user:`, error);
-              Alert.alert('Error', `Failed to ${action} user. Please try again.`);
-            }
-          }
+    // Use green (warning variant) for activation, red (danger variant) for deactivation
+    const variant = newStatus === 'active' ? 'warning' : 'danger';
+    
+    confirmationModal.showConfirmation({
+      title: `${actionCapitalized} User`,
+      message: `Are you sure you want to ${action} ${user.fullName}?`,
+      variant: variant,
+      confirmLabel: actionCapitalized,
+      onConfirm: async () => {
+        try {
+          await toggleUserStatus(user.id, newStatus);
+          await fetchUsers(); // Refresh the list
+          Alert.alert('Success', `User ${action}d successfully`);
+        } catch (error) {
+          console.error(`Error ${action}ing user:`, error);
+          Alert.alert('Error', `Failed to ${action} user. Please try again.`);
+          // Don't hide modal on error - let user retry
+          throw error;
         }
-      ]
-    );
+        // Modal will close automatically after successful onConfirm
+      },
+    });
   };
 
   
@@ -443,6 +451,21 @@ const UserManagement: React.FC = () => {
         message="To delete this user, please enter your current password to confirm this action."
         userFullName={userToDelete?.fullName}
       />
+
+      {/* Confirmation Modal */}
+      {confirmationModal.options && (
+        <ConfirmationModal
+          visible={confirmationModal.visible}
+          title={confirmationModal.options.title}
+          message={confirmationModal.options.message}
+          variant={confirmationModal.options.variant}
+          confirmLabel={confirmationModal.options.confirmLabel}
+          cancelLabel={confirmationModal.options.cancelLabel}
+          icon={confirmationModal.options.icon}
+          onConfirm={confirmationModal.handleConfirm}
+          onCancel={confirmationModal.hideConfirmation}
+        />
+      )}
     </ThemedView>
   );
 };
