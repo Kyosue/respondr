@@ -24,20 +24,41 @@ export function Dashboard() {
   const [operations, setOperations] = useState<OperationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load operations
+  // Load operations with timeout fallback for slow RN startup
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let hasReceivedData = false;
+
+    // Ensure loading state clears if Firestore is slow to initialize on mobile
+    timeoutId = setTimeout(() => {
+      if (!hasReceivedData) {
+        setIsLoading(false);
+        setOperations([]);
+      }
+    }, 3000);
+
     const unsubscribe = operationsService.onAllOperations((ops: OperationRecord[]) => {
+      hasReceivedData = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       setOperations(ops);
       setIsLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      unsubscribe();
+    };
   }, []);
 
   // Load documents (only once on mount, with refresh to avoid duplicates)
   useEffect(() => {
     loadDocuments(undefined, true); // refresh: true to replace, not append
-  }, []); // Empty dependency array - only run once on mount
+  }, [loadDocuments]); // Include loadDocuments in dependencies
 
   // Calculate metrics
   const activeOperations = operations.filter(op => op.status === 'active').length;

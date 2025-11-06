@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Dimensions,
@@ -37,9 +37,9 @@ export default function IndexScreen() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { isDesktop } = useScreenSize();
   
-  // Animation values
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(20);
+  // Animation values (persist across renders)
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
   
   useEffect(() => {
     // Start animations when component mounts
