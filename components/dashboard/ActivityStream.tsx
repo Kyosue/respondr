@@ -2,12 +2,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { OperationRecord } from '@/firebase/operations';
-import { SitRepDocument } from '@/types/Document';
-import { ResourceTransaction } from '@/types/Resource';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
+import { SitRepDocument } from '@/types/Document';
+import { ResourceTransaction } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View, ScrollView } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 interface ActivityItem {
   id: string;
@@ -110,10 +110,10 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     return new Date();
   };
 
-  // Add operations (recent active ones) - deduplicate by operation ID
+  // Add operations (recent active ones) - limit to 3 most recent
   operations
     .filter(op => op.status === 'active')
-    .slice(0, 5)
+    .slice(0, 3)
     .forEach((op) => {
       if (!seenOpIds.has(op.id)) {
         seenOpIds.add(op.id);
@@ -127,8 +127,8 @@ export function ActivityStream({ operations, documents, transactions }: Activity
       }
     });
 
-  // Add recent documents - deduplicate by document ID
-  documents.slice(0, 5).forEach((doc) => {
+  // Add recent documents - limit to 3 most recent
+  documents.slice(0, 3).forEach((doc) => {
     if (!seenDocIds.has(doc.id)) {
       seenDocIds.add(doc.id);
       activities.push({
@@ -141,10 +141,10 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     }
   });
 
-  // Add recent resource transactions - deduplicate by transaction ID
+  // Add recent resource transactions - limit to 3 most recent
   transactions
     .filter(t => t.status === 'active')
-    .slice(0, 5)
+    .slice(0, 3)
     .forEach((transaction) => {
       if (!seenTransIds.has(transaction.id)) {
         seenTransIds.add(transaction.id);
@@ -166,8 +166,8 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     return timeB - timeA;
   });
 
-  // Take top 15
-  const recentActivities = activities.slice(0, 15);
+  // Limit to top 8 activities for compact display
+  const recentActivities = activities.slice(0, 8);
 
   // Group by time
   const groupedActivities = groupByTime(recentActivities);
@@ -177,8 +177,8 @@ export function ActivityStream({ operations, documents, transactions }: Activity
       <ThemedView style={[styles.card, isMobile && styles.cardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.headerSection}>
           <View style={styles.titleContainer}>
-            <View style={[styles.iconContainer, { backgroundColor: `${colors.accent}15` }]}>
-              <Ionicons name="time" size={20} color={colors.accent} />
+            <View style={[styles.headerIconContainer, { backgroundColor: `${colors.accent}15` }]}>
+              <Ionicons name="time" size={18} color={colors.accent} />
             </View>
             <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Activity
@@ -196,8 +196,8 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     <ThemedView style={[styles.card, isMobile && styles.cardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.headerSection}>
         <View style={styles.titleContainer}>
-          <View style={[styles.iconContainer, { backgroundColor: `${colors.accent}15` }]}>
-            <Ionicons name="time" size={20} color={colors.accent} />
+          <View style={[styles.headerIconContainer, { backgroundColor: `${colors.accent}15` }]}>
+            <Ionicons name="time" size={18} color={colors.accent} />
           </View>
           <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
             Recent Activity
@@ -212,8 +212,8 @@ export function ActivityStream({ operations, documents, transactions }: Activity
             </ThemedText>
             {group.items.map((activity) => (
               <View key={activity.id} style={styles.activityItem}>
-                <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                  <Ionicons name={activity.icon} size={18} color={colors.primary} />
+                <View style={[styles.activityIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                  <Ionicons name={activity.icon} size={16} color={colors.primary} />
                 </View>
                 <View style={styles.activityContent}>
                   <ThemedText style={[styles.activityMessage, { color: colors.text }]} numberOfLines={2}>
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 20,
+    padding: 16,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardMobile: {
-    padding: 16,
+    padding: 12,
     marginBottom: 16,
   },
   container: {
@@ -256,25 +256,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
+    marginBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+  headerIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     fontFamily: 'Gabarito',
   },
@@ -282,39 +282,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   group: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   groupLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 8,
     fontFamily: 'Gabarito',
   },
   activityItem: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 8,
     alignItems: 'flex-start',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  activityIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
     flexShrink: 0,
   },
   activityContent: {
     flex: 1,
   },
   activityMessage: {
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: 14,
+    marginBottom: 2,
     fontFamily: 'Gabarito',
-    lineHeight: 18,
+    lineHeight: 16,
     fontWeight: '500',
   },
   activityTime: {

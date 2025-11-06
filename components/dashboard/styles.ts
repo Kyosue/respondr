@@ -10,11 +10,11 @@ export const dashboardStyles = StyleSheet.create({
   },
   scrollContent: {
     padding: 5,
-    paddingBottom: 40,
+    paddingBottom: 100, // Extra padding to prevent content from being cut off by bottom nav
   },
   header: {
-    marginBottom: 24,
-    paddingBottom: 16,
+    marginBottom: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },

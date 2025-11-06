@@ -6,7 +6,7 @@ import { OperationRecord } from '@/firebase/operations';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface OperationsTableProps {
   operations: OperationRecord[];
@@ -96,61 +96,56 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
             {activeOperations.length}
           </ThemedText>
         </View>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {activeOperations.map((operation) => (
+        <View style={styles.mobileListContainer}>
+          {activeOperations.map((operation, index) => (
             <TouchableOpacity
               key={operation.id}
-              style={[styles.mobileItem, { borderColor: colors.border }]}
+              style={[
+                styles.mobileItem,
+                { 
+                  borderLeftColor: getPriorityColor(operation.priority, colors),
+                  backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`,
+                }
+              ]}
               onPress={() => onOperationPress?.(operation)}
-              activeOpacity={0.7}
+              activeOpacity={0.6}
             >
-              <View style={styles.mobileItemHeader}>
-                <View
-                  style={[
-                    styles.priorityBadge,
-                    styles.priorityBadgeMobile,
-                    { backgroundColor: getPriorityColor(operation.priority, colors) },
-                  ]}
-                />
-                <View style={styles.mobileTitleContainer}>
-                  <ThemedText
-                    style={[styles.mobileTitle, { color: colors.text }]}
-                    numberOfLines={2}
-                  >
-                    {operation.title}
-                  </ThemedText>
+              <View style={styles.mobileItemContent}>
+                <View style={styles.mobileItemTop}>
+                  <View style={styles.mobileTitleRow}>
+                    <ThemedText
+                      style={[styles.mobileTitle, { color: colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {operation.title}
+                    </ThemedText>
+                    <View style={[styles.mobilePriorityBadge, { backgroundColor: `${getPriorityColor(operation.priority, colors)}15` }]}>
+                      <ThemedText style={[styles.mobilePriorityText, { color: getPriorityColor(operation.priority, colors) }]}>
+                        {operation.priority.toUpperCase()}
+                      </ThemedText>
+                    </View>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.mobileMeta}>
-                <View style={styles.mobileMetaItem}>
-                  <Ionicons name="location-outline" size={14} color={colors.text} style={{ opacity: 0.6, marginRight: 6 }} />
-                  <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]} numberOfLines={1}>
-                    {getMunicipalityName(operation.municipalityId)}
-                  </ThemedText>
-                </View>
-                <View style={styles.mobileMetaItem}>
-                  <Ionicons name="calendar-outline" size={14} color={colors.text} style={{ opacity: 0.6, marginRight: 6 }} />
-                  <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]}>
-                    {formatDate(operation.startDate)}
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={styles.mobileFooter}>
-                <View style={[styles.mobilePriorityBadge, { backgroundColor: `${getPriorityColor(operation.priority, colors)}20` }]}>
-                  <ThemedText style={[styles.mobilePriorityText, { color: getPriorityColor(operation.priority, colors) }]}>
-                    {operation.priority.toUpperCase()}
-                  </ThemedText>
-                </View>
-                <View style={[styles.mobileStatusContainer, { backgroundColor: `${colors.primary}15` }]}>
-                  <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
-                  <ThemedText style={[styles.mobileStatusText, { color: colors.primary }]}>
-                    Active
-                  </ThemedText>
+                <View style={styles.mobileItemBottom}>
+                  <View style={styles.mobileMetaRow}>
+                    <View style={styles.mobileMetaItem}>
+                      <Ionicons name="location-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
+                      <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]} numberOfLines={1}>
+                        {getMunicipalityName(operation.municipalityId)}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.mobileMetaItem}>
+                      <Ionicons name="calendar-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
+                      <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]}>
+                        {formatDate(operation.startDate)}
+                      </ThemedText>
+                    </View>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </ThemedView>
     );
   }
@@ -284,8 +279,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
+    marginBottom: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
@@ -420,77 +415,64 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  mobileListContainer: {
+    gap: 0,
+  },
   mobileItem: {
-    padding: 16,
+    borderLeftWidth: 3,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
-    marginBottom: 0,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    marginVertical: 6,
-    borderWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
-  mobileItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-    gap: 10,
-  },
-  mobileTitleContainer: {
+  mobileItemContent: {
     flex: 1,
-    minWidth: 0,
+  },
+  mobileItemTop: {
+    marginBottom: 8,
+  },
+  mobileTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   mobileTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Gabarito',
-    lineHeight: 22,
+    flex: 1,
+    lineHeight: 20,
   },
-  mobileMeta: {
-    flexDirection: 'column',
-    marginBottom: 12,
-    gap: 8,
-    paddingLeft: 22,
+  mobileItemBottom: {
+    marginTop: 4,
+  },
+  mobileMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flexWrap: 'wrap',
   },
   mobileMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    flexShrink: 1,
   },
   mobileText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Gabarito',
-    flex: 1,
-  },
-  mobileFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 22,
-    gap: 8,
   },
   mobilePriorityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexShrink: 0,
   },
   mobilePriorityText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     fontFamily: 'Gabarito',
     letterSpacing: 0.5,
-  },
-  mobileStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 6,
-  },
-  mobileStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
   },
   emptyText: {
     fontSize: 14,

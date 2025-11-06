@@ -117,8 +117,11 @@ export class ResilientAuthService {
         throw new Error(statusMessage);
       }
       
-      // Update last login timestamp
-      await this.updateLastLogin(user.uid);
+      // Update last login timestamp asynchronously (don't block login)
+      // This allows the user to be logged in immediately while the timestamp updates in the background
+      this.updateLastLogin(user.uid).catch(error => {
+        console.warn('Failed to update last login timestamp (non-blocking):', error);
+      });
       
       return userData;
     } catch (error) {
