@@ -53,7 +53,12 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
   
-
+  // Check if passwords match (only when both have values and no errors)
+  const passwordsMatch = password.length > 0 && 
+                          confirmPassword.length > 0 && 
+                          password === confirmPassword && 
+                          !passwordError && 
+                          !confirmPasswordError;
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -257,7 +262,13 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
                 styles.input,
                 { 
                   backgroundColor: colors.inputBackground,
-                  borderColor: isFocused.password ? colors.primary : passwordError ? colors.error : colors.inputBorder,
+                  borderColor: passwordError 
+                    ? colors.error 
+                    : passwordsMatch 
+                      ? '#10b981' // Green color when passwords match
+                      : isFocused.password 
+                        ? colors.primary 
+                        : colors.inputBorder,
                   color: colors.inputText,
                   paddingLeft: 48,
                   paddingRight: 48,
@@ -309,7 +320,13 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
                 styles.input,
                 { 
                   backgroundColor: colors.inputBackground,
-                  borderColor: isFocused.confirmPassword ? colors.primary : confirmPasswordError ? colors.error : colors.inputBorder,
+                  borderColor: confirmPasswordError 
+                    ? colors.error 
+                    : passwordsMatch 
+                      ? '#10b981' // Green color when passwords match
+                      : isFocused.confirmPassword 
+                        ? colors.primary 
+                        : colors.inputBorder,
                   color: colors.inputText,
                   paddingLeft: 48,
                   paddingRight: 48,
@@ -490,8 +507,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: -70,
+    marginTop: 24,
+    marginBottom: 20,
   },
   footerText: {
     fontSize: 15,

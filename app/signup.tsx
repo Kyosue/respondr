@@ -8,11 +8,11 @@ import { useSignup } from '@/hooks/useSignup';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dimensions,
   Image,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -30,8 +30,24 @@ export default function SignupScreen() {
   // State for success modal
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   
-  // No animations - instant rendering
+  // Listen to keyboard show/hide events
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const handleSignup = async (
     fullName: string, 
@@ -77,46 +93,51 @@ export default function SignupScreen() {
       </View>
       
       <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        <ScrollView 
+          style={styles.scrollViewContainer}
+          contentContainerStyle={[
+            styles.scrollView,
+            { paddingBottom: isKeyboardVisible 
+              ? (Platform.OS === 'android' ? 200 : 150) 
+              : (Platform.OS === 'android' ? 40 : 30)
+            }
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+          keyboardDismissMode="interactive"
+          nestedScrollEnabled={true}
+          bounces={true}
+          scrollEnabled={true}
+          alwaysBounceVertical={false}
         >
-          <ScrollView 
-            contentContainerStyle={styles.scrollView}
-            keyboardShouldPersistTaps="always"
-            showsVerticalScrollIndicator={false}
-            keyboardDismissMode="interactive"
-          >
-            <View style={styles.container}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('@/assets/images/logo-1.png')}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-              
-              <View style={styles.header}>
-                <ThemedText type="title" style={styles.title}>
-                  Self Signup
-                </ThemedText>
-                <ThemedText style={styles.subtitle}>
-                  Create your account - activation required by administrator
-                </ThemedText>
-              </View>
-              
-              <View style={styles.formContainer}>
-                <SignupForm 
-                  key={formKey}
-                  onSubmit={handleSignup}
-                  isLoading={isLoading}
-                  error={error}
-                />
-              </View>
+          <View style={styles.container}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('@/assets/images/logo-1.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            
+            <View style={styles.header}>
+              <ThemedText type="title" style={styles.title}>
+                Self Signup
+              </ThemedText>
+              <ThemedText style={styles.subtitle}>
+                Create your account - activation required by administrator
+              </ThemedText>
+            </View>
+            
+            <View style={styles.formContainer}>
+              <SignupForm 
+                key={formKey}
+                onSubmit={handleSignup}
+                isLoading={isLoading}
+                error={error}
+              />
+            </View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
       
       {/* Success Modal */}
@@ -134,14 +155,12 @@ const { width, height } = Dimensions.get('window');
 const logoSize = Math.min(width * 0.3, 110);
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
+  scrollViewContainer: {
     flex: 1,
-    width: '100%',
   },
   scrollView: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingBottom: Platform.OS === 'android' ? 80 : 20, // Add padding at the bottom to ensure scrollability
+    // paddingBottom is set dynamically based on keyboard visibility
   },
   backgroundGradient: {
     position: 'absolute',
@@ -177,8 +196,9 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     padding: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: 40,
+    paddingBottom: 30, // Extra bottom padding to ensure footer is fully visible
   },
   logoContainer: {
     marginTop: 20,
@@ -191,7 +211,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     width: '100%',
   },
   title: {
