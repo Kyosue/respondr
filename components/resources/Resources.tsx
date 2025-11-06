@@ -31,6 +31,7 @@ import { useResourceSearch } from './hooks/useResourceSearch';
 import { ResourceActionsMenu } from './ResourceActions/ResourceActionsMenu';
 import { ResourceCard } from './ResourceCard/ResourceCard';
 import { ResourceHeader } from './ResourceHeader/ResourceHeader';
+import { ResourcesTable } from './ResourcesTable';
 import { styles } from './styles/Resources.styles';
 
 export function Resources() {
@@ -247,21 +248,16 @@ export function Resources() {
 
     if (isWeb) {
       return (
-        <View style={styles.resourcesContainer}>
-          {filteredResources.map((resource: Resource) => (
-            <ResourceCard
-              key={resource.id}
-              resource={resource}
-              onPress={handleResourcePress}
-              onEdit={canEditResources ? handleEditResource : () => {}}
-              onDelete={canDeleteResources ? handleDelete : () => {}}
-              onBorrow={handleBorrowResource}
-              onReturn={handleReturnResource}
-              isActionsMenuOpen={openActionsMenuId === resource.id}
-              onActionsMenuToggle={handleActionsMenuToggleWithResource}
-            />
-          ))}
-        </View>
+        <ResourcesTable
+          resources={filteredResources}
+          onResourcePress={handleResourcePress}
+          onBorrow={handleBorrowResource}
+          onReturn={handleReturnResource}
+          onEdit={canEditResources ? handleEditResource : undefined}
+          onDelete={canDeleteResources ? handleDelete : undefined}
+          canEdit={canEditResources}
+          canDelete={canDeleteResources}
+        />
       );
     }
 

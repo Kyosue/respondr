@@ -1,6 +1,7 @@
 import { memo, useRef, useState } from 'react';
 import {
     Animated,
+    Image,
     Platform,
     TouchableOpacity,
     View
@@ -10,11 +11,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Resource, ResourceCategory } from '@/types/Resource';
+import { Ionicons } from '@expo/vector-icons';
 
 import { styles } from './ResourceCard.styles';
 import { ResourceCardActions } from './ResourceCardActions';
-import { ResourceCardHeader } from './ResourceCardHeader';
-import { ResourceCardStats } from './ResourceCardStats';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -101,14 +101,27 @@ export const ResourceCard = memo(function ResourceCard({
   const isExternalResource = resource.resourceType === 'external';
   const isBorrowable = resource.isBorrowable !== false; // Default to true for backward compatibility
 
+  const getCategoryIcon = (category: ResourceCategory) => {
+    switch (category) {
+      case 'vehicles': return 'car-outline';
+      case 'medical': return 'medkit-outline';
+      case 'equipment': return 'construct-outline';
+      case 'communication': return 'radio-outline';
+      case 'personnel': return 'people-outline';
+      case 'tools': return 'hammer-outline';
+      case 'supplies': return 'cube-outline';
+      default: return 'cube-outline';
+    }
+  };
+
   return (
     <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
       <TouchableOpacity 
         ref={cardRef}
         style={[styles.resourceCard, { 
-          backgroundColor: isExternalResource ? '#FFF8E1' : colors.surface, // Light orange for external
-          borderColor: isExternalResource ? '#FFB74D' : colors.border, // Orange border for external
-          borderLeftWidth: isExternalResource ? 4 : 1, // Thicker left border for external
+          backgroundColor: isExternalResource ? '#FFF8E1' : colors.surface,
+          borderColor: isExternalResource ? '#FFB74D' : colors.border,
+          borderLeftWidth: isExternalResource ? 4 : 1,
           ...Platform.select({
             ios: {
               shadowColor: isExternalResource ? '#FFB74D' : colors.shadow,
@@ -125,61 +138,100 @@ export const ResourceCard = memo(function ResourceCard({
         activeOpacity={0.7}
       >
         <View style={styles.cardContent}>
-          {/* Left: Image and Info */}
-          <View style={styles.leftSection}>
-            <ResourceCardHeader 
-              resource={resource}
-              categoryColor={categoryColor}
-              conditionColor={conditionColor}
-              getConditionText={getConditionText}
-            />
-            
-            <View style={styles.metaRow}>
-              <ThemedText style={[styles.resourceCategory, { color: categoryColor }]}>
-                {resource.category.toUpperCase()}
+          {/* Image */}
+          <View style={styles.imageContainer}>
+            {resource.images && resource.images.length > 0 ? (
+              <Image 
+                source={{ uri: resource.images[0] }} 
+                style={styles.resourceImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.placeholderImage, { backgroundColor: categoryColor + '20' }]}>
+                <Ionicons 
+                  name={getCategoryIcon(resource.category)} 
+                  size={20} 
+                  color={categoryColor} 
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Main Content Section */}
+          <View style={styles.contentSection}>
+            {/* Row 1: Title + Condition + Actions */}
+            <View style={styles.topRow}>
+              <ThemedText style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={1}>
+                {resource.name}
               </ThemedText>
-              {isExternalResource && (
-                <ThemedText style={[styles.externalBadge, { color: '#FF8F00' }]}>
-                  • EXTERNAL
+              <View style={styles.topRightGroup}>
+                <View style={[styles.conditionChip, { backgroundColor: conditionColor + '20', marginRight: 6 }]}>
+                  <ThemedText style={[styles.conditionText, { color: conditionColor }]}>
+                    {getConditionText(resource.condition)}
+                  </ThemedText>
+                </View>
+                <ResourceCardActions
+                  resource={resource}
+                  onBorrow={onBorrow}
+                  onReturn={onReturn}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onActionsMenuToggle={handleActionsMenuToggle}
+                  isActionsMenuOpen={isActionsMenuOpen}
+                  colors={colors}
+                />
+              </View>
+            </View>
+
+            {/* Row 2: Meta Info (Category, Location, External) */}
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Ionicons name={getCategoryIcon(resource.category)} size={12} color={categoryColor} style={{ marginRight: 4 }} />
+                <ThemedText style={[styles.metaText, { color: colors.text }]}>
+                  {resource.category.toUpperCase()}
                 </ThemedText>
-              )}
+              </View>
               {resource.location && (
-                <ThemedText style={styles.resourceLocation} numberOfLines={1}>
-                  • {resource.location}
-                </ThemedText>
+                <>
+                  <ThemedText style={[styles.metaSeparator, { color: colors.text }]}>•</ThemedText>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="location-outline" size={12} color={colors.text} style={{ opacity: 0.6, marginRight: 4 }} />
+                    <ThemedText style={[styles.metaText, { color: colors.text }]} numberOfLines={1}>
+                      {resource.location}
+                    </ThemedText>
+                  </View>
+                </>
+              )}
+              {isExternalResource && (
+                <>
+                  <ThemedText style={[styles.metaSeparator, { color: colors.text }]}>•</ThemedText>
+                  <View style={[styles.externalBadgeInline, { backgroundColor: '#FFB74D20' }]}>
+                    <ThemedText style={[styles.externalTextInline, { color: '#FF8F00' }]}>
+                      EXTERNAL
+                    </ThemedText>
+                  </View>
+                </>
               )}
             </View>
 
-            <ResourceCardStats 
-              resource={resource}
-              statusColor={statusColor}
-            />
+            {/* Row 3: Availability */}
+            <View style={styles.availabilityRow}>
+              <ThemedText style={[styles.availabilityText, { color: colors.text }]}>
+                {resource.availableQuantity}/{resource.totalQuantity} Available
+              </ThemedText>
+              <View style={[styles.availabilityBar, { backgroundColor: colors.border }]}>
+                <View 
+                  style={[
+                    styles.availabilityFill, 
+                    { 
+                      backgroundColor: statusColor,
+                      width: `${availabilityPercentage}%` 
+                    }
+                  ]} 
+                />
+              </View>
+            </View>
           </View>
-
-          {/* Right: Actions */}
-          <ResourceCardActions
-            resource={resource}
-            onBorrow={onBorrow}
-            onReturn={onReturn}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onActionsMenuToggle={handleActionsMenuToggle}
-            isActionsMenuOpen={isActionsMenuOpen}
-            colors={colors}
-          />
-        </View>
-
-        {/* Availability Bar */}
-        <View style={[styles.availabilityBar, { backgroundColor: colors.border }]}>
-          <View 
-            style={[
-              styles.availabilityFill, 
-              { 
-                backgroundColor: statusColor,
-                width: `${availabilityPercentage}%` 
-              }
-            ]} 
-          />
         </View>
       </TouchableOpacity>
     </Animated.View>

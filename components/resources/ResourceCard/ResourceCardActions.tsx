@@ -30,17 +30,21 @@ export function ResourceCardActions({
   const isBorrowable = resource.isBorrowable !== false; // Default to true for backward compatibility
 
   return (
-    <View style={styles.rightSection}>
+    <View style={styles.actionsGroup}>
       {!isExternalResource && isBorrowable && (
         <TouchableOpacity 
           style={[styles.primaryActionButton, { 
+            marginRight: 6,
             backgroundColor: resource.availableQuantity > 0 ? colors.primary : colors.success 
           }]}
-          onPress={() => resource.availableQuantity > 0 ? onBorrow(resource) : onReturn(resource)}
+          onPress={(e) => {
+            e.stopPropagation();
+            resource.availableQuantity > 0 ? onBorrow(resource) : onReturn(resource);
+          }}
         >
           <Ionicons 
             name={resource.availableQuantity > 0 ? "cart-outline" : "return-down-back-outline"} 
-            size={16} 
+            size={14} 
             color="#fff" 
           />
         </TouchableOpacity>
@@ -48,7 +52,7 @@ export function ResourceCardActions({
       
       {isExternalResource && (
         <View style={[styles.externalIndicator, { backgroundColor: '#FFB74D' + '20' }]}>
-          <Ionicons name="business-outline" size={16} color="#FF8F00" />
+          <Ionicons name="business-outline" size={14} color="#FF8F00" />
         </View>
       )}
       
@@ -57,11 +61,14 @@ export function ResourceCardActions({
           style={[styles.menuButton, { 
             backgroundColor: isActionsMenuOpen ? colors.primary + '20' : colors.text + '15' 
           }]}
-          onPress={onActionsMenuToggle}
+          onPress={(e) => {
+            e.stopPropagation();
+            onActionsMenuToggle();
+          }}
         >
           <Ionicons 
             name="ellipsis-horizontal" 
-            size={16} 
+            size={14} 
             color={isActionsMenuOpen ? colors.primary : colors.text} 
           />
         </TouchableOpacity>

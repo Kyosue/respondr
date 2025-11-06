@@ -11,7 +11,6 @@ export const styles = StyleSheet.create({
       web: {
         marginHorizontal: 8,
         marginVertical: 8,
-        height: 180,
         width: 350,
         display: 'flex',
         flexDirection: 'column',
@@ -20,33 +19,16 @@ export const styles = StyleSheet.create({
   },
   cardContent: {
     flexDirection: 'row',
-    padding: 8,
-    ...Platform.select({
-      web: {
-        flex: 1,
-        height: '100%',
-      },
-    }),
-  },
-  leftSection: {
-    flex: 1,
-    marginRight: 12,
-    ...Platform.select({
-      web: {
-        overflow: 'hidden',
-      },
-    }),
-  },
-  headerRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
+    padding: 12,
+    paddingVertical: 12,
   },
   imageContainer: {
-    width: 45,
-    height: 45,
+    width: 40,
+    height: 40,
     borderRadius: 8,
     overflow: 'hidden',
-    marginRight: 10,
+    marginRight: 12,
+    flexShrink: 0,
   },
   resourceImage: {
     width: '100%',
@@ -58,19 +40,21 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  titleContainer: {
+  contentSection: {
     flex: 1,
+    minWidth: 0,
   },
-  titleRow: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   resourceTitle: {
     fontSize: 16,
     fontWeight: '700',
     flex: 1,
-    marginRight: 8,
+    minWidth: 0,
     ...Platform.select({
       web: {
         overflow: 'hidden',
@@ -78,89 +62,89 @@ export const styles = StyleSheet.create({
         whiteSpace: 'nowrap',
       },
     }),
+  },
+  topRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
   },
   conditionChip: {
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   conditionText: {
     fontSize: 10,
-    fontWeight: '600',
-  },
-  resourceDescription: {
-    fontSize: 12,
-    opacity: 0.7,
-    lineHeight: 16,
-    ...Platform.select({
-      web: {
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        maxHeight: 32,
-      },
-    }),
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: 'Gabarito',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 8,
+    flexWrap: 'wrap',
   },
-  resourceCategory: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    marginRight: 6,
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  resourceLocation: {
-    fontSize: 10,
+  metaText: {
+    fontSize: 12,
     opacity: 0.7,
-    flex: 1,
+    fontFamily: 'Gabarito',
   },
-  externalBadge: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginLeft: 4,
+  metaSeparator: {
+    fontSize: 12,
+    opacity: 0.4,
+    marginHorizontal: 4,
+  },
+  externalBadgeInline: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  externalTextInline: {
+    fontSize: 9,
+    fontWeight: '700',
+    fontFamily: 'Gabarito',
+    letterSpacing: 0.5,
   },
   externalIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  availabilityRow: {
+    flexDirection: 'column',
+  },
+  availabilityText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    marginBottom: 4,
+  },
+  availabilityBar: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  availabilityFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  actionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  primaryActionButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 1,
-  },
-  statLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-    opacity: 0.7,
-  },
-  rightSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-    gap: 10,
-  },
-  primaryActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -181,23 +165,5 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  availabilityBar: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 4,
-    width: '95%',
-    alignSelf: 'center',
-    ...Platform.select({
-      web: {
-        marginTop: 'auto',
-        marginBottom: 8,
-      },
-    }),
-  },
-  availabilityFill: {
-    height: 3,
-    borderRadius: 2,
   },
 });
