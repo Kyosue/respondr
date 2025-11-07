@@ -7,6 +7,7 @@ import { useScreenSize } from '@/hooks/useScreenSize';
 import { SitRepDocument } from '@/types/Document';
 import { ResourceTransaction } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 interface ActivityItem {
@@ -41,13 +42,29 @@ function formatTimeAgo(date: Date | string | number | undefined | null): string 
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
+  // Format time with hours and minutes in 12-hour format with AM/PM
+  const timeString = d.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+
+  // Show "Just now" for activities less than 5 minutes old
+  if (diffMins < 5) return `Just now (${timeString})`;
   
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Round down to nearest 5-minute interval for activities less than an hour old
+  // This ensures updates only show: 5m, 10m, 15m, 20m, 25m, 30m, 35m, 40m, 45m, 50m, 55m
+  if (diffMins < 60) {
+    const roundedMins = Math.floor(diffMins / 5) * 5;
+    return `${roundedMins}m ago (${timeString})`;
+  }
+  if (diffHours < 24) return `${diffHours}h ago (${timeString})`;
+  if (diffDays === 1) return `Yesterday at ${timeString}`;
+  if (diffDays < 7) return `${diffDays}d ago (${timeString})`;
+  
+  // For older dates, show full date with time
+  const dateString = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${dateString} at ${timeString}`;
 }
 
 function groupByTime(activities: ActivityItem[]): { label: string; items: ActivityItem[] }[] {
@@ -94,13 +111,9 @@ export function ActivityStream({ operations, documents, transactions }: Activity
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
-
-  // Build activity items with unique IDs
-  // Use Sets to track seen source IDs to prevent duplicates
-  const activities: ActivityItem[] = [];
-  const seenOpIds = new Set<string>();
-  const seenDocIds = new Set<string>();
-  const seenTransIds = new Set<string>();
+  
+  // State to trigger periodic updates for recent activities
+  const [updateTick, setUpdateTick] = useState(0);
 
   // Helper to safely convert to Date
   const toDate = (date: Date | string | number | undefined | null): Date => {
@@ -110,64 +123,116 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     return new Date();
   };
 
-  // Add operations (recent active ones) - limit to 3 most recent
-  operations
-    .filter(op => op.status === 'active')
-    .slice(0, 3)
-    .forEach((op) => {
-      if (!seenOpIds.has(op.id)) {
-        seenOpIds.add(op.id);
-        activities.push({
-          id: `op-${op.id}`,
-          type: 'operation',
-          message: `Operation: ${op.title}`,
-          timestamp: toDate(op.createdAt),
-          icon: 'location',
-        });
-      }
-    });
+  // Build activity items with unique IDs - memoized to prevent unnecessary recalculations
+  const recentActivities = useMemo(() => {
+    const activities: ActivityItem[] = [];
+    const seenOpIds = new Set<string>();
+    const seenDocIds = new Set<string>();
+    const seenTransIds = new Set<string>();
 
-  // Add recent documents - limit to 3 most recent
-  documents.slice(0, 3).forEach((doc) => {
-    if (!seenDocIds.has(doc.id)) {
-      seenDocIds.add(doc.id);
-      activities.push({
-        id: `doc-${doc.id}`,
-        type: 'document',
-        message: `Document uploaded: ${doc.title}`,
-        timestamp: toDate(doc.uploadedAt),
-        icon: 'document-text',
+    // Add operations (recent active ones) - limit to 3 most recent
+    operations
+      .filter(op => op.status === 'active')
+      .slice(0, 3)
+      .forEach((op) => {
+        if (!seenOpIds.has(op.id)) {
+          seenOpIds.add(op.id);
+          // Use startDate for operations (when it actually started) or fallback to createdAt
+          const opTimestamp = op.startDate || op.createdAt;
+          if (opTimestamp) {
+            activities.push({
+              id: `op-${op.id}`,
+              type: 'operation',
+              message: `Operation: ${op.title}`,
+              timestamp: toDate(opTimestamp),
+              icon: 'location',
+            });
+          }
+        }
       });
-    }
-  });
 
-  // Add recent resource transactions - limit to 3 most recent
-  transactions
-    .filter(t => t.status === 'active')
-    .slice(0, 3)
-    .forEach((transaction) => {
-      if (!seenTransIds.has(transaction.id)) {
-        seenTransIds.add(transaction.id);
+    // Add recent documents - limit to 3 most recent
+    documents.slice(0, 3).forEach((doc) => {
+      if (!seenDocIds.has(doc.id)) {
+        seenDocIds.add(doc.id);
         activities.push({
-          id: `trans-${transaction.id}`,
-          type: 'resource',
-          message: `Resource borrowed: ${transaction.borrowerName}`,
-          timestamp: toDate(transaction.createdAt),
-          icon: 'cube',
+          id: `doc-${doc.id}`,
+          type: 'document',
+          message: `Document uploaded: ${doc.title}`,
+          timestamp: toDate(doc.uploadedAt),
+          icon: 'document-text',
         });
       }
     });
 
-  // Sort by timestamp (most recent first)
-  // All timestamps are already Date objects from toDate() helper
-  activities.sort((a, b) => {
-    const timeA = a.timestamp.getTime();
-    const timeB = b.timestamp.getTime();
-    return timeB - timeA;
-  });
+    // Add recent resource transactions - limit to 3 most recent
+    transactions
+      .filter(t => t.status === 'active')
+      .slice(0, 3)
+      .forEach((transaction) => {
+        if (!seenTransIds.has(transaction.id)) {
+          seenTransIds.add(transaction.id);
+          activities.push({
+            id: `trans-${transaction.id}`,
+            type: 'resource',
+            message: `Resource borrowed: ${transaction.borrowerName}`,
+            timestamp: toDate(transaction.createdAt),
+            icon: 'cube',
+          });
+        }
+      });
 
-  // Limit to top 8 activities for compact display
-  const recentActivities = activities.slice(0, 8);
+    // Sort by timestamp (most recent first)
+    // All timestamps are already Date objects from toDate() helper
+    activities.sort((a, b) => {
+      const timeA = a.timestamp.getTime();
+      const timeB = b.timestamp.getTime();
+      return timeB - timeA;
+    });
+
+    // Limit to top 8 activities for compact display
+    return activities.slice(0, 8);
+  }, [operations, documents, transactions]);
+
+  // Check if there are any activities that would benefit from updates (less than 24 hours old)
+  // Recalculates when updateTick changes to check if activities are still recent
+  const hasRecentActivities = useMemo(() => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+    return recentActivities.some(activity => {
+      const activityTime = activity.timestamp.getTime();
+      return activityTime > twentyFourHoursAgo;
+    });
+  }, [recentActivities, updateTick]);
+
+  // Efficient update strategy: only update recent activities (less than 24 hours old)
+  // Use 5-minute interval to reduce battery drain and unnecessary re-renders
+  useEffect(() => {
+    // Only set up interval if there are recent activities that need updates
+    if (!hasRecentActivities) return;
+
+    const intervalId = setInterval(() => {
+      // Simply update the tick - the useMemo will recalculate hasRecentActivities
+      // and if there are no more recent activities, the interval will be cleared
+      setUpdateTick(prev => prev + 1);
+    }, 5 * 60 * 1000); // Update every 5 minutes
+
+    // Cleanup interval on unmount or when dependencies change
+    return () => clearInterval(intervalId);
+  }, [hasRecentActivities]);
+
+  // Memoize formatted time strings to prevent recalculation on every render
+  // Only updates when updateTick changes (every 5 minutes) or activities change
+  const activityTimeStrings = useMemo(() => {
+    const timeMap = new Map<string, string>();
+    recentActivities.forEach(activity => {
+      const timestamp = activity.timestamp instanceof Date 
+        ? activity.timestamp 
+        : new Date(activity.timestamp);
+      timeMap.set(activity.id, formatTimeAgo(timestamp));
+    });
+    return timeMap;
+  }, [recentActivities, updateTick]);
 
   // Group by time
   const groupedActivities = groupByTime(recentActivities);
@@ -220,7 +285,7 @@ export function ActivityStream({ operations, documents, transactions }: Activity
                     {activity.message}
                   </ThemedText>
                   <ThemedText style={[styles.activityTime, { color: colors.text, opacity: 0.6 }]}>
-                    {formatTimeAgo(activity.timestamp instanceof Date ? activity.timestamp : new Date(activity.timestamp))}
+                    {activityTimeStrings.get(activity.id) || formatTimeAgo(activity.timestamp instanceof Date ? activity.timestamp : new Date(activity.timestamp))}
                   </ThemedText>
                 </View>
               </View>

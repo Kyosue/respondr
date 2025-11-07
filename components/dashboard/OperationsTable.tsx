@@ -6,7 +6,7 @@ import { OperationRecord } from '@/firebase/operations';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface OperationsTableProps {
   operations: OperationRecord[];
@@ -40,15 +40,11 @@ function formatDate(date: Date | string | number): string {
     ? new Date(date) 
     : date;
   
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
 }
 
 export function OperationsTable({ operations, onOperationPress }: OperationsTableProps) {
@@ -96,7 +92,12 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
             {activeOperations.length}
           </ThemedText>
         </View>
-        <View style={styles.mobileListContainer}>
+        <ScrollView 
+          style={styles.mobileScrollContainer}
+          contentContainerStyle={styles.mobileListContainer}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
           {activeOperations.map((operation, index) => (
             <TouchableOpacity
               key={operation.id}
@@ -145,7 +146,7 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
               </View>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </ThemedView>
     );
   }
@@ -187,69 +188,63 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
               Date
             </ThemedText>
           </View>
-          <View style={styles.tableHeaderCell}>
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
-              Status
-            </ThemedText>
-          </View>
         </View>
-        {activeOperations.map((operation, index) => (
-          <TouchableOpacity
-            key={operation.id}
-            style={[
-              styles.tableRow,
-              { 
-                borderBottomColor: colors.border,
-                backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`
-              }
-            ]}
-            onPress={() => onOperationPress?.(operation)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.tableCell, styles.tableCellTitle]}>
-              <ThemedText style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
-                {operation.title}
-              </ThemedText>
-            </View>
-            <View style={styles.tableCell}>
-              <View style={styles.municipalityCell}>
-                <Ionicons name="location-outline" size={14} color={colors.text} style={{ opacity: 0.5, marginRight: 6 }} />
-                <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]} numberOfLines={1}>
-                  {getMunicipalityName(operation.municipalityId)}
+        <ScrollView 
+          style={styles.tableScrollContainer}
+          contentContainerStyle={styles.tableScrollContent}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
+          {activeOperations.map((operation, index) => (
+            <TouchableOpacity
+              key={operation.id}
+              style={[
+                styles.tableRow,
+                { 
+                  borderBottomColor: colors.border,
+                  backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`
+                }
+              ]}
+              onPress={() => onOperationPress?.(operation)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.tableCell, styles.tableCellTitle]}>
+                <ThemedText style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+                  {operation.title}
                 </ThemedText>
               </View>
-            </View>
-            <View style={styles.tableCell}>
-              <View
-                style={[
-                  styles.priorityBadge,
-                  styles.priorityBadgeTable,
-                  { backgroundColor: getPriorityColor(operation.priority, colors) },
-                ]}
-              >
-                <ThemedText style={styles.priorityText}>
-                  {operation.priority.toUpperCase()}
-                </ThemedText>
+              <View style={styles.tableCell}>
+                <View style={styles.municipalityCell}>
+                  <Ionicons name="location-outline" size={14} color={colors.text} style={{ opacity: 0.5, marginRight: 6 }} />
+                  <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]} numberOfLines={1}>
+                    {getMunicipalityName(operation.municipalityId)}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
-            <View style={styles.tableCell}>
-              <View style={styles.dateCell}>
-                <Ionicons name="calendar-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 6 }} />
-                <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.7 }]}>
-                  {formatDate(operation.startDate)}
-                </ThemedText>
+              <View style={styles.tableCell}>
+                <View
+                  style={[
+                    styles.priorityBadge,
+                    styles.priorityBadgeTable,
+                    { backgroundColor: getPriorityColor(operation.priority, colors) },
+                  ]}
+                >
+                  <ThemedText style={styles.priorityText}>
+                    {operation.priority.toUpperCase()}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
-            <View style={styles.tableCell}>
-              <View style={[styles.statusBadge, { backgroundColor: `${colors.primary}15` }]}>
-                <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
-                <ThemedText style={[styles.statusText, { color: colors.primary }]}>
-                  Active
-                </ThemedText>
+              <View style={styles.tableCell}>
+                <View style={styles.dateCell}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 6 }} />
+                  <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.7 }]}>
+                    {formatDate(operation.startDate)}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     </ThemedView>
   );
@@ -314,6 +309,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  tableScrollContainer: {
+    maxHeight: 400, // Limit table height to 400px, then scroll
+  },
+  tableScrollContent: {
+    flexGrow: 1,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -394,26 +395,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Gabarito',
     letterSpacing: 0.5,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 6,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-  },
   scrollView: {
     flex: 1,
+  },
+  mobileScrollContainer: {
+    maxHeight: 400, // Limit mobile list height to 400px, then scroll
   },
   mobileListContainer: {
     gap: 0,
