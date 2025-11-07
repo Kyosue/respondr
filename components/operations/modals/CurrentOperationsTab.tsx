@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
+import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
 import { Colors } from '@/constants/Colors';
 import { operationsService } from '@/firebase/operations';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -23,6 +24,9 @@ export function CurrentOperationsTab({
   const colors = Colors[colorScheme ?? 'light'];
   const [items, setItems] = React.useState(operations);
   const { isAdminOrSupervisor } = usePermissions();
+  const [deleteModalVisible, setDeleteModalVisible] = React.useState(false);
+  const [operationToDelete, setOperationToDelete] = React.useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const sortOperations = React.useCallback((list: any[]) => {
     const priorityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
@@ -40,14 +44,31 @@ export function CurrentOperationsTab({
     setItems(sortOperations(operations));
   }, [operations, sortOperations]);
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteClick = (operation: any) => {
+    setOperationToDelete(operation);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!operationToDelete) return;
+
+    setIsDeleting(true);
     try {
-      await operationsService.deleteOperationAndReturnResources(id);
+      await operationsService.deleteOperationAndReturnResources(operationToDelete.id);
       // Real-time listener in parent will refresh; optimistically update local list
-      setItems(prev => prev.filter(op => op.id !== id));
+      setItems(prev => prev.filter(op => op.id !== operationToDelete.id));
+      setDeleteModalVisible(false);
+      setOperationToDelete(null);
     } catch (e) {
       console.error('Failed to delete operation:', e);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalVisible(false);
+    setOperationToDelete(null);
   };
 
   return (
@@ -83,7 +104,7 @@ export function CurrentOperationsTab({
                 <OperationCard 
                   operation={operation} 
                   onConclude={isAdminOrSupervisor ? onConcludeOperation : undefined}
-                  onDelete={isAdminOrSupervisor ? handleDelete : undefined}
+                  onDelete={isAdminOrSupervisor ? () => handleDeleteClick(operation) : undefined}
                 />
               </View>
             ))}
@@ -97,6 +118,19 @@ export function CurrentOperationsTab({
           </View>
         )}
       </View>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={deleteModalVisible}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        title="Delete Operation"
+        message={`Are you sure you want to delete "${operationToDelete?.title}"? This will also return any borrowed resources. This action cannot be undone.`}
+        variant="danger"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        loading={isDeleting}
+      />
     </View>
   );
 }

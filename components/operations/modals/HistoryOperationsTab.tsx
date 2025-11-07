@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
+import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
 import { Colors } from '@/constants/Colors';
 import { operationsService } from '@/firebase/operations';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -17,6 +18,9 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
   const colors = Colors[colorScheme ?? 'light'];
   const [items, setItems] = React.useState(operations);
   const { isAdminOrSupervisor } = usePermissions();
+  const [deleteModalVisible, setDeleteModalVisible] = React.useState(false);
+  const [operationToDelete, setOperationToDelete] = React.useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const sortOperations = React.useCallback((list: any[]) => {
     const priorityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
@@ -35,13 +39,30 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
   }, [operations, sortOperations]);
 
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteClick = (operation: any) => {
+    setOperationToDelete(operation);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!operationToDelete) return;
+
+    setIsDeleting(true);
     try {
-      await operationsService.deleteOperation(id);
-      setItems(prev => prev.filter(op => op.id !== id));
+      await operationsService.deleteOperation(operationToDelete.id);
+      setItems(prev => prev.filter(op => op.id !== operationToDelete.id));
+      setDeleteModalVisible(false);
+      setOperationToDelete(null);
     } catch (e) {
       console.error('Failed to delete operation:', e);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalVisible(false);
+    setOperationToDelete(null);
   };
 
   return (
@@ -51,8 +72,8 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
         <ThemedText style={[styles.title, { color: colors.text }]}>
           Operation History
         </ThemedText>
-        <View style={styles.countBadge}>
-          <ThemedText style={[styles.countText, { color: colors.text }]}>
+        <View style={[styles.countBadge, { backgroundColor: colorScheme === 'dark' ? `${colors.text}15` : '#E9ECEF' }]}>
+          <ThemedText style={[styles.countText, { color: colorScheme === 'dark' ? colors.text : '#6C757D' }]}>
             {operations.length}
           </ThemedText>
         </View>
@@ -67,7 +88,7 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
                 <OperationCard 
                   operation={operation} 
                   onConclude={undefined}
-                  onDelete={isAdminOrSupervisor ? handleDelete : undefined}
+                  onDelete={isAdminOrSupervisor ? () => handleDeleteClick(operation) : undefined}
                 />
               </View>
             ))}
@@ -84,6 +105,19 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
           </View>
         )}
       </View>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={deleteModalVisible}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        title="Delete Operation"
+        message={`Are you sure you want to delete "${operationToDelete?.title}"? This action cannot be undone.`}
+        variant="danger"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        loading={isDeleting}
+      />
     </View>
   );
 }
@@ -104,7 +138,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   countBadge: {
-    backgroundColor: '#E9ECEF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -114,7 +147,6 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6C757D',
   },
   content: {
     ...Platform.select({ default: { flex: 1 }, web: {} }),

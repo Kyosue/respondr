@@ -135,6 +135,14 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
                         {getMunicipalityName(operation.municipalityId)}
                       </ThemedText>
                     </View>
+                    {operation.exactLocation?.barangay && (
+                      <View style={styles.mobileMetaItem}>
+                        <Ionicons name="map-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
+                        <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]} numberOfLines={1}>
+                          {operation.exactLocation.barangay}
+                        </ThemedText>
+                      </View>
+                    )}
                     <View style={styles.mobileMetaItem}>
                       <Ionicons name="calendar-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
                       <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]}>
@@ -180,6 +188,11 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
           </View>
           <View style={styles.tableHeaderCell}>
             <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+              Barangay
+            </ThemedText>
+          </View>
+          <View style={styles.tableHeaderCell}>
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
               Priority
             </ThemedText>
           </View>
@@ -220,6 +233,11 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
                     {getMunicipalityName(operation.municipalityId)}
                   </ThemedText>
                 </View>
+              </View>
+              <View style={styles.tableCell}>
+                <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]} numberOfLines={1}>
+                  {operation.exactLocation?.barangay || 'N/A'}
+                </ThemedText>
               </View>
               <View style={styles.tableCell}>
                 <View
