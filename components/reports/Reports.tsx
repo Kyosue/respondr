@@ -255,7 +255,7 @@ const Reports: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Document Library</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Reports Library</Text>
           <Text style={[styles.subtitle, { color: colors.tabIconDefault }]}>
             Manage memos and local issuances
           </Text>

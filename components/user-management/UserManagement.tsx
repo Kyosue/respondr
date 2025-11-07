@@ -34,6 +34,7 @@ const UserManagement: React.FC = () => {
   const { canViewUserManagement, canManageUsers, canCreateUsers, canEditUsers, canDeleteUsers, canToggleUserStatus } = usePermissions();
   
   const [users, setUsers] = useState<UserData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,15 +66,19 @@ const UserManagement: React.FC = () => {
   const cardsPerRow = getCardsPerRow();
   const cardWidth = (100 / cardsPerRow) - 2; // 2% margin between cards
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (isInitialLoad = false) => {
     try {
       setError(null);
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       const usersData = await getAllUsers();
       setUsers(usersData);
     } catch (err) {
       console.error('Error fetching users:', err);
       setError('Failed to load users. Please try again.');
     } finally {
+      setIsLoading(false);
       setRefreshing(false);
     }
   };
@@ -81,7 +86,9 @@ const UserManagement: React.FC = () => {
   useEffect(() => {
     // Only load users if user is authenticated and has permission
     if (user && firebaseUser && !authLoading && canViewUserManagement) {
-      fetchUsers();
+      fetchUsers(true); // Pass true to indicate initial load
+    } else if (!canViewUserManagement || !user || !firebaseUser) {
+      setIsLoading(false); // Stop loading if no permission or not authenticated
     }
   }, [user, firebaseUser, authLoading, canViewUserManagement]);
 
@@ -316,6 +323,20 @@ const UserManagement: React.FC = () => {
             Error: {error}
           </ThemedText>
         )}
+      </ThemedView>
+    );
+  }
+
+  // Show loading spinner when initially loading users (similar to Dashboard and SitRep)
+  if (isLoading && users.length === 0) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText style={{ marginTop: 16, opacity: 0.7, color: colors.text }}>
+            Loading users...
+          </ThemedText>
+        </View>
       </ThemedView>
     );
   }

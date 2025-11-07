@@ -357,6 +357,20 @@ export function SitRep() {
     );
   }
 
+  // Show loading spinner when initially loading documents (similar to Dashboard)
+  if (isLoading && documents.length === 0) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText style={{ marginTop: 16, opacity: 0.7, color: colors.text }}>
+            Loading documents...
+          </ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
       <SitRepHeader
