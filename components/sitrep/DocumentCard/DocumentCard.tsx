@@ -70,6 +70,13 @@ export const DocumentCard = memo(function DocumentCard({
     }
   };
 
+  const handleLongPress = () => {
+    if (!isMultiSelectMode) {
+      // Enter multi-select mode and select this document
+      onSelect(document.id, true);
+    }
+  };
+
   const handlePressIn = () => {
     Animated.spring(scaleValue, {
       toValue: 0.95,
@@ -102,6 +109,7 @@ export const DocumentCard = memo(function DocumentCard({
           isSelected && styles.documentItemSelected,
         ]}
         onPress={handlePress}
+        onLongPress={handleLongPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={0.95}

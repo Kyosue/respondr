@@ -1,13 +1,17 @@
+import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from '@/contexts/MemoContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useConfirmationModal } from '@/hooks/useConfirmationModal';
+import { usePermissions } from '@/hooks/usePermissions';
 import { MemoDocument, MemoFilter } from '@/types/MemoDocument';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, FlatList, Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 
-import { MemoFilters } from './MemoFilters';
+import { MemoActiveFilterTags } from './MemoActiveFilterTags';
+import { MemoFilterPopover } from './MemoFilterPopover';
 import { DistributionModal } from './modals/DistributionModal';
 import { MemoDetailModal } from './modals/MemoDetailModal';
 import { MemoUploadModal } from './modals/MemoUploadModal';
@@ -19,21 +23,40 @@ const Reports: React.FC = () => {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const isWeb = Platform.OS === 'web';
-  const { documents, loading, fetchDocuments, updateDistribution, acknowledgeDocument } = useMemo();
+  const { 
+    documents, 
+    loading, 
+    fetchDocuments, 
+    updateDistribution, 
+    acknowledgeDocument,
+    deleteDocument,
+    deleteSelected,
+    selectedDocuments,
+    selectDocument,
+    deselectDocument,
+  } = useMemo();
   
   // Check if user can assign documents (supervisor or admin only)
   const canAssignDocuments = user?.userType === 'supervisor' || user?.userType === 'admin';
+  const { canDeleteSitRep, isAdminOrSupervisor } = usePermissions();
+  const confirmationModal = useConfirmationModal();
+  
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [filtersVisible, setFiltersVisible] = useState(false);
   const [filters, setFilters] = useState<MemoFilter>({});
   const [selectedDocument, setSelectedDocument] = useState<MemoDocument | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [distributionModalVisible, setDistributionModalVisible] = useState(false);
   const [documentToDistribute, setDocumentToDistribute] = useState<MemoDocument | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
 
-
-  const handleManualRefresh = async () => {
-    await fetchDocuments(filters);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchDocuments(filters);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleDocumentPress = (doc: MemoDocument) => {
@@ -63,6 +86,78 @@ const Reports: React.FC = () => {
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to acknowledge document');
     }
+  };
+
+  const handleMultiSelectToggle = () => {
+    if (isMultiSelectMode) {
+      // Exit multi-select mode
+      setIsMultiSelectMode(false);
+      // Clear selections (deselectAll would be better but we need to check if it exists)
+      selectedDocuments.forEach(id => deselectDocument(id));
+    } else {
+      // Enter multi-select mode
+      setIsMultiSelectMode(true);
+    }
+  };
+
+  const handleDocumentSelect = (documentId: string, selected: boolean) => {
+    // If not in multi-select mode but trying to select, enter multi-select mode
+    if (!isMultiSelectMode && selected) {
+      setIsMultiSelectMode(true);
+    }
+    
+    if (selected) {
+      selectDocument(documentId);
+    } else {
+      deselectDocument(documentId);
+      // If no documents are selected, exit multi-select mode
+      if (selectedDocuments.size <= 1) {
+        setIsMultiSelectMode(false);
+      }
+    }
+  };
+
+  const handleDelete = async (document: MemoDocument) => {
+    confirmationModal.showConfirmation({
+      title: 'Delete Document',
+      message: `Are you sure you want to delete "${document.title}"? This action cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteDocument(document.id);
+          // Close the detail modal if it's open
+          setDetailModalVisible(false);
+          setSelectedDocument(null);
+          Alert.alert('Success', 'Document deleted successfully');
+        } catch (error) {
+          Alert.alert('Delete Failed', error instanceof Error ? error.message : 'Unknown error');
+          throw error; // Re-throw to prevent modal from closing on error
+        }
+      },
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedDocuments.size === 0) return;
+    
+    const count = selectedDocuments.size;
+    confirmationModal.showConfirmation({
+      title: 'Delete Documents',
+      message: `Are you sure you want to delete ${count} ${count === 1 ? 'document' : 'documents'}? This action cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteSelected();
+          setIsMultiSelectMode(false);
+          Alert.alert('Success', `Successfully deleted ${count} ${count === 1 ? 'document' : 'documents'}`);
+        } catch (error) {
+          Alert.alert('Delete Failed', error instanceof Error ? error.message : 'Unknown error');
+          throw error; // Re-throw to prevent modal from closing on error
+        }
+      },
+    });
   };
 
   const isAssignedToMe = (doc: MemoDocument) => {
@@ -108,6 +203,23 @@ const Reports: React.FC = () => {
     const isAssigned = isAssignedToMe(doc);
     const hasAck = hasAcknowledged(doc);
     const needsAcknowledgment = doc.acknowledgmentRequired && !hasAck;
+    const isSelected = selectedDocuments.has(doc.id);
+    
+    const handlePress = () => {
+      if (isMultiSelectMode) {
+        handleDocumentSelect(doc.id, !isSelected);
+      } else {
+        handleDocumentPress(doc);
+      }
+    };
+
+    const handleLongPress = () => {
+      if (!isMultiSelectMode) {
+        // Enter multi-select mode and select this document
+        handleDocumentSelect(doc.id, true);
+      }
+    };
+    
     return (
       <TouchableOpacity
         key={doc.id}
@@ -115,16 +227,23 @@ const Reports: React.FC = () => {
           styles.documentItem,
           { backgroundColor: colors.surface },
           isWeb && styles.documentCard,
+          isSelected && styles.documentItemSelected,
         ]}
-        onPress={() => handleDocumentPress(doc)}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
       >
+        {isSelected && (
+          <View style={styles.selectedIndicator}>
+            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+          </View>
+        )}
         {isWeb ? (
           <>
             <View style={styles.cardHeader}>
               <View style={styles.documentIcon}>
                 <Ionicons name="document-text" size={32} color={colors.tint} />
               </View>
-              {canAssignDocuments && (
+              {canAssignDocuments && !isMultiSelectMode && (
                 <TouchableOpacity
                   style={styles.moreButton}
                   onPress={(e) => {
@@ -229,7 +348,7 @@ const Reports: React.FC = () => {
                 </Text>
               </View>
             </View>
-            {canAssignDocuments && (
+            {canAssignDocuments && !isMultiSelectMode && (
               <TouchableOpacity
                 style={styles.moreButton}
                 onPress={(e) => {
@@ -241,14 +360,16 @@ const Reports: React.FC = () => {
                 <Ionicons name="people" size={20} color={colors.tabIconDefault} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.moreButton}>
-              <Ionicons name="chevron-forward" size={20} color={colors.tabIconDefault} />
-            </TouchableOpacity>
+            {!isMultiSelectMode && (
+              <TouchableOpacity style={styles.moreButton}>
+                <Ionicons name="chevron-forward" size={20} color={colors.tabIconDefault} />
+              </TouchableOpacity>
+            )}
           </>
         )}
       </TouchableOpacity>
     );
-  }, [colors, isWeb, canAssignDocuments]);
+  }, [colors, isWeb, canAssignDocuments, isMultiSelectMode, selectedDocuments, handleDocumentSelect, handleDocumentPress]);
 
   return (
     <View style={[styles.container, { backgroundColor: 'transparent'}]}>
@@ -261,42 +382,53 @@ const Reports: React.FC = () => {
           </Text>
         </View>
         <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={[styles.filterButton, { borderColor: colors.border }]}
-            onPress={handleManualRefresh}
-          >
-            <Ionicons name="refresh" size={20} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, { borderColor: colors.border }]}
-            onPress={() => setFiltersVisible(!filtersVisible)}
-          >
-            <Ionicons name="filter" size={20} color={colors.text} />
-            {Object.keys(filters).length > 0 && (
-              <View style={[styles.filterBadge, { backgroundColor: colors.error }]}>
-                <Text style={styles.filterBadgeText}>{Object.keys(filters).length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.tint }]}
-            onPress={() => setUploadModalVisible(true)}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
+          {!isMultiSelectMode && (
+            <MemoFilterPopover
+              filters={filters}
+              onFilterChange={(newFilters) => {
+                setFilters(newFilters);
+                fetchDocuments(newFilters);
+              }}
+            />
+          )}
+          {!isMultiSelectMode && (
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.tint, borderColor: colors.tint }]}
+              onPress={() => setUploadModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+          {(canDeleteSitRep || isAdminOrSupervisor) && (
+            <TouchableOpacity
+              style={[styles.addButton, { 
+                backgroundColor: isMultiSelectMode ? colors.error : colors.surface, 
+                borderColor: isMultiSelectMode ? colors.error : colors.border,
+              }]}
+              onPress={handleMultiSelectToggle}
+              activeOpacity={0.8}
+            >
+              <Ionicons 
+                name={isMultiSelectMode ? "checkmark" : "checkbox-outline"} 
+                size={16} 
+                color={isMultiSelectMode ? "#fff" : colors.text} 
+              />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* Filters Modal */}
-      <MemoFilters
-        visible={filtersVisible}
-        filters={filters}
-        onFilterChange={(newFilters) => {
-          setFilters(newFilters);
-          fetchDocuments(newFilters);
-        }}
-        onClose={() => setFiltersVisible(false)}
-      />
+      {/* Active Filter Tags */}
+      <View style={styles.filtersSection}>
+        <MemoActiveFilterTags
+          filters={filters}
+          onFilterChange={(newFilters) => {
+            setFilters(newFilters);
+            fetchDocuments(newFilters);
+          }}
+        />
+      </View>
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
@@ -338,6 +470,39 @@ const Reports: React.FC = () => {
           paddingHorizontal: 20, 
           marginBottom: 16 
         } : undefined}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.tint]}
+            tintColor={colors.tint}
+          />
+        }
+        ListHeaderComponent={isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) ? (
+          <View style={styles.multiSelectBar}>
+            <View style={styles.multiSelectContent}>
+              <Text style={[styles.selectedCount, { color: colors.text }]}>
+                {selectedDocuments.size} selected
+              </Text>
+              <View style={styles.multiSelectActions}>
+                <TouchableOpacity
+                  style={[styles.deleteButton, { backgroundColor: colors.error }]}
+                  onPress={handleBulkDelete}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { borderColor: colors.border }]}
+                  onPress={handleMultiSelectToggle}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        ) : null}
         ListEmptyComponent={loading ? (
           <View style={styles.centerContent}>
             <Ionicons name="hourglass" size={32} color={colors.tabIconDefault} />
@@ -386,9 +551,25 @@ const Reports: React.FC = () => {
           setDistributionModalVisible(true);
         } : () => {}}
         onAcknowledge={handleAcknowledge}
+        onDelete={(canDeleteSitRep || isAdminOrSupervisor) && selectedDocument ? handleDelete : undefined}
         isAssignedToMe={selectedDocument ? isAssignedToMe(selectedDocument) : false}
         hasAcknowledged={selectedDocument ? hasAcknowledged(selectedDocument) : false}
       />
+
+      {/* Confirmation Modal */}
+      {confirmationModal.options && (
+        <ConfirmationModal
+          visible={confirmationModal.visible}
+          title={confirmationModal.options.title}
+          message={confirmationModal.options.message}
+          variant={confirmationModal.options.variant}
+          confirmLabel={confirmationModal.options.confirmLabel}
+          cancelLabel={confirmationModal.options.cancelLabel}
+          icon={confirmationModal.options.icon}
+          onConfirm={confirmationModal.handleConfirm}
+          onCancel={confirmationModal.hideConfirmation}
+        />
+      )}
     </View>
   );
 };

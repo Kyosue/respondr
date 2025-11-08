@@ -3,6 +3,7 @@ import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 import { useDocumentUpload } from '@/hooks/useDocumentUpload';
+import { usePermissions } from '@/hooks/usePermissions';
 import { usePlatform } from '@/hooks/usePlatform';
 import { SitRepDocument } from '@/types/Document';
 import * as DocumentPicker from 'expo-document-picker';
@@ -18,7 +19,9 @@ import {
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
 import { Colors } from '@/constants/Colors';
+import { useConfirmationModal } from '@/hooks/useConfirmationModal';
 import { DocumentCard } from './DocumentCard';
 import { SitRepHeader } from './SitRepHeader';
 import { SitRepDetailModal } from './modals/SitRepDetailModal';
@@ -46,6 +49,10 @@ export function SitRep() {
   const bottomNavHeight = useBottomNavHeight();
   const { isWeb } = usePlatform();
   const { user, firebaseUser, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { canDeleteSitRep, isAdminOrSupervisor } = usePermissions();
+  
+  // Confirmation modal hook
+  const confirmationModal = useConfirmationModal();
   const { 
     uploadDocument, 
     isUploading, 
@@ -110,8 +117,20 @@ export function SitRep() {
     setActionsMenuOpen(actionsMenuOpen === documentId ? null : documentId);
   };
 
+  const handleMultiSelectToggle = () => {
+    if (isMultiSelectMode) {
+      // Exit multi-select mode
+      setSelectedDocuments(new Set());
+      setIsMultiSelectMode(false);
+    } else {
+      // Enter multi-select mode
+      setIsMultiSelectMode(true);
+    }
+  };
+
   const handleDocumentSelect = (documentId: string, selected: boolean) => {
-    if (!isMultiSelectMode) {
+    // If not in multi-select mode but trying to select, enter multi-select mode
+    if (!isMultiSelectMode && selected) {
       setIsMultiSelectMode(true);
     }
     
@@ -135,38 +154,48 @@ export function SitRep() {
   const handleBulkDelete = async () => {
     if (selectedDocuments.size === 0) return;
     
-    try {
-      const deletePromises = Array.from(selectedDocuments).map(async (docId) => {
+    confirmationModal.showConfirmation({
+      title: 'Delete Documents',
+      message: `Are you sure you want to delete ${selectedDocuments.size} ${selectedDocuments.size === 1 ? 'document' : 'documents'}? This action cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
         try {
-          await deleteDocument(docId);
-          return { success: true, docId };
+          const deletePromises = Array.from(selectedDocuments).map(async (docId) => {
+            try {
+              await deleteDocument(docId);
+              return { success: true, docId };
+            } catch (error) {
+              console.warn(`Failed to delete document ${docId}:`, error);
+              return { success: false, docId, error };
+            }
+          });
+          
+          const results = await Promise.all(deletePromises);
+          const successful = results.filter(r => r.success);
+          const failed = results.filter(r => !r.success);
+          
+          // Clear selection and exit multi-select mode regardless of individual failures
+          setSelectedDocuments(new Set());
+          setIsMultiSelectMode(false);
+          
+          if (successful.length > 0) {
+            Alert.alert('Success', `Successfully deleted ${successful.length} ${successful.length === 1 ? 'document' : 'documents'}`);
+          }
+          
+          if (failed.length > 0) {
+            Alert.alert('Warning', `Failed to delete ${failed.length} ${failed.length === 1 ? 'document' : 'documents'}`);
+          }
         } catch (error) {
-          console.warn(`Failed to delete document ${docId}:`, error);
-          return { success: false, docId, error };
+          console.error('Error in bulk delete operation:', error);
+          Alert.alert('Error', 'An error occurred during bulk deletion');
+          // Still clear selection even if there's an error
+          setSelectedDocuments(new Set());
+          setIsMultiSelectMode(false);
+          throw error; // Re-throw to prevent modal from closing on error
         }
-      });
-      
-      const results = await Promise.all(deletePromises);
-      const successful = results.filter(r => r.success);
-      const failed = results.filter(r => !r.success);
-      
-      if (successful.length > 0) {
-        console.log(`Successfully deleted ${successful.length} documents`);
-      }
-      
-      if (failed.length > 0) {
-        console.warn(`Failed to delete ${failed.length} documents:`, failed.map(f => f.docId));
-      }
-      
-      // Clear selection and exit multi-select mode regardless of individual failures
-      setSelectedDocuments(new Set());
-      setIsMultiSelectMode(false);
-    } catch (error) {
-      console.error('Error in bulk delete operation:', error);
-      // Still clear selection even if there's an error
-      setSelectedDocuments(new Set());
-      setIsMultiSelectMode(false);
-    }
+      },
+    });
   };
 
   const handleExitMultiSelect = () => {
@@ -308,25 +337,24 @@ export function SitRep() {
   };
 
   const handleDelete = async (document: SitRepDocument) => {
-    Alert.alert(
-      'Delete Document',
-      `Are you sure you want to delete "${document.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDocument(document.id);
-              Alert.alert('Success', 'Document deleted successfully');
-            } catch (error) {
-              Alert.alert('Delete Failed', error instanceof Error ? error.message : 'Unknown error');
-            }
-          }
+    confirmationModal.showConfirmation({
+      title: 'Delete Document',
+      message: `Are you sure you want to delete "${document.title}"? This action cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteDocument(document.id);
+          // Close the detail modal if it's open
+          setDetailModalVisible(false);
+          setSelectedDocument(null);
+          Alert.alert('Success', 'Document deleted successfully');
+        } catch (error) {
+          Alert.alert('Delete Failed', error instanceof Error ? error.message : 'Unknown error');
+          throw error; // Re-throw to prevent modal from closing on error
         }
-      ]
-    );
+      },
+    });
   };
 
 
@@ -380,6 +408,9 @@ export function SitRep() {
         onSearchToggle={handleSearchToggle}
         onUploadDocument={() => setShowUploadModal(true)}
         onClearSearch={handleClearSearch}
+        onMultiSelectToggle={handleMultiSelectToggle}
+        isMultiSelectMode={isMultiSelectMode}
+        canDelete={canDeleteSitRep || isAdminOrSupervisor}
       />
 
       <SectionList
@@ -418,7 +449,7 @@ export function SitRep() {
           { paddingBottom: bottomNavHeight + 20 }
         ]}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={isMultiSelectMode ? (
+        ListHeaderComponent={isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) ? (
           <View style={styles.multiSelectBar}>
             <View style={styles.multiSelectContent}>
               <ThemedText style={[styles.selectedCount, { color: colors.text }]}>
@@ -490,7 +521,24 @@ export function SitRep() {
           setDetailModalVisible(false);
           setSelectedDocument(null);
         }}
+        onDelete={(canDeleteSitRep || isAdminOrSupervisor) ? handleDelete : undefined}
       />
+
+      {/* Confirmation Modal */}
+      {confirmationModal.options && (
+        <ConfirmationModal
+          visible={confirmationModal.visible}
+          title={confirmationModal.options.title}
+          message={confirmationModal.options.message}
+          variant={confirmationModal.options.variant}
+          confirmLabel={confirmationModal.options.confirmLabel}
+          cancelLabel={confirmationModal.options.cancelLabel}
+          icon={confirmationModal.options.icon}
+          onConfirm={confirmationModal.handleConfirm}
+          onCancel={confirmationModal.hideConfirmation}
+          loading={confirmationModal.loading}
+        />
+      )}
     </ThemedView>
   );
 }

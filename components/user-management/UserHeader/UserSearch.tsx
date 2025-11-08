@@ -35,7 +35,6 @@ export function UserSearch({ searchQuery, onSearchChange, onClearSearch }: UserS
           onChangeText={onSearchChange}
           placeholder="Search users..."
           placeholderTextColor={colors.text + '60'}
-          autoFocus
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity 

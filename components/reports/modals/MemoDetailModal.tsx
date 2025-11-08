@@ -28,6 +28,7 @@ interface MemoDetailModalProps {
   onClose: () => void;
   onAssign: () => void;
   onAcknowledge: (documentId: string, comments?: string) => void;
+  onDelete?: (document: MemoDocument) => void;
   isAssignedToMe: boolean;
   hasAcknowledged: boolean;
 }
@@ -38,6 +39,7 @@ export function MemoDetailModal({
   onClose,
   onAssign,
   onAcknowledge,
+  onDelete,
   isAssignedToMe,
   hasAcknowledged,
 }: MemoDetailModalProps) {
@@ -281,6 +283,21 @@ export function MemoDetailModal({
             </>
           )}
         </TouchableOpacity>
+
+        {onDelete && (
+          <TouchableOpacity
+            style={[styles.deleteButton, { backgroundColor: colors.error }]}
+            onPress={() => {
+              if (document) {
+                onDelete(document);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trash-outline" size={20} color="#fff" />
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Acknowledge Section */}
         {document.acknowledgmentRequired && !hasAcknowledged && (

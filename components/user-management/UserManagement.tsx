@@ -8,6 +8,7 @@ import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useConfirmationModal } from '@/hooks/useConfirmationModal';
 import { usePermissions } from '@/hooks/usePermissions';
+import { usePlatform } from '@/hooks/usePlatform';
 import { UserType } from '@/types/UserType';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -22,7 +23,9 @@ import {
 import { getAllUsers, reauthenticateUser, toggleUserStatus } from '../../firebase/auth';
 import { deleteUserByAdmin } from '../../firebase/functions';
 import { UserCard } from './UserCard/UserCard';
+import { UserSortOption } from './UserHeader/UserFilterPopover';
 import { UserHeader } from './UserHeader/UserHeader';
+import { UsersTable } from './UsersTable';
 import { EditUserModal, PasswordVerificationModal, UserDetailsModal } from './modals';
 import { styles } from './styles/UserManagement.styles';
 
@@ -30,6 +33,7 @@ const UserManagement: React.FC = () => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
+  const { isWeb } = usePlatform();
   const { user, firebaseUser, isAuthenticated, isLoading: authLoading } = useAuth();
   const { canViewUserManagement, canManageUsers, canCreateUsers, canEditUsers, canDeleteUsers, canToggleUserStatus } = usePermissions();
   
@@ -41,6 +45,7 @@ const UserManagement: React.FC = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [filterType, setFilterType] = useState<UserType | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<UserStatus | 'all'>('all');
+  const [sortOption, setSortOption] = useState<UserSortOption>('default');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
@@ -51,15 +56,13 @@ const UserManagement: React.FC = () => {
   // Confirmation modal hook
   const confirmationModal = useConfirmationModal();
 
-  // Responsive grid logic
+  // Responsive grid logic for mobile/tablet
   const screenWidth = Dimensions.get('window').width;
-  const isWeb = screenWidth > 768;
   const isTablet = screenWidth > 600 && screenWidth <= 768;
   
-  // Calculate cards per row based on screen size
+  // Calculate cards per row based on screen size (only for mobile/tablet)
   const getCardsPerRow = () => {
-    if (isWeb) return 4; // 3 cards per row on web
-    if (isTablet) return 3; // 2 cards per row on tablet
+    if (isTablet) return 3; // 3 cards per row on tablet
     return 1; // 1 card per row on mobile
   };
   
@@ -120,9 +123,13 @@ const UserManagement: React.FC = () => {
     setFilterStatus(status);
   };
 
-  // Filter and search users
+  const handleSortSelect = (sort: UserSortOption) => {
+    setSortOption(sort);
+  };
+
+  // Filter, search, and sort users
   const filteredUsers = useMemo(() => {
-    return users.filter(user => {
+    let filtered = users.filter(user => {
       const matchesSearch = 
         user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -134,7 +141,48 @@ const UserManagement: React.FC = () => {
       
       return matchesSearch && matchesTypeFilter && matchesStatusFilter;
     });
-  }, [users, searchQuery, filterType, filterStatus]);
+
+    // Apply sorting
+    // Note: When sortOption is not 'default', sorting completely ignores status/role hierarchy
+    filtered = [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case 'alphabetical-asc':
+          // Sort alphabetically A-Z, ignoring status and role grouping
+          return a.fullName.localeCompare(b.fullName);
+        case 'alphabetical-desc':
+          // Sort alphabetically Z-A, ignoring status and role grouping
+          return b.fullName.localeCompare(a.fullName);
+        case 'recently-added':
+          // Sort by creation date (newest first), ignoring status and role grouping
+          const dateA = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt : a.createdAt.toDate?.() || new Date(0)) : new Date(0);
+          const dateB = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt : b.createdAt.toDate?.() || new Date(0)) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        case 'default':
+        default:
+          // Default: Sort by status first (active, inactive, suspended), then by role (admin, supervisor, operator)
+          const statusOrder: Record<UserStatus | 'default', number> = {
+            active: 0,
+            inactive: 1,
+            suspended: 2,
+            default: 0,
+          };
+          const roleOrder: Record<UserType, number> = {
+            admin: 0,
+            supervisor: 1,
+            operator: 2,
+          };
+          const statusA = a.status || 'active';
+          const statusB = b.status || 'active';
+          const statusDiff = statusOrder[statusA] - statusOrder[statusB];
+          if (statusDiff !== 0) {
+            return statusDiff;
+          }
+          return roleOrder[a.userType] - roleOrder[b.userType];
+      }
+    });
+
+    return filtered;
+  }, [users, searchQuery, filterType, filterStatus, sortOption]);
 
   // Group users by role
   const groupedUsers = useMemo(() => {
@@ -283,6 +331,88 @@ const UserManagement: React.FC = () => {
     </View>
   );
 
+  const renderUserList = () => {
+    if (filteredUsers.length === 0) {
+      return renderEmptyState();
+    }
+
+    if (isWeb) {
+      return (
+        <View style={{ flex: 1, minHeight: 400 }}>
+          <UsersTable
+            users={filteredUsers}
+            onUserPress={handleUserPress}
+            onEdit={canEditUsers ? handleEditUser : undefined}
+            onDelete={canDeleteUsers ? handleDeleteUser : undefined}
+            onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
+            canEdit={canEditUsers}
+            canDelete={canDeleteUsers}
+            canToggleStatus={canToggleUserStatus}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.usersContainer}>
+        <View style={styles.groupsContainer}>
+          {groupedUsers.map((group, groupIndex) => (
+            <View key={group.role} style={styles.roleGroup}>
+              {/* Role Header */}
+              <View style={[styles.roleHeader, { borderBottomColor: colors.border }]}>
+                <ThemedText style={[styles.roleTitle, { color: colors.text }]}>
+                  {group.label}
+                </ThemedText>
+                <ThemedText style={[styles.roleCount, { color: colors.text + '60' }]}>
+                  {group.users.length} {group.users.length === 1 ? 'user' : 'users'}
+                </ThemedText>
+              </View>
+
+              {/* Users Grid for this role */}
+              <View style={[
+                styles.usersGrid,
+                {
+                  flexDirection: isTablet ? 'row' : 'column',
+                  flexWrap: isTablet ? 'wrap' : 'nowrap',
+                  justifyContent: 'flex-start',
+                  alignItems: isTablet ? 'flex-start' : 'stretch',
+                  gap: isTablet ? 12 : 0,
+                }
+              ]}>
+                {group.users.map((user: UserData) => (
+                  <View 
+                    key={user.id}
+                    style={[
+                      styles.userCardWrapper,
+                      {
+                        width: isTablet ? `${cardWidth}%` : '100%',
+                        marginBottom: isTablet ? 12 : 6,
+                      }
+                    ]}
+                  >
+                    <UserCard
+                      user={user}
+                      onPress={handleUserPress}
+                      onEdit={canEditUsers ? handleEditUser : undefined}
+                      onDelete={canDeleteUsers ? handleDeleteUser : undefined}
+                      onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
+                      colors={colors}
+                    />
+                  </View>
+                ))}
+              </View>
+
+              {/* Divider between role groups (except for the last group) */}
+              {groupIndex < groupedUsers.length - 1 && (
+                <View style={[styles.roleDivider, { backgroundColor: colors.border }]} />
+              )}
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   // Show loading state while checking authentication
   if (authLoading) {
     return (
@@ -363,85 +493,34 @@ const UserManagement: React.FC = () => {
         onFilterSelect={handleFilterSelect}
         selectedStatusFilter={filterStatus}
         onStatusFilterSelect={handleStatusFilterSelect}
+        selectedSort={sortOption}
+        onSortSelect={handleSortSelect}
       />
 
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: bottomNavHeight + 20 }
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        <View style={styles.usersContainer}>
-          {filteredUsers.length === 0 ? (
-            renderEmptyState()
-          ) : (
-            <View style={styles.groupsContainer}>
-              {groupedUsers.map((group, groupIndex) => (
-                <View key={group.role} style={styles.roleGroup}>
-                  {/* Role Header */}
-                  <View style={[styles.roleHeader, { borderBottomColor: colors.border }]}>
-                    <ThemedText style={[styles.roleTitle, { color: colors.text }]}>
-                      {group.label}
-                    </ThemedText>
-                    <ThemedText style={[styles.roleCount, { color: colors.text + '60' }]}>
-                      {group.users.length} {group.users.length === 1 ? 'user' : 'users'}
-                    </ThemedText>
-                  </View>
-
-                  {/* Users Grid for this role */}
-                  <View style={[
-                    styles.usersGrid,
-                    {
-                      flexDirection: isWeb || isTablet ? 'row' : 'column',
-                      flexWrap: isWeb || isTablet ? 'wrap' : 'nowrap',
-                      justifyContent: 'flex-start',
-                      alignItems: isWeb || isTablet ? 'flex-start' : 'stretch',
-                      gap: isWeb || isTablet ? 12 : 0,
-                    }
-                  ]}>
-                    {group.users.map((user: UserData) => (
-                      <View 
-                        key={user.id}
-                        style={[
-                          styles.userCardWrapper,
-                          {
-                            width: isWeb || isTablet ? `${cardWidth}%` : '100%',
-                            marginBottom: isWeb || isTablet ? 12 : 6,
-                          }
-                        ]}
-                      >
-                        <UserCard
-                          user={user}
-                          onPress={handleUserPress}
-                          onEdit={canEditUsers ? handleEditUser : undefined}
-                          onDelete={canDeleteUsers ? handleDeleteUser : undefined}
-                          onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
-                          colors={colors}
-                        />
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Divider between role groups (except for the last group) */}
-                  {groupIndex < groupedUsers.length - 1 && (
-                    <View style={[styles.roleDivider, { backgroundColor: colors.border }]} />
-                  )}
-                </View>
-              ))}
-            </View>
-          )}
+      {isWeb ? (
+        <View style={styles.scrollView}>
+          {renderUserList()}
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: bottomNavHeight + 20 }
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {renderUserList()}
+        </ScrollView>
+      )}
 
       {/* User Details Modal */}
       <UserDetailsModal

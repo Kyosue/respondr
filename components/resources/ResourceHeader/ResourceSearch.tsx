@@ -35,7 +35,6 @@ export function ResourceSearch({ searchQuery, onSearchChange, onClearSearch }: R
           onChangeText={onSearchChange}
           placeholder="Search resources..."
           placeholderTextColor={colors.text + '60'}
-          autoFocus
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity 

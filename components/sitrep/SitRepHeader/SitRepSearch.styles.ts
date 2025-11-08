@@ -2,30 +2,47 @@ import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   searchContainer: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 8,
+    marginBottom: 12,
   },
-  searchInputContainer: {
+  searchInputWrapper: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
   },
   searchIcon: {
-    marginRight: 12,
+    position: 'absolute',
+    left: 16,
+    zIndex: 1,
   },
   searchInput: {
     flex: 1,
+    height: 44,
+    paddingHorizontal: 16,
+    paddingLeft: 48,
+    paddingRight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
     fontSize: 16,
-    fontWeight: '500',
     ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
       web: {
-        outline: 'none',
+        outlineStyle: 'none',
+        outlineWidth: 0,
       },
     }),
   },
-  clearButton: {
+  clearSearchButton: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 1,
     padding: 4,
-    marginLeft: 8,
   },
 });

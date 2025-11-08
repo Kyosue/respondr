@@ -15,8 +15,8 @@ const accentLight = '#F72585'; // Vibrant pink
 const accentDark = '#F72585'; // Same vibrant pink
 
 // Success, warning, error
-const successLight = '#4CAF50';
-const successDark = '#69F0AE';
+const successLight = '#388E3C'; // Darker green
+const successDark = '#4CAF50'; // Darker green for dark mode
 const warningLight = '#FF9800';
 const warningDark = '#FFD54F';
 const errorLight = '#F44336';

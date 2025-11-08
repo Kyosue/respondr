@@ -38,9 +38,22 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
       web: {
         cursor: 'pointer',
       },
     }),
+  },
+  searchSection: {
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
 });

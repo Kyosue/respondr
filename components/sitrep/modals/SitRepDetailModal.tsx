@@ -23,12 +23,14 @@ interface SitRepDetailModalProps {
   visible: boolean;
   document: SitRepDocument | null;
   onClose: () => void;
+  onDelete?: (document: SitRepDocument) => void;
 }
 
 export function SitRepDetailModal({
   visible,
   document,
   onClose,
+  onDelete,
 }: SitRepDetailModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -247,6 +249,21 @@ export function SitRepDetailModal({
             </>
           )}
         </TouchableOpacity>
+
+        {onDelete && (
+          <TouchableOpacity
+            style={[styles.deleteButton, { backgroundColor: colors.error }]}
+            onPress={() => {
+              if (document) {
+                onDelete(document);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trash-outline" size={20} color="#fff" />
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.closeButtonFooter, { backgroundColor: colors.surface }]}

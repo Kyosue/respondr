@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity, View } from 'react-native';
+import { Modal, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { useState } from 'react';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { usePlatform } from '@/hooks/usePlatform';
 
 import { Agency, ResourceCategory, ResourceCondition, ResourceStatus } from '@/types/Resource';
-import { ResourceFilters } from './ResourceFilters';
+import { ResourceActiveFilterTags } from './ResourceActiveFilterTags';
+import { ResourceFilterPopover, ResourceSortOption } from './ResourceFilterPopover';
 import { styles } from './ResourceHeader.styles';
 import { ResourceSearch } from './ResourceSearch';
 
@@ -30,6 +33,8 @@ interface ResourceHeaderProps {
   onResourceTypeSelect?: (type: 'pdrrmo' | 'external' | undefined) => void;
   onStatusSelect?: (status: ResourceStatus | undefined) => void;
   onConditionSelect?: (condition: ResourceCondition | undefined) => void;
+  selectedSort?: ResourceSortOption;
+  onSortSelect?: (sort: ResourceSortOption) => void;
   onClearFilters?: () => void;
   agencies?: Agency[];
 }
@@ -49,6 +54,8 @@ export function ResourceHeader({
   selectedResourceType,
   selectedStatus,
   selectedCondition,
+  selectedSort,
+  onSortSelect,
   onCategorySelect,
   onAgencySelect,
   onResourceTypeSelect,
@@ -59,6 +66,8 @@ export function ResourceHeader({
 }: ResourceHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { isWeb } = usePlatform();
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   return (
     <View style={styles.header}>
@@ -80,26 +89,97 @@ export function ResourceHeader({
               <Ionicons name="cube-outline" size={18} color="#fff" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity 
-            style={[styles.headerButton, { 
-              backgroundColor: colors.success,
-              borderColor: colors.success,
-            }]}
-            onPress={onMultiBorrow}
-            activeOpacity={0.8}
-          >
-             <Ionicons name="layers" size={16} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.headerButton, { 
-              backgroundColor: colors.warning,
-              borderColor: colors.warning,
-            }]}
-            onPress={onBorrowerDashboard}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="people" size={16} color="#fff" />
-          </TouchableOpacity>
+          
+          {/* Show all buttons on desktop, group some in "More" menu on mobile */}
+          {isWeb ? (
+            <>
+              <TouchableOpacity 
+                style={[styles.headerButton, { 
+                  backgroundColor: colors.success,
+                  borderColor: colors.success,
+                }]}
+                onPress={onMultiBorrow}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="layers" size={16} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.headerButton, { 
+                  backgroundColor: colors.warning,
+                  borderColor: colors.warning,
+                }]}
+                onPress={onBorrowerDashboard}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="people" size={16} color="#fff" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* More menu button on mobile */}
+              <TouchableOpacity 
+                style={[styles.headerButton, { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border,
+                }]}
+                onPress={() => setShowMoreMenu(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color={colors.text} />
+              </TouchableOpacity>
+              
+              {/* More Menu Modal */}
+              <Modal
+                visible={showMoreMenu}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowMoreMenu(false)}
+              >
+                <TouchableWithoutFeedback onPress={() => setShowMoreMenu(false)}>
+                  <View style={styles.moreMenuOverlay}>
+                    <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                      <View style={[styles.moreMenuContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <TouchableOpacity
+                          style={[styles.moreMenuItem, { borderBottomColor: colors.border }]}
+                          onPress={() => {
+                            onMultiBorrow();
+                            setShowMoreMenu(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.moreMenuIcon, { backgroundColor: colors.success + '20' }]}>
+                            <Ionicons name="layers" size={20} color={colors.success} />
+                          </View>
+                          <View style={styles.moreMenuTextContainer}>
+                            <ThemedText style={[styles.moreMenuTitle, { color: colors.text }]}>Multi Borrow</ThemedText>
+                            <ThemedText style={[styles.moreMenuSubtitle, { color: colors.text + '80' }]}>Borrow multiple resources</ThemedText>
+                          </View>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                          style={styles.moreMenuItem}
+                          onPress={() => {
+                            onBorrowerDashboard();
+                            setShowMoreMenu(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.moreMenuIcon, { backgroundColor: colors.warning + '20' }]}>
+                            <Ionicons name="people" size={20} color={colors.warning} />
+                          </View>
+                          <View style={styles.moreMenuTextContainer}>
+                            <ThemedText style={[styles.moreMenuTitle, { color: colors.text }]}>Borrower Dashboard</ThemedText>
+                            <ThemedText style={[styles.moreMenuSubtitle, { color: colors.text + '80' }]}>View borrower information</ThemedText>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            </>
+          )}
+          
           <TouchableOpacity 
             style={[styles.headerButton, { 
               backgroundColor: colors.surface, 
@@ -110,6 +190,22 @@ export function ResourceHeader({
           >
             <Ionicons name={showSearch ? "close" : "search"} size={16} color={colors.text} />
           </TouchableOpacity>
+          
+          <ResourceFilterPopover 
+            selectedCategory={selectedCategory}
+            selectedAgency={selectedAgency}
+            selectedResourceType={selectedResourceType}
+            selectedStatus={selectedStatus}
+            selectedCondition={selectedCondition}
+            selectedSort={selectedSort}
+            onSortSelect={onSortSelect}
+            onCategorySelect={onCategorySelect}
+            onAgencySelect={onAgencySelect}
+            onResourceTypeSelect={onResourceTypeSelect}
+            onStatusSelect={onStatusSelect}
+            onConditionSelect={onConditionSelect}
+            agencies={agencies}
+          />
         </View>
       </View>
       
@@ -121,20 +217,25 @@ export function ResourceHeader({
         />
       )}
       
-      <ResourceFilters 
-        selectedCategory={selectedCategory}
-        selectedAgency={selectedAgency}
-        selectedResourceType={selectedResourceType}
-        selectedStatus={selectedStatus}
-        selectedCondition={selectedCondition}
-        onCategorySelect={onCategorySelect}
-        onAgencySelect={onAgencySelect}
-        onResourceTypeSelect={onResourceTypeSelect}
-        onStatusSelect={onStatusSelect}
-        onConditionSelect={onConditionSelect}
-        onClearFilters={onClearFilters}
-        agencies={agencies}
-      />
+      {/* Active Filter Tags Section */}
+      <View style={styles.filtersSection}>
+        <ResourceActiveFilterTags
+          selectedCategory={selectedCategory}
+          selectedAgency={selectedAgency}
+          selectedResourceType={selectedResourceType}
+          selectedStatus={selectedStatus}
+          selectedCondition={selectedCondition}
+          selectedSort={selectedSort}
+          onSortSelect={onSortSelect}
+          onCategorySelect={onCategorySelect}
+          onAgencySelect={onAgencySelect}
+          onResourceTypeSelect={onResourceTypeSelect}
+          onStatusSelect={onStatusSelect}
+          onConditionSelect={onConditionSelect}
+          onClearFilters={onClearFilters}
+          agencies={agencies}
+        />
+      </View>
     </View>
   );
 }

@@ -10,6 +10,8 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingBottom: 20,
+    position: 'relative',
+    zIndex: 100,
   },
   title: {
     fontSize: 28,
@@ -25,9 +27,9 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -49,15 +51,23 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filtersContainer: {
     borderBottomWidth: 1,
     maxHeight: 400,
+  },
+  filtersSection: {
+    paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+    position: 'relative',
+    marginBottom: 12,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -124,6 +134,12 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    position: 'relative',
+  },
+  documentItemSelected: {
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    backgroundColor: '#4CAF5010',
   },
   documentCard: {
     width: 260,
@@ -188,6 +204,61 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 2,
+  },
+  multiSelectBar: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  multiSelectContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  selectedCount: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  multiSelectActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

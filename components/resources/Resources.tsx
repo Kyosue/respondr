@@ -31,6 +31,7 @@ import { useResourceSearch } from './hooks/useResourceSearch';
 import { ResourceActionsMenu } from './ResourceActions/ResourceActionsMenu';
 import { ResourceCard } from './ResourceCard/ResourceCard';
 import { ResourceHeader } from './ResourceHeader/ResourceHeader';
+import { ResourceSortOption } from './ResourceHeader/ResourceFilterPopover';
 import { ResourcesTable } from './ResourcesTable';
 import { styles } from './styles/Resources.styles';
 
@@ -169,6 +170,13 @@ export function Resources() {
     clearFilters,
   } = useResourceFilters();
 
+  const [sortOption, setSortOption] = useState<ResourceSortOption>('default');
+
+  const handleClearFilters = () => {
+    clearFilters();
+    setSortOption('default');
+  };
+
   const {
     searchQuery,
     showSearch,
@@ -222,9 +230,29 @@ export function Resources() {
 
   const filteredResources = useMemo(() => {
     const resources = getFilteredResources();
-    // Sort resources alphabetically by name
-    return resources.sort((a, b) => a.name.localeCompare(b.name));
-  }, [getFilteredResources]);
+    
+    // Apply sorting
+    // Note: When sortOption is not 'default', sorting completely ignores any default grouping
+    return [...resources].sort((a, b) => {
+      switch (sortOption) {
+        case 'alphabetical-asc':
+          // Sort alphabetically A-Z, ignoring any default grouping
+          return a.name.localeCompare(b.name);
+        case 'alphabetical-desc':
+          // Sort alphabetically Z-A, ignoring any default grouping
+          return b.name.localeCompare(a.name);
+        case 'recently-added':
+          // Sort by creation date (newest first), ignoring any default grouping
+          const dateA = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt : a.createdAt.toDate?.() || new Date(0)) : new Date(0);
+          const dateB = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt : b.createdAt.toDate?.() || new Date(0)) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        case 'default':
+        default:
+          // Default: Sort alphabetically by name
+          return a.name.localeCompare(b.name);
+      }
+    });
+  }, [getFilteredResources, sortOption]);
 
   const renderResourceList = () => {
     if (state.loading) {
@@ -297,12 +325,14 @@ export function Resources() {
         selectedResourceType={selectedResourceType}
         selectedStatus={selectedStatus}
         selectedCondition={selectedCondition}
+        selectedSort={sortOption}
+        onSortSelect={setSortOption}
         onCategorySelect={handleCategorySelect}
         onAgencySelect={handleAgencySelect}
         onResourceTypeSelect={handleResourceTypeSelect}
         onStatusSelect={handleStatusSelect}
         onConditionSelect={handleConditionSelect}
-        onClearFilters={clearFilters}
+        onClearFilters={handleClearFilters}
         agencies={agencies}
       />
 

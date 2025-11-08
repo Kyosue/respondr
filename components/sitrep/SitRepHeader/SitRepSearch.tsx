@@ -21,21 +21,31 @@ export function SitRepSearch({
   const colors = Colors[colorScheme ?? 'light'];
 
   return (
-    <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-      <View style={styles.searchInputContainer}>
-        <Ionicons name="search" size={16} color={colors.text} style={styles.searchIcon} />
+    <View style={styles.searchContainer}>
+      <View style={styles.searchInputWrapper}>
+        <Ionicons 
+          name="search" 
+          size={20} 
+          color={colors.text + '60'} 
+          style={styles.searchIcon}
+        />
         <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search documents..."
-          placeholderTextColor={colors.text + '80'}
+          style={[styles.searchInput, { 
+            backgroundColor: colors.surface, 
+            borderColor: colors.border,
+            color: colors.text 
+          }]}
           value={searchQuery}
           onChangeText={onSearchChange}
-          returnKeyType="search"
-          autoFocus
+          placeholder="Search documents..."
+          placeholderTextColor={colors.text + '60'}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={onClearSearch} style={styles.clearButton}>
-            <Ionicons name="close-circle" size={18} color={colors.text + '60'} />
+          <TouchableOpacity 
+            style={styles.clearSearchButton}
+            onPress={onClearSearch}
+          >
+            <Ionicons name="close-circle" size={20} color={colors.text + '60'} />
           </TouchableOpacity>
         )}
       </View>

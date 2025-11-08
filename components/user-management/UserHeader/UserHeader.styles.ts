@@ -38,7 +38,7 @@ export const styles = StyleSheet.create({
   headerActionsSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     paddingTop: 4,
   },
   signupButton: {
@@ -66,13 +66,32 @@ export const styles = StyleSheet.create({
     marginLeft: 6,
     letterSpacing: 0.2,
   },
-  searchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -104,7 +123,7 @@ export const styles = StyleSheet.create({
       },
     }),
   },
-  // Legacy styles - keeping for backward compatibility with UserSearch and UserFilters components
+  // Legacy styles - keeping for backward compatibility with UserSearch component
   searchContainer: {
     marginBottom: 12,
   },
@@ -136,6 +155,10 @@ export const styles = StyleSheet.create({
       },
       android: {
         elevation: 1,
+      },
+      web: {
+        outlineStyle: 'none',
+        outlineWidth: 0,
       },
     }),
   },

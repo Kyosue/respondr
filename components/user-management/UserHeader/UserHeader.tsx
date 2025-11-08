@@ -7,7 +7,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { UserStatus } from '@/types/UserData';
 import { UserType } from '@/types/UserType';
 
-import { UserFilters } from './UserFilters';
+import { UserActiveFilterTags } from './UserActiveFilterTags';
+import { UserFilterPopover, UserSortOption } from './UserFilterPopover';
 import { styles } from './UserHeader.styles';
 import { UserSearch } from './UserSearch';
 
@@ -21,6 +22,8 @@ interface UserHeaderProps {
   onFilterSelect: (filter: UserType | 'all') => void;
   selectedStatusFilter?: UserStatus | 'all';
   onStatusFilterSelect?: (filter: UserStatus | 'all') => void;
+  selectedSort?: UserSortOption;
+  onSortSelect?: (sort: UserSortOption) => void;
 }
 
 export function UserHeader({
@@ -33,6 +36,8 @@ export function UserHeader({
   onFilterSelect,
   selectedStatusFilter,
   onStatusFilterSelect,
+  selectedSort,
+  onSortSelect,
 }: UserHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -48,15 +53,24 @@ export function UserHeader({
         
         <View style={styles.headerActionsSection}>
           <TouchableOpacity 
-            style={[styles.searchButton, { 
+            style={[styles.headerButton, { 
               backgroundColor: colors.surface, 
               borderColor: colors.border,
             }]}
             onPress={onSearchToggle}
             activeOpacity={0.8}
           >
-            <Ionicons name={showSearch ? "close" : "search"} size={18} color={colors.text} />
+            <Ionicons name={showSearch ? "close" : "search"} size={16} color={colors.text} />
           </TouchableOpacity>
+          
+          <UserFilterPopover 
+            selectedFilter={selectedFilter}
+            onFilterSelect={onFilterSelect}
+            selectedStatusFilter={selectedStatusFilter || 'all'}
+            onStatusFilterSelect={onStatusFilterSelect || (() => {})}
+            selectedSort={selectedSort}
+            onSortSelect={onSortSelect}
+          />
         </View>
       </View>
       
@@ -71,13 +85,15 @@ export function UserHeader({
         </View>
       )}
       
-      {/* Filters Section */}
+      {/* Active Filter Tags Section */}
       <View style={styles.filtersSection}>
-        <UserFilters 
+        <UserActiveFilterTags
           selectedFilter={selectedFilter}
           onFilterSelect={onFilterSelect}
-          selectedStatusFilter={selectedStatusFilter}
-          onStatusFilterSelect={onStatusFilterSelect}
+          selectedStatusFilter={selectedStatusFilter || 'all'}
+          onStatusFilterSelect={onStatusFilterSelect || (() => {})}
+          selectedSort={selectedSort}
+          onSortSelect={onSortSelect}
         />
       </View>
     </View>

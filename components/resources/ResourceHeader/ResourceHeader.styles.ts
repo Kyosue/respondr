@@ -59,6 +59,13 @@ export const styles = StyleSheet.create({
   searchContainer: {
     marginBottom: 12,
   },
+  filtersSection: {
+    paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+    position: 'relative',
+    marginBottom: 4,
+  },
   searchInputWrapper: {
     position: 'relative',
     flexDirection: 'row',
@@ -87,6 +94,10 @@ export const styles = StyleSheet.create({
       },
       android: {
         elevation: 1,
+      },
+      web: {
+        outlineStyle: 'none',
+        outlineWidth: 0,
       },
     }),
   },
@@ -267,5 +278,61 @@ export const styles = StyleSheet.create({
   clearFiltersText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  // More menu styles
+  moreMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  moreMenuContent: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 24,
+      },
+      web: {
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+      },
+    }),
+  },
+  moreMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  moreMenuIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  moreMenuTextContainer: {
+    flex: 1,
+  },
+  moreMenuTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    marginBottom: 2,
+  },
+  moreMenuSubtitle: {
+    fontSize: 13,
+    fontFamily: 'Gabarito',
   },
 });
