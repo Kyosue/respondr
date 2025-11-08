@@ -161,6 +161,16 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
             {operation.title}
           </ThemedText>
           <View style={styles.badgeContainer}>
+            {operation.status === 'active' && (
+              <View style={[styles.statusBadge, { backgroundColor: colors.success || '#4CAF50' }]}>
+                <ThemedText style={styles.statusText}>Active</ThemedText>
+              </View>
+            )}
+            {operation.status === 'concluded' && (
+              <View style={[styles.statusBadge, { backgroundColor: colors.tabIconDefault || '#8E8E93' }]}>
+                <ThemedText style={styles.statusText}>Concluded</ThemedText>
+              </View>
+            )}
             <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(operation.priority) }]}>
               <ThemedText style={styles.priorityText}>
                 {operation.priority.charAt(0).toUpperCase() + operation.priority.slice(1)}
@@ -225,33 +235,37 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
       </View>
       
       {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[
-            styles.iconButton,
-            { borderColor: colors.border, backgroundColor: canDelete ? colors.surface : colors.border }
-          ]}
-          onPress={canDelete ? handleDelete : undefined}
-          disabled={!canDelete}
-        >
-          <Ionicons name="trash-outline" size={18} color={canDelete ? (colors.error || '#EF4444') : colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            styles.completeButton,
-            { backgroundColor: canConclude ? colors.success : colors.border }
-          ]}
-          onPress={canConclude ? handleConcludeOperation : undefined}
-          disabled={!canConclude}
-          activeOpacity={canConclude ? 0.7 : 1}
-        >
-          <Ionicons name="checkmark-circle-outline" size={16} color={canConclude ? 'white' : colors.text} />
-          <ThemedText style={[styles.actionButtonText, { color: canConclude ? 'white' : colors.text }]}>
-            Conclude
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
+      {(canDelete || canConclude) && (
+        <View style={styles.actionButtons}>
+          {canDelete && (
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                { borderColor: colors.border, backgroundColor: colors.surface }
+              ]}
+              onPress={handleDelete}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.error || '#EF4444'} />
+            </TouchableOpacity>
+          )}
+          {canConclude && (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                styles.completeButton,
+                { backgroundColor: colors.success }
+              ]}
+              onPress={handleConcludeOperation}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="checkmark-circle-outline" size={16} color="white" />
+              <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
+                Conclude
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Footer - compact */}
       <View style={styles.operationFooter}>
@@ -314,6 +328,16 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flexDirection: 'row',
     gap: 6,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '600',
   },
   priorityBadge: {
     paddingHorizontal: 8,

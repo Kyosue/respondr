@@ -86,7 +86,7 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
             {items.map((operation, index) => (
               <View key={operation.id} style={[styles.operationItem, Platform.OS === 'web' && styles.operationItemWeb]}>
                 <OperationCard 
-                  operation={operation} 
+                  operation={{ ...operation, status: 'concluded' }} 
                   onConclude={undefined}
                   onDelete={isAdminOrSupervisor ? () => handleDeleteClick(operation) : undefined}
                 />

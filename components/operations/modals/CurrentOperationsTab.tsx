@@ -102,7 +102,7 @@ export function CurrentOperationsTab({
             {items.map((operation, index) => (
               <View key={operation.id} style={[styles.operationItem, Platform.OS === 'web' && styles.operationItemWeb]}>
                 <OperationCard 
-                  operation={operation} 
+                  operation={{ ...operation, status: 'active' }} 
                   onConclude={isAdminOrSupervisor ? onConcludeOperation : undefined}
                   onDelete={isAdminOrSupervisor ? () => handleDeleteClick(operation) : undefined}
                 />
