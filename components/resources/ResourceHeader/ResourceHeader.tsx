@@ -93,26 +93,26 @@ export function ResourceHeader({
           {/* Show all buttons on desktop, group some in "More" menu on mobile */}
           {isWeb ? (
             <>
-              <TouchableOpacity 
-                style={[styles.headerButton, { 
-                  backgroundColor: colors.success,
-                  borderColor: colors.success,
-                }]}
-                onPress={onMultiBorrow}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="layers" size={16} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.headerButton, { 
-                  backgroundColor: colors.warning,
-                  borderColor: colors.warning,
-                }]}
-                onPress={onBorrowerDashboard}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="people" size={16} color="#fff" />
-              </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.headerButton, { 
+              backgroundColor: colors.success,
+              borderColor: colors.success,
+            }]}
+            onPress={onMultiBorrow}
+            activeOpacity={0.8}
+          >
+             <Ionicons name="layers" size={16} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.headerButton, { 
+              backgroundColor: colors.warning,
+              borderColor: colors.warning,
+            }]}
+            onPress={onBorrowerDashboard}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="people" size={16} color="#fff" />
+          </TouchableOpacity>
             </>
           ) : (
             <>
@@ -220,21 +220,21 @@ export function ResourceHeader({
       {/* Active Filter Tags Section */}
       <View style={styles.filtersSection}>
         <ResourceActiveFilterTags
-          selectedCategory={selectedCategory}
-          selectedAgency={selectedAgency}
-          selectedResourceType={selectedResourceType}
-          selectedStatus={selectedStatus}
-          selectedCondition={selectedCondition}
+        selectedCategory={selectedCategory}
+        selectedAgency={selectedAgency}
+        selectedResourceType={selectedResourceType}
+        selectedStatus={selectedStatus}
+        selectedCondition={selectedCondition}
           selectedSort={selectedSort}
           onSortSelect={onSortSelect}
-          onCategorySelect={onCategorySelect}
-          onAgencySelect={onAgencySelect}
-          onResourceTypeSelect={onResourceTypeSelect}
-          onStatusSelect={onStatusSelect}
-          onConditionSelect={onConditionSelect}
-          onClearFilters={onClearFilters}
-          agencies={agencies}
-        />
+        onCategorySelect={onCategorySelect}
+        onAgencySelect={onAgencySelect}
+        onResourceTypeSelect={onResourceTypeSelect}
+        onStatusSelect={onStatusSelect}
+        onConditionSelect={onConditionSelect}
+        onClearFilters={onClearFilters}
+        agencies={agencies}
+      />
       </View>
     </View>
   );
