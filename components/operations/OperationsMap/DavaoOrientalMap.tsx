@@ -417,8 +417,8 @@ const MunicipalityFeature = memo<{
 });
 
 const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({ 
-  width = Dimensions.get('window').width - 32, 
-  height = Dimensions.get('window').height - 200, // Better default height
+  width: propWidth = Dimensions.get('window').width - 32, 
+  height: propHeight = Dimensions.get('window').height - 200, // Better default height
   onMunicipalityPress,
   selectedMunicipality,
   operationsByMunicipality
@@ -426,11 +426,26 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
+  // Use actual container dimensions instead of props
+  const [containerWidth, setContainerWidth] = useState(propWidth);
+  const [containerHeight, setContainerHeight] = useState(propHeight);
+  const width = containerWidth;
+  const height = containerHeight;
+  
   // State for zoom control
   const initialZoom = Platform.OS === 'web' ? 1.2 : 1; // Default zoom-in for web
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [resetKey, setResetKey] = useState(0);
   const [isReset, setIsReset] = useState(false);
+  
+  // Handle container layout to get actual dimensions
+  const handleLayout = useCallback((event: any) => {
+    const { width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+    if (layoutWidth > 0 && layoutHeight > 0) {
+      setContainerWidth(layoutWidth);
+      setContainerHeight(layoutHeight);
+    }
+  }, []);
   
   // Animated values for pan/zoom (mobile only)
   const scale = useSharedValue(1);
@@ -604,12 +619,13 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 , backgroundColor: '#cec9bd'}}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#cec9bd' }}>
       <View 
         style={Platform.OS === 'web' 
-          ? [styles.container, { width, height }, { userSelect: 'none' }]
-          : [styles.container, { width, height }]
+          ? [styles.container, { userSelect: 'none' }]
+          : styles.container
         }
+        onLayout={handleLayout}
       >
         {Platform.OS === 'web' ? (
           // Web: Use SvgPanZoom for pan/zoom functionality
@@ -662,6 +678,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#cec9bd',
     borderRadius: 12,
     position: 'relative',
+    flex: 1,
   },
   canvas: {
     backgroundColor: 'transparent',
