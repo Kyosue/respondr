@@ -1,13 +1,12 @@
-import { OperationsTable } from '@/components/dashboard/OperationsTable';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { getMunicipalities, Municipality } from '@/data/davaoOrientalData';
+import { Municipality } from '@/data/davaoOrientalData';
 import { OperationRecord, operationsService } from '@/firebase/operations';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { DavaoOrientalMap } from './OperationsMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
 
@@ -22,7 +21,6 @@ const Operations = React.memo(() => {
   const [showOperationsModal, setShowOperationsModal] = useState(false);
   const [operationsByMunicipality, setOperationsByMunicipality] = useState<Record<string, any[]>>({});
   const [concludedOperationsByMunicipality, setConcludedOperationsByMunicipality] = useState<Record<string, any[]>>({});
-  const [allOperations, setAllOperations] = useState<OperationRecord[]>([]);
   
   // Memoize screen dimensions to prevent unnecessary recalculations
   const screenDimensions = useMemo(() => {
@@ -75,7 +73,6 @@ const Operations = React.memo(() => {
   // Subscribe to operations and group by municipality for map and modal
   useEffect(() => {
     const unsubscribe = operationsService.onAllOperations((ops: OperationRecord[]) => {
-      setAllOperations(ops);
       const grouped: Record<string, OperationRecord[]> = {};
       const groupedConcluded: Record<string, OperationRecord[]> = {};
       for (const op of ops) {
@@ -101,15 +98,6 @@ const Operations = React.memo(() => {
     }
   }, [user?.id]);
 
-  const handleOperationPress = useCallback((operation: OperationRecord) => {
-    // Find the municipality for this operation and open its modal
-    const municipality = getMunicipalities().find(m => m.id.toString() === operation.municipalityId);
-    if (municipality) {
-      setSelectedMunicipality(municipality);
-      setShowModal(true);
-    }
-  }, []);
-
   return (
     <View 
       style={Platform.OS === 'web' 
@@ -128,16 +116,6 @@ const Operations = React.memo(() => {
               operationsByMunicipality={operationsByMunicipality}
             />
           </View>
-          <ScrollView 
-            style={styles.tableContainer}
-            contentContainerStyle={styles.tableContent}
-            showsVerticalScrollIndicator={true}
-          >
-            <OperationsTable 
-              operations={allOperations} 
-              onOperationPress={handleOperationPress}
-            />
-          </ScrollView>
         </View>
       ) : (
         <View style={styles.mobileLayout}>
@@ -150,16 +128,6 @@ const Operations = React.memo(() => {
               operationsByMunicipality={operationsByMunicipality}
             />
           </View>
-          <ScrollView 
-            style={styles.tableContainer}
-            contentContainerStyle={styles.tableContent}
-            showsVerticalScrollIndicator={true}
-          >
-            <OperationsTable 
-              operations={allOperations} 
-              onOperationPress={handleOperationPress}
-            />
-          </ScrollView>
         </View>
       )}
 
@@ -213,15 +181,8 @@ const styles = StyleSheet.create({
     minHeight: 400, // Ensure minimum height for desktop
   },
   mapContainerDesktop: {
-    flex: 0.9, // Map takes 70% of width on desktop
+    flex: 1, // Map takes full width on desktop
     minWidth: 0, // Allow flexbox to shrink
-  },
-  tableContainer: {
-    flex: 0.1, // Table takes 30% of width on desktop
-    minWidth: 0, // Allow flexbox to shrink
-  },
-  tableContent: {
-    flexGrow: 1,
   },
 });
 
