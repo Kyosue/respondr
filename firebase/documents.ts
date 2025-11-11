@@ -319,10 +319,8 @@ export class DocumentService {
       const q = query(collection(db, this.collectionName), ...constraints);
       const querySnapshot = await getDocs(q);
       
-      const documents: SitRepDocument[] = [];
-      
-      // Process documents and generate fresh download URLs
-      for (const docSnapshot of querySnapshot.docs) {
+      // Process documents and generate fresh download URLs in parallel
+      const documentPromises = querySnapshot.docs.map(async (docSnapshot) => {
         const data = docSnapshot.data();
         const document = {
           id: docSnapshot.id,
@@ -342,8 +340,10 @@ export class DocumentService {
           }
         }
         
-        documents.push(document);
-      }
+        return document;
+      });
+      
+      const documents = await Promise.all(documentPromises);
 
       const lastDocument = querySnapshot.docs[querySnapshot.docs.length - 1];
       

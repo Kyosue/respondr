@@ -393,13 +393,13 @@ export class MemoService {
   }
 
   /**
-   * Get all memo documents with optional filtering
+   * Get all memo documents with optional filtering and pagination
    */
   async getMemoDocuments(
     filters?: MemoFilter,
     limitCount?: number,
     lastDoc?: DocumentSnapshot
-  ): Promise<MemoDocument[]> {
+  ): Promise<{ documents: MemoDocument[]; lastDoc?: DocumentSnapshot }> {
     try {
       // Check if user is authenticated
       const { auth } = await import('./config');
@@ -458,7 +458,12 @@ export class MemoService {
       // Sort in memory by uploadedAt (most recent first)
       documents.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
 
-      return documents;
+      const lastDocument = querySnapshot.docs[querySnapshot.docs.length - 1];
+
+      return {
+        documents,
+        lastDoc: lastDocument
+      };
     } catch (error) {
       throw error;
     }

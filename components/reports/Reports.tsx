@@ -8,7 +8,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { MemoDocument, MemoFilter } from '@/types/MemoDocument';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 
 import { MemoActiveFilterTags } from './MemoActiveFilterTags';
 import { MemoFilterPopover } from './MemoFilterPopover';
@@ -26,7 +26,10 @@ const Reports: React.FC = () => {
   const { 
     documents, 
     loading, 
+    hasMore,
     fetchDocuments, 
+    loadMore,
+    refresh,
     updateDistribution, 
     acknowledgeDocument,
     deleteDocument,
@@ -53,7 +56,7 @@ const Reports: React.FC = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchDocuments(filters);
+      await fetchDocuments(filters, true);
     } finally {
       setRefreshing(false);
     }
@@ -72,7 +75,7 @@ const Reports: React.FC = () => {
       setDistributionModalVisible(false);
       setDocumentToDistribute(null);
       Alert.alert('Success', `Document assigned to ${userIds.length} user(s)`);
-      fetchDocuments(filters);
+      await refresh();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to assign document');
     }
@@ -82,7 +85,7 @@ const Reports: React.FC = () => {
     try {
       await acknowledgeDocument(documentId, user?.id || '', user?.fullName || 'User', comments);
       Alert.alert('Success', 'Document acknowledged');
-      fetchDocuments(filters);
+      await refresh();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to acknowledge document');
     }
@@ -371,6 +374,18 @@ const Reports: React.FC = () => {
     );
   }, [colors, isWeb, canAssignDocuments, isMultiSelectMode, selectedDocuments, handleDocumentSelect, handleDocumentPress]);
 
+  // Show loading spinner when initially loading documents (similar to SitRep)
+  if (loading && documents.length === 0) {
+    return (
+      <View style={[styles.container, { flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.tint} />
+        <Text style={{ marginTop: 16, opacity: 0.7, color: colors.text }}>
+          Loading documents...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: 'transparent'}]}>
       {/* Header */}
@@ -387,7 +402,7 @@ const Reports: React.FC = () => {
               filters={filters}
               onFilterChange={(newFilters) => {
                 setFilters(newFilters);
-                fetchDocuments(newFilters);
+                fetchDocuments(newFilters, true);
               }}
             />
           )}
@@ -478,6 +493,12 @@ const Reports: React.FC = () => {
             tintColor={colors.tint}
           />
         }
+        onEndReachedThreshold={0.2}
+        onEndReached={() => {
+          if (hasMore && !loading) {
+            loadMore();
+          }
+        }}
         ListHeaderComponent={isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) ? (
           <View style={styles.multiSelectBar}>
             <View style={styles.multiSelectContent}>
@@ -503,12 +524,15 @@ const Reports: React.FC = () => {
             </View>
           </View>
         ) : null}
-        ListEmptyComponent={loading ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="hourglass" size={32} color={colors.tabIconDefault} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>Loading documents...</Text>
+        ListFooterComponent={loading && documents.length > 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={colors.tint} />
+            <Text style={{ marginTop: 8, color: colors.tabIconDefault, fontSize: 12 }}>
+              Loading more documents...
+            </Text>
           </View>
-        ) : (
+        ) : null}
+        ListEmptyComponent={!loading ? (
           <View style={styles.centerContent}>
             <Ionicons name="folder-open" size={64} color={colors.tabIconDefault} />
             <Text style={[styles.emptyText, { color: colors.text }]}>No documents yet</Text>
@@ -516,7 +540,7 @@ const Reports: React.FC = () => {
               Upload memos and local issuances to get started
             </Text>
           </View>
-        )}
+        ) : null}
       />
 
       {/* Upload Modal */}

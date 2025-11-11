@@ -23,15 +23,17 @@ export const styles = StyleSheet.create({
     width: 280,
     flexDirection: 'column',
     marginBottom: 0,
-    padding: 14,
+    padding: 12,
+    minHeight: 120,
   },
   documentIcon: {
-    marginRight: 12,
+    marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    flexShrink: 0,
   },
   documentInfo: {
     flex: 1,
@@ -39,18 +41,18 @@ export const styles = StyleSheet.create({
   documentTitle: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 6,
     lineHeight: 20,
+    flex: 1,
   },
   documentMeta: {
     fontSize: 12,
     marginBottom: 4,
   },
   documentDate: {
-    fontSize: 12,
+    fontSize: 11,
+    marginLeft: 4,
   },
   categoryBadge: {
-    marginTop: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -60,17 +62,38 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  cardHeader: {
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    flex: 1,
+  },
+  titleContainer: {
+    flex: 1,
+    marginLeft: 0,
+  },
+  cardBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 'auto',
+    paddingTop: 6,
+    borderTopWidth: 1,
   },
-  cardFooter: {
+  metaRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  metaSeparator: {
+    fontSize: 10,
+    marginHorizontal: 4,
+    opacity: 0.5,
+  },
+  fileSize: {
+    fontSize: 11,
+    marginLeft: 4,
   },
   selectedIndicator: {
     position: 'absolute',

@@ -8,6 +8,7 @@ interface MemoContextType {
   documents: MemoDocument[];
   loading: boolean;
   error: string | null;
+  hasMore: boolean;
   selectedDocuments: Set<string>;
   uploadProgress: Map<string, number>;
   currentUploadProgress: number;
@@ -32,7 +33,9 @@ interface MemoContextType {
     }
   ) => Promise<MemoDocument>;
   
-  fetchDocuments: (filters?: MemoFilter) => Promise<void>;
+  fetchDocuments: (filters?: MemoFilter, refresh?: boolean) => Promise<void>;
+  loadMore: () => Promise<void>;
+  refresh: () => Promise<void>;
   getDocumentById: (id: string) => Promise<MemoDocument | null>;
   updateDocument: (id: string, updates: Partial<MemoDocument>) => Promise<void>;
   updateDistribution: (id: string, userIds: string[]) => Promise<void>;
@@ -55,6 +58,9 @@ export function MemoProvider({ children }: MemoProviderProps) {
   const [documents, setDocuments] = useState<MemoDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [currentFilters, setCurrentFilters] = useState<MemoFilter | undefined>();
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [uploadProgress, setUploadProgress] = useState<Map<string, number>>(new Map());
   const [currentUploadProgress, setCurrentUploadProgress] = useState(0);
@@ -69,18 +75,36 @@ export function MemoProvider({ children }: MemoProviderProps) {
     }
   }, [isLoading, isAuthenticated]);
 
-  const fetchDocuments = async (filters?: MemoFilter) => {
+  const fetchDocuments = async (filters?: MemoFilter, refresh: boolean = false) => {
     try {
       // Guard: only attempt when authenticated
       if (!isAuthenticated) {
         setDocuments([]);
         setError(null);
+        setHasMore(true);
+        setLastDoc(null);
         return;
       }
       setLoading(true);
       setError(null);
-      const docs = await memoService.getMemoDocuments(filters);
-      setDocuments(docs);
+
+      const pageSize = 20;
+      const { documents: newDocuments, lastDoc: newLastDoc } = await memoService.getMemoDocuments(
+        filters,
+        pageSize,
+        refresh ? undefined : lastDoc
+      );
+
+      if (refresh) {
+        setDocuments(newDocuments);
+        setLastDoc(newLastDoc);
+      } else {
+        setDocuments(prev => [...prev, ...newDocuments]);
+        setLastDoc(newLastDoc);
+      }
+
+      setHasMore(newDocuments.length === pageSize);
+      setCurrentFilters(filters);
     } catch (err) {
       // Suppress noisy unauthenticated logs; surface other errors
       if (!(err instanceof Error && err.message.includes('User must be authenticated'))) {
@@ -90,6 +114,18 @@ export function MemoProvider({ children }: MemoProviderProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadMore = async () => {
+    if (!loading && hasMore) {
+      await fetchDocuments(currentFilters, false);
+    }
+  };
+
+  const refresh = async () => {
+    setLastDoc(null);
+    setHasMore(true);
+    await fetchDocuments(currentFilters, true);
   };
 
   const uploadDocument = async (
@@ -137,7 +173,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
       );
 
       // Refresh documents list
-      await fetchDocuments();
+      await refresh();
 
       return doc;
     } catch (err) {
@@ -165,7 +201,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
     try {
       setError(null);
       await memoService.updateMemoDocument(id, updates);
-      await fetchDocuments();
+      await refresh();
     } catch (err) {
       console.error('Error updating document:', err);
       setError(err instanceof Error ? err.message : 'Failed to update document');
@@ -177,7 +213,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
     try {
       setError(null);
       await memoService.deleteMemoDocument(id);
-      await fetchDocuments();
+      await refresh();
       
       // Remove from selected if selected
       const newSelected = new Set(selectedDocuments);
@@ -194,7 +230,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
     try {
       setError(null);
       await memoService.updateMemoDocument(id, { distributionList: userIds });
-      await fetchDocuments();
+      await refresh();
     } catch (err) {
       console.error('Error updating distribution:', err);
       setError(err instanceof Error ? err.message : 'Failed to update distribution');
@@ -206,7 +242,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
     try {
       setError(null);
       await memoService.acknowledgeMemoDocument(id, userId, userName, comments);
-      await fetchDocuments();
+      await refresh();
     } catch (err) {
       console.error('Error acknowledging document:', err);
       setError(err instanceof Error ? err.message : 'Failed to acknowledge document');
@@ -240,7 +276,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
       );
       await Promise.all(deletePromises);
       setSelectedDocuments(new Set());
-      await fetchDocuments();
+      await refresh();
     } catch (err) {
       console.error('Error deleting selected documents:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete documents');
@@ -252,11 +288,14 @@ export function MemoProvider({ children }: MemoProviderProps) {
     documents,
     loading,
     error,
+    hasMore,
     selectedDocuments,
     uploadProgress,
     currentUploadProgress,
     uploadDocument,
     fetchDocuments,
+    loadMore,
+    refresh,
     getDocumentById,
     updateDocument,
     updateDistribution,

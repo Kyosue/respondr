@@ -13,14 +13,17 @@ export interface ConfirmationOptions {
 export function useConfirmationModal() {
   const [visible, setVisible] = useState(false);
   const [options, setOptions] = useState<ConfirmationOptions | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const showConfirmation = useCallback((config: ConfirmationOptions) => {
     setOptions(config);
     setVisible(true);
+    setLoading(false);
   }, []);
 
   const hideConfirmation = useCallback(() => {
     setVisible(false);
+    setLoading(false);
     // Clear options after animation completes
     setTimeout(() => setOptions(null), 300);
   }, []);
@@ -29,12 +32,14 @@ export function useConfirmationModal() {
     if (!options) return;
     
     try {
+      setLoading(true);
       await options.onConfirm();
       hideConfirmation();
     } catch (error) {
       // Error handling is done by the caller
       // We don't hide the modal if there's an error
       // so the user can retry
+      setLoading(false);
       console.error('Confirmation action failed:', error);
     }
   }, [options, hideConfirmation]);
@@ -45,6 +50,7 @@ export function useConfirmationModal() {
     hideConfirmation,
     handleConfirm,
     options,
+    loading,
   };
 }
 

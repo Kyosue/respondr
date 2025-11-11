@@ -62,6 +62,14 @@ export const DocumentCard = memo(function DocumentCard({
     return category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Other';
   };
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
   const handlePress = () => {
     if (isMultiSelectMode) {
       onSelect(document.id, !isSelected);
@@ -116,25 +124,40 @@ export const DocumentCard = memo(function DocumentCard({
       >
         {isWeb ? (
           <>
-            <View style={styles.cardHeader}>
+            {/* Top Row: Icon and Title */}
+            <View style={styles.cardTopRow}>
               <View style={[styles.documentIcon, { backgroundColor: `${getCategoryColor(document.category)}20` }]}>
-                <Ionicons name={getFileIcon(document.fileType)} size={32} color={getCategoryColor(document.category)} />
+                <Ionicons name={getFileIcon(document.fileType)} size={24} color={getCategoryColor(document.category)} />
+              </View>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
+                  {document.title}
+                </Text>
               </View>
             </View>
-            <View style={styles.documentInfo}>
-              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
-                {document.title}
-              </Text>
+            
+            {/* Bottom Row: Category Badge, Date, and File Size */}
+            <View style={[styles.cardBottomRow, { borderTopColor: colors.border }]}>
               <View style={[styles.categoryBadge, { backgroundColor: `${getCategoryColor(document.category)}20` }]}>
                 <Text style={[styles.categoryText, { color: getCategoryColor(document.category) }]}>
                   {getCategoryText(document.category)}
                 </Text>
               </View>
-            </View>
-            <View style={styles.cardFooter}>
-              <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
-                {new Date(document.uploadedAt).toLocaleDateString()}
-              </Text>
+              <View style={styles.metaRow}>
+                <Ionicons name="calendar-outline" size={11} color={colors.tabIconDefault} />
+                <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
+                  {new Date(document.uploadedAt).toLocaleDateString()}
+                </Text>
+                {document.fileSize && (
+                  <>
+                    <Text style={[styles.metaSeparator, { color: colors.tabIconDefault }]}>•</Text>
+                    <Ionicons name="document-outline" size={11} color={colors.tabIconDefault} />
+                    <Text style={[styles.fileSize, { color: colors.tabIconDefault }]}>
+                      {formatFileSize(document.fileSize)}
+                    </Text>
+                  </>
+                )}
+              </View>
             </View>
           </>
         ) : (
