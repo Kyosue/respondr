@@ -421,7 +421,7 @@ export function ResourcesTable({
               </ThemedText>
             </View>
           </View>
-          <View style={styles.tableHeaderCell}>
+          <View style={[styles.tableHeaderCell, styles.tableHeaderCellCondition]}>
             <View style={styles.headerTitleContainer}>
               <Ionicons name="shield-checkmark-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
               <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
@@ -537,7 +537,7 @@ export function ResourcesTable({
                   </ThemedText>
                 </View>
               </View>
-              <View style={styles.tableCell}>
+              <View style={[styles.tableCell, styles.tableCellCondition]}>
                 <View style={[styles.conditionBadge, { backgroundColor: `${conditionColor}20` }]}>
                   <ThemedText style={[styles.conditionText, { color: conditionColor }]}>
                     {getConditionText(resource.condition)}
@@ -809,6 +809,9 @@ const styles = StyleSheet.create({
     flex: 1.5,
     alignItems: 'center',
   },
+  tableHeaderCellCondition: {
+    flex: 0.7,
+  },
   tableHeaderText: {
     fontSize: 11,
     fontWeight: '700',
@@ -842,6 +845,9 @@ const styles = StyleSheet.create({
   tableCellActions: {
     flex: 1.5,
     alignItems: 'center',
+  },
+  tableCellCondition: {
+    flex: 0.7,
   },
   tableCellText: {
     fontSize: 14,

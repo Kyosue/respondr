@@ -36,11 +36,27 @@ import { useColorScheme } from '@/hooks/useColorScheme';
     const colors = Colors[colorScheme ?? 'light'];
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+    const [hasUserInteracted, setHasUserInteracted] = useState(false);
     const inputRef = useRef<TextInput>(null);
+    const initialValueRef = useRef<string>(value);
+
+    // Initialize and track external value changes
+    useEffect(() => {
+        // On mount or when value changes externally, update the initial value
+        // This helps us detect when a new resource is loaded
+        if (value !== initialValueRef.current) {
+        // If user hasn't interacted yet, this is an external change - reset state
+        if (!hasUserInteracted) {
+            setHasUserInteracted(false);
+            initialValueRef.current = value;
+        }
+        }
+    }, [value, hasUserInteracted]);
 
     // Filter suggestions based on current input
     useEffect(() => {
-        if (value.trim().length >= 1) { // Show suggestions after typing at least 1 character
+        // Only show suggestions if user has interacted (typed or focused and typed)
+        if (hasUserInteracted && value.trim().length >= 1) {
         const query = value.toLowerCase().trim();
         
         // First, find exact matches that start with the query
@@ -60,13 +76,17 @@ import { useColorScheme } from '@/hooks/useColorScheme';
         setFilteredSuggestions(filtered);
         setShowSuggestions(filtered.length > 0);
         } else {
-        // Hide suggestions when input is empty or has less than 1 character
+        // Hide suggestions when input is empty or user hasn't interacted
         setFilteredSuggestions([]);
         setShowSuggestions(false);
         }
-    }, [value, suggestions]);
+    }, [value, suggestions, hasUserInteracted]);
 
     const handleInputChange = (text: string) => {
+        // Mark that user has interacted when they type
+        if (!hasUserInteracted) {
+        setHasUserInteracted(true);
+        }
         onChangeText(text);
     };
 
@@ -81,10 +101,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
     };
 
     const handleInputFocus = () => {
-        // Only show suggestions when focused if there's at least 1 character in the input
-        if (value.trim().length >= 1 && suggestions.length > 0) {
-        setShowSuggestions(true);
-        }
+        // Don't mark interaction just on focus - wait for user to actually type
+        // This prevents suggestions from showing when focusing on a pre-filled field
     };
 
     const handleInputBlur = () => {
