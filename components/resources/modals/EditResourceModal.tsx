@@ -2,14 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -38,6 +37,7 @@ interface EditResourceModalProps {
 const categories = RESOURCE_CATEGORIES;
 const statuses = RESOURCE_STATUSES;
 const conditions = RESOURCE_CONDITIONS;
+const isPersonnelCategory = (category: ResourceCategory) => category === 'personnel';
 
 export function EditResourceModal({ resource, visible, onClose, onSuccess }: EditResourceModalProps) {
   const colorScheme = useColorScheme();
@@ -168,6 +168,264 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
     handleClose,
   } = useHybridRamp({ visible, onClose: clearAndClose });
 
+  const isPersonnel = isPersonnelCategory(formData.category);
+  const locationSuggestions = getLocationSuggestions(formData.location);
+
+  const renderFormSections = () => {
+    const statusOptions = isPersonnel
+      ? statuses.filter(status => status.value !== 'maintenance' && status.value !== 'retired')
+      : statuses;
+
+    return (
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+            </View>
+            <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
+          </View>
+
+          <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.label, { color: colors.text }]}>Category *</ThemedText>
+              <View style={styles.categoryContainer}>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.value}
+                    style={[
+                      styles.categoryButton,
+                      { borderColor: colors.border },
+                      formData.category === category.value && { 
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary 
+                      }
+                    ]}
+                    onPress={() => handleInputChange('category', category.value)}
+                  >
+                    <Ionicons 
+                      name={category.icon as keyof typeof Ionicons.glyphMap} 
+                      size={16} 
+                      color={formData.category === category.value ? '#fff' : colors.primary} 
+                      style={styles.categoryIcon}
+                    />
+                    <ThemedText style={[
+                      styles.categoryButtonText,
+                      formData.category === category.value && { color: '#fff' }
+                    ]}>
+                      {category.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <ThemedText style={[styles.helperText, { color: colors.text + '70', marginTop: 8 }]}>
+                Select the category first to see relevant fields
+              </ThemedText>
+            </View>
+
+            <FormInput
+              label={isPersonnel ? 'Personnel Name' : 'Resource Name'}
+              value={formData.name}
+              onChangeText={(value) => handleInputChange('name', value)}
+              placeholder={isPersonnel ? 'e.g., John Doe, Maria Santos' : 'e.g., Emergency Generator, First Aid Kit, Radio'}
+              required
+              error={errors.name}
+              helperText={isPersonnel ? 'Enter the full name of the personnel' : 'Give it a clear, descriptive name that others will understand'}
+            />
+
+            <FormInput
+              label="Description (Optional)"
+              value={formData.description}
+              onChangeText={(value) => handleInputChange('description', value)}
+              placeholder={isPersonnel ? "Describe the personnel's role, skills, or responsibilities..." : "Describe what this resource is and how it's used..."}
+              multiline
+              numberOfLines={3}
+              helperText={isPersonnel ? "Provide details about the personnel's role and capabilities" : "Provide details about the resource's purpose and usage"}
+            />
+          </View>
+        </View>
+
+        {!isPersonnel && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="location-outline" size={20} color="#007AFF" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
+            </View>
+
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.quantityRow}>
+                <View style={styles.quantityHalf}>
+                  <FormQuantityInput
+                    label="Total Quantity"
+                    value={formData.totalQuantity}
+                    onChangeValue={(value) => handleInputChange('totalQuantity', value)}
+                    required
+                    error={errors.totalQuantity}
+                    helperText="How many units of this resource do you have?"
+                  />
+                </View>
+
+                <View style={styles.quantityHalf}>
+                  <FormQuantityInput
+                    label="Available Quantity"
+                    value={formData.availableQuantity}
+                    onChangeValue={(value) => handleInputChange('availableQuantity', value)}
+                    required
+                    error={errors.availableQuantity}
+                    helperText="How many units are currently available?"
+                  />
+                </View>
+              </View>
+
+              <LocationInput
+                value={formData.location}
+                onChangeText={(value) => handleInputChange('location', value)}
+                placeholder="e.g., Warehouse A, Building 2, Room 101"
+                suggestions={locationSuggestions}
+                error={errors.location}
+                helperText="Where can others find this resource? Select from existing locations or type a new one."
+                disabled={loading}
+              />
+            </View>
+          </View>
+        )}
+
+        {isPersonnel && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Ionicons name="location-outline" size={20} color="#007AFF" />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Location</ThemedText>
+            </View>
+
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <LocationInput
+                value={formData.location}
+                onChangeText={(value) => handleInputChange('location', value)}
+                placeholder="e.g., Office, Field Station, Department"
+                suggestions={locationSuggestions}
+                error={errors.location}
+                helperText="Where is this personnel typically located? Select from existing locations or type a new one."
+                disabled={loading}
+              />
+            </View>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="settings-outline" size={20} color="#007AFF" />
+            </View>
+            <ThemedText style={styles.sectionTitle}>
+              {isPersonnel ? 'Status & Details' : 'Status & Condition'}
+            </ThemedText>
+          </View>
+
+          <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.label, { color: colors.text }]}>Status</ThemedText>
+              <View style={styles.statusContainer}>
+                {statusOptions.map((status) => (
+                  <TouchableOpacity
+                    key={status.value}
+                    style={[
+                      styles.statusButton,
+                      { borderColor: colors.border },
+                      formData.status === status.value && { 
+                        backgroundColor: status.color,
+                        borderColor: status.color 
+                      }
+                    ]}
+                    onPress={() => handleInputChange('status', status.value)}
+                  >
+                    <View style={[
+                      styles.statusIndicator,
+                      { backgroundColor: formData.status === status.value ? '#fff' : status.color }
+                    ]} />
+                    <ThemedText style={[
+                      styles.statusButtonText,
+                      formData.status === status.value && { color: '#fff' }
+                    ]}>
+                      {status.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {!isPersonnel && (
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
+                <View style={styles.conditionContainer}>
+                  {conditions.map((condition) => (
+                    <TouchableOpacity
+                      key={condition.value}
+                      style={[
+                        styles.conditionButton,
+                        { borderColor: colors.border },
+                        formData.condition === condition.value && { 
+                          backgroundColor: condition.color,
+                          borderColor: condition.color 
+                        }
+                      ]}
+                      onPress={() => handleInputChange('condition', condition.value)}
+                    >
+                      <View style={[
+                        styles.conditionIndicator,
+                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
+                      ]} />
+                      <ThemedText style={[
+                        styles.conditionButtonText,
+                        formData.condition === condition.value && { color: '#fff' }
+                      ]}>
+                        {condition.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <FormInput
+              label="Tags (Optional)"
+              value={formData.tags}
+              onChangeText={(value) => handleInputChange('tags', value)}
+              placeholder={isPersonnel ? 'e.g., paramedic, driver, coordinator' : 'e.g., emergency, portable, battery-powered'}
+              helperText={isPersonnel ? "Add keywords to help identify this personnel's skills or role (separate with commas)" : "Add keywords to help others find this resource (separate with commas)"}
+              error={errors.tags}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="images-outline" size={20} color="#007AFF" />
+            </View>
+            <ThemedText style={styles.sectionTitle}>Photos (Optional)</ThemedText>
+          </View>
+
+          <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ImageUpload
+              onImageSelected={(imageUrl) => setImages(prev => [...prev, imageUrl])}
+              onImageRemoved={() => setImages(prev => prev.slice(0, -1))}
+              currentImageUrl={images[0]}
+              imagesCount={images.length}
+              maxImages={5}
+              resourceId={resource?.id || 'temp'}
+              folder="resources"
+              disabled={loading}
+            />
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
   if (!resource) return null;
 
   return (
@@ -214,205 +472,7 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
               </View>
             </View>
           </View>
-
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormInput
-                label="Name"
-                value={formData.name}
-                onChangeText={(value) => handleInputChange('name', value)}
-                placeholder="Enter resource name"
-                required
-                error={errors.name}
-              />
-
-              <FormInput
-                label="Description"
-                value={formData.description}
-                onChangeText={(value) => handleInputChange('description', value)}
-                placeholder="Enter resource description"
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Category</ThemedText>
-                <View style={styles.categoryContainer}>
-                  {categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.value}
-                      style={[
-                        styles.categoryButton,
-                        { borderColor: colors.border },
-                        formData.category === category.value && { 
-                          backgroundColor: colors.primary,
-                          borderColor: colors.primary 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('category', category.value)}
-                    >
-                      <Ionicons 
-                        name={category.icon as keyof typeof Ionicons.glyphMap} 
-                        size={16} 
-                        color={formData.category === category.value ? '#fff' : colors.primary} 
-                        style={styles.categoryIcon}
-                      />
-                      <ThemedText style={[
-                        styles.categoryButtonText,
-                        formData.category === category.value && { color: '#fff' }
-                      ]}>
-                        {category.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.quantityRow}>
-                <View style={styles.quantityHalf}>
-                  <FormQuantityInput
-                    label="Total Quantity"
-                    value={formData.totalQuantity}
-                    onChangeValue={(value) => handleInputChange('totalQuantity', value)}
-                    required
-                    error={errors.totalQuantity}
-                  />
-                </View>
-                
-                <View style={styles.quantityHalf}>
-                  <FormQuantityInput
-                    label="Available Quantity"
-                    value={formData.availableQuantity}
-                    onChangeValue={(value) => handleInputChange('availableQuantity', value)}
-                    required
-                    error={errors.availableQuantity}
-                  />
-                </View>
-              </View>
-
-              <LocationInput
-                value={formData.location}
-                onChangeText={(value) => handleInputChange('location', value)}
-                placeholder="Enter or select location"
-                suggestions={getLocationSuggestions(formData.location)}
-                error={errors.location}
-                helperText="Where can others find this resource? Select from existing locations or type a new one."
-                disabled={loading}
-              />
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Status & Condition</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Status</ThemedText>
-                <View style={styles.statusContainer}>
-                  {statuses.map((status) => (
-                    <TouchableOpacity
-                      key={status.value}
-                      style={[
-                        styles.statusButton,
-                        { borderColor: colors.border },
-                        formData.status === status.value && { 
-                          backgroundColor: status.color,
-                          borderColor: status.color 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('status', status.value)}
-                    >
-                      <View style={[
-                        styles.statusIndicator,
-                        { backgroundColor: formData.status === status.value ? '#fff' : status.color }
-                      ]} />
-                      <ThemedText style={[
-                        styles.statusButtonText,
-                        formData.status === status.value && { color: '#fff' }
-                      ]}>
-                        {status.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Condition</ThemedText>
-                <View style={styles.conditionContainer}>
-                  {conditions.map((condition) => (
-                    <TouchableOpacity
-                      key={condition.value}
-                      style={[
-                        styles.conditionButton,
-                        { borderColor: colors.border },
-                        formData.condition === condition.value && { 
-                          backgroundColor: condition.color,
-                          borderColor: condition.color 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('condition', condition.value)}
-                    >
-                      <View style={[
-                        styles.conditionIndicator,
-                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
-                      ]} />
-                      <ThemedText style={[
-                        styles.conditionButtonText,
-                        formData.condition === condition.value && { color: '#fff' }
-                      ]}>
-                        {condition.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <FormInput
-                label="Tags"
-                value={formData.tags}
-                onChangeText={(value) => handleInputChange('tags', value)}
-                placeholder="Enter tags separated by commas"
-                helperText="Separate multiple tags with commas"
-              />
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="images-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Images</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ImageUpload
-                onImageSelected={(imageUrl) => setImages(prev => [...prev, imageUrl])}
-                onImageRemoved={() => setImages(prev => prev.slice(0, -1))}
-                currentImageUrl={images[0]}
-                imagesCount={images.length}
-                maxImages={5}
-                resourceId={resource.id}
-                folder="resources"
-                disabled={loading}
-              />
-            </View>
-          </View>
-          </ScrollView>
+          {renderFormSections()}
         </ThemedView>
       ) : (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -441,204 +501,7 @@ export function EditResourceModal({ resource, visible, onClose, onSuccess }: Edi
               </View>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionIconContainer}>
-                    <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-                  </View>
-                  <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
-                </View>
-                
-                <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <FormInput
-                    label="Name"
-                    value={formData.name}
-                    onChangeText={(value) => handleInputChange('name', value)}
-                    placeholder="Enter resource name"
-                    required
-                    error={errors.name}
-                  />
-
-                  <FormInput
-                    label="Description"
-                    value={formData.description}
-                    onChangeText={(value) => handleInputChange('description', value)}
-                    placeholder="Enter resource description"
-                    multiline
-                    numberOfLines={3}
-                  />
-
-                  <View style={styles.inputGroup}>
-                    <ThemedText style={styles.label}>Category</ThemedText>
-                    <View style={styles.categoryContainer}>
-                      {categories.map((category) => (
-                        <TouchableOpacity
-                          key={category.value}
-                          style={[
-                            styles.categoryButton,
-                            { borderColor: colors.border },
-                            formData.category === category.value && { 
-                              backgroundColor: colors.primary,
-                              borderColor: colors.primary 
-                            }
-                          ]}
-                          onPress={() => handleInputChange('category', category.value)}
-                        >
-                          <Ionicons 
-                            name={category.icon as keyof typeof Ionicons.glyphMap} 
-                            size={16} 
-                            color={formData.category === category.value ? '#fff' : colors.primary} 
-                            style={styles.categoryIcon}
-                          />
-                          <ThemedText style={[
-                            styles.categoryButtonText,
-                            formData.category === category.value && { color: '#fff' }
-                          ]}>
-                            {category.label}
-                          </ThemedText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.quantityRow}>
-                    <View style={styles.quantityHalf}>
-                      <FormQuantityInput
-                        label="Total Quantity"
-                        value={formData.totalQuantity}
-                        onChangeValue={(value) => handleInputChange('totalQuantity', value)}
-                        required
-                        error={errors.totalQuantity}
-                      />
-                    </View>
-                    
-                    <View style={styles.quantityHalf}>
-                      <FormQuantityInput
-                        label="Available Quantity"
-                        value={formData.availableQuantity}
-                        onChangeValue={(value) => handleInputChange('availableQuantity', value)}
-                        required
-                        error={errors.availableQuantity}
-                      />
-                    </View>
-                  </View>
-
-                  <LocationInput
-                    value={formData.location}
-                    onChangeText={(value) => handleInputChange('location', value)}
-                    placeholder="Enter or select location"
-                    suggestions={getLocationSuggestions(formData.location)}
-                    error={errors.location}
-                    helperText="Where can others find this resource? Select from existing locations or type a new one."
-                    disabled={loading}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionIconContainer}>
-                    <Ionicons name="settings-outline" size={20} color="#007AFF" />
-                  </View>
-                  <ThemedText style={styles.sectionTitle}>Status & Condition</ThemedText>
-                </View>
-                
-                <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={styles.inputGroup}>
-                    <ThemedText style={styles.label}>Status</ThemedText>
-                    <View style={styles.statusContainer}>
-                      {statuses.map((status) => (
-                        <TouchableOpacity
-                          key={status.value}
-                          style={[
-                            styles.statusButton,
-                            { borderColor: colors.border },
-                            formData.status === status.value && { 
-                              backgroundColor: status.color,
-                              borderColor: status.color 
-                            }
-                          ]}
-                          onPress={() => handleInputChange('status', status.value)}
-                        >
-                          <View style={[
-                            styles.statusIndicator,
-                            { backgroundColor: formData.status === status.value ? '#fff' : status.color }
-                          ]} />
-                          <ThemedText style={[
-                            styles.statusButtonText,
-                            formData.status === status.value && { color: '#fff' }
-                          ]}>
-                            {status.label}
-                          </ThemedText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <ThemedText style={styles.label}>Condition</ThemedText>
-                    <View style={styles.conditionContainer}>
-                      {conditions.map((condition) => (
-                        <TouchableOpacity
-                          key={condition.value}
-                          style={[
-                            styles.conditionButton,
-                            { borderColor: colors.border },
-                            formData.condition === condition.value && { 
-                              backgroundColor: condition.color,
-                              borderColor: condition.color 
-                            }
-                          ]}
-                          onPress={() => handleInputChange('condition', condition.value)}
-                        >
-                          <View style={[
-                            styles.conditionIndicator,
-                            { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
-                          ]} />
-                          <ThemedText style={[
-                            styles.conditionButtonText,
-                            formData.condition === condition.value && { color: '#fff' }
-                          ]}>
-                            {condition.label}
-                          </ThemedText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <FormInput
-                    label="Tags"
-                    value={formData.tags}
-                    onChangeText={(value) => handleInputChange('tags', value)}
-                    placeholder="Enter tags separated by commas"
-                    helperText="Separate multiple tags with commas"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionIconContainer}>
-                    <Ionicons name="images-outline" size={20} color="#007AFF" />
-                  </View>
-                  <ThemedText style={styles.sectionTitle}>Images</ThemedText>
-                </View>
-                
-                <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <ImageUpload
-                    onImageSelected={(imageUrl) => setImages(prev => [...prev, imageUrl])}
-                    onImageRemoved={() => setImages(prev => prev.slice(0, -1))}
-                    currentImageUrl={images[0]}
-                    imagesCount={images.length}
-                    maxImages={5}
-                    resourceId={resource.id}
-                    folder="resources"
-                    disabled={loading}
-                  />
-                </View>
-              </View>
-            </ScrollView>
+            {renderFormSections()}
           </ThemedView>
         </SafeAreaView>
       )}
@@ -733,6 +596,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+    overflow: 'visible',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -757,9 +621,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
+    overflow: 'visible',
   },
   inputGroup: {
     marginBottom: 16,
+    overflow: 'visible',
   },
   label: {
     fontSize: 14,
@@ -841,5 +707,9 @@ const styles = StyleSheet.create({
   conditionButtonText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });

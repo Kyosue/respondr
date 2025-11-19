@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     Alert,
     Animated,
@@ -19,12 +19,12 @@ import { FormButton, FormInput, FormQuantityInput } from '@/components/ui/FormCo
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { LocationInput } from '@/components/ui/LocationInput';
 import { Colors } from '@/constants/Colors';
-import { RESOURCE_CATEGORIES, RESOURCE_CONDITIONS } from '@/constants/ResourceConstants';
+import { RESOURCE_CATEGORIES, RESOURCE_CONDITIONS, RESOURCE_STATUSES } from '@/constants/ResourceConstants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
-import { Resource, ResourceCategory, ResourceCondition } from '@/types/Resource';
+import { Resource, ResourceCategory, ResourceCondition, ResourceStatus } from '@/types/Resource';
 import { getModalConfig, showErrorAlert, showSuccessAlert } from '@/utils/modalUtils';
 import { ResourceValidator } from '@/utils/resourceValidation';
 
@@ -37,6 +37,8 @@ interface AddResourceModalProps {
 // Use shared constants
 const categories = RESOURCE_CATEGORIES;
 const conditions = RESOURCE_CONDITIONS;
+const statuses = RESOURCE_STATUSES;
+const isPersonnelCategory = (category: ResourceCategory) => category === 'personnel';
 
 export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceModalProps) {
   const colorScheme = useColorScheme();
@@ -51,6 +53,8 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
     totalQuantity: 1,
     location: '',
     condition: 'good' as ResourceCondition,
+    status: 'active' as ResourceStatus,
+    phoneNumber: '',
     tags: '',
   });
   
@@ -58,24 +62,39 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
   const [imagePublicIds, setImagePublicIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [imageUploadKey, setImageUploadKey] = useState(0); // Key to force ImageUpload remount
   
+  // Refs for scrolling to top
+  const webScrollViewRef = useRef<ScrollView>(null);
+  const mobileScrollViewRef = useRef<ScrollView>(null);
+  
+  // Reset form function
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      category: 'equipment',
+      totalQuantity: 1,
+      location: '',
+      condition: 'good',
+      status: 'active',
+      phoneNumber: '',
+      tags: '',
+    });
+    setImages([]);
+    setImagePublicIds([]);
+    setErrors({});
+    setImageUploadKey(prev => prev + 1); // Force ImageUpload to remount
+    // Scroll to top
+    webScrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    mobileScrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
   // Hybrid RAMP hook
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
     visible,
     onClose: () => {
-      // Reset form data
-      setFormData({
-        name: '',
-        description: '',
-        category: 'equipment',
-        totalQuantity: 1,
-        location: '',
-        condition: 'good',
-        tags: '',
-      });
-      setImages([]);
-      setImagePublicIds([]);
-      setErrors({});
+      resetForm();
       onClose();
     }
   });
@@ -118,8 +137,6 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
       case 'name':
         if (!value || (typeof value === 'string' && !value.trim())) {
           newErrors.name = 'Please enter a name for this resource';
-        } else if (typeof value === 'string' && value.trim().length < 3) {
-          newErrors.name = 'Resource name must be at least 3 characters long';
         } else {
           delete newErrors.name;
         }
@@ -136,15 +153,8 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
         }
         break;
       case 'description':
-        if (!value || (typeof value === 'string' && !value.trim())) {
-          newErrors.description = 'Please provide a description';
-        } else if (typeof value === 'string' && value.trim().length < 10) {
-          newErrors.description = 'Description must be at least 10 characters long';
-        } else if (typeof value === 'string' && value.length > 500) {
-          newErrors.description = 'Description cannot exceed 500 characters';
-        } else {
-          delete newErrors.description;
-        }
+        // Description is optional, no validation needed
+        delete newErrors.description;
         break;
       case 'location':
         if (!value || (typeof value === 'string' && !value.trim())) {
@@ -199,29 +209,39 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
         .split(',')
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0);
+      
+      // For personnel, add phone number to tags if provided
+      const finalTags = isPersonnelCategory(formData.category) && formData.phoneNumber.trim()
+        ? [...tags, `phone:${formData.phoneNumber.trim()}`]
+        : tags;
 
       const resourceData: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'> = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         category: formData.category,
-        totalQuantity: formData.totalQuantity,
-        availableQuantity: formData.totalQuantity,
+        totalQuantity: isPersonnelCategory(formData.category) ? 1 : formData.totalQuantity,
+        availableQuantity: isPersonnelCategory(formData.category) ? 1 : formData.totalQuantity,
         isBorrowable: true, // Internal PDRRMO resources are borrowable
         resourceType: 'pdrrmo', // Identifies as internal PDRRMO resource
         images,
         location: formData.location.trim(),
-        condition: formData.condition,
-        maintenanceNotes: '',
+        condition: isPersonnelCategory(formData.category) ? 'good' : formData.condition, // Default condition for personnel
+        maintenanceNotes: isPersonnelCategory(formData.category) && formData.phoneNumber.trim() 
+          ? `Phone: ${formData.phoneNumber.trim()}` 
+          : '',
         lastMaintenanceDate: null,
         nextMaintenanceDate: null,
-        tags,
+        tags: finalTags,
         isActive: true,
-        status: 'active' as const,
+        status: isPersonnelCategory(formData.category) ? formData.status : 'active' as const,
         createdBy: user?.id || 'anonymous',
         updatedBy: user?.id || 'anonymous',
       };
 
       await addResource(resourceData);
+      
+      // Reset form immediately after successful save
+      resetForm();
       
       // Show success alert with proper callback handling
       const successConfig = showSuccessAlert(
@@ -297,7 +317,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
         </View>
 
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={webScrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Basic Information */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -308,29 +328,8 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
             </View>
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormInput
-                label="Resource Name"
-                value={formData.name}
-                onChangeText={(value) => handleInputChange('name', value)}
-                placeholder="e.g., Emergency Generator, First Aid Kit, Radio"
-                required
-                error={errors.name}
-                helperText="Give it a clear, descriptive name that others will understand"
-              />
-
-              <FormInput
-                label="Description"
-                value={formData.description}
-                onChangeText={(value) => handleInputChange('description', value)}
-                placeholder="Describe what this resource is and how it's used..."
-                multiline
-                numberOfLines={3}
-                error={errors.description}
-                helperText="Provide details about the resource's purpose and usage"
-              />
-
               <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Category</ThemedText>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Category *</ThemedText>
                 <View style={styles.categoryContainer}>
                   {categories.map((category) => (
                     <TouchableOpacity
@@ -360,89 +359,188 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
                     </TouchableOpacity>
                   ))}
                 </View>
+                <ThemedText style={[styles.helperText, { color: colors.text + '70', marginTop: 8 }]}>
+                  Select the category first to see relevant fields
+                </ThemedText>
               </View>
+
+              <FormInput
+                label={isPersonnelCategory(formData.category) ? "Personnel Name" : "Resource Name"}
+                value={formData.name}
+                onChangeText={(value) => handleInputChange('name', value)}
+                placeholder={isPersonnelCategory(formData.category) ? "e.g., John Doe, Maria Santos" : "e.g., Emergency Generator, First Aid Kit, Radio"}
+                required
+                error={errors.name}
+                helperText={isPersonnelCategory(formData.category) ? "Enter the full name of the personnel" : "Give it a clear, descriptive name that others will understand"}
+              />
+
+              <FormInput
+                label="Description (Optional)"
+                value={formData.description}
+                onChangeText={(value) => handleInputChange('description', value)}
+                placeholder={isPersonnelCategory(formData.category) ? "Describe the personnel's role, skills, or responsibilities..." : "Describe what this resource is and how it's used..."}
+                multiline
+                numberOfLines={3}
+                error={errors.description}
+                helperText={isPersonnelCategory(formData.category) ? "Provide details about the personnel's role and capabilities" : "Provide details about the resource's purpose and usage"}
+              />
+
+              {isPersonnelCategory(formData.category) && (
+                <FormInput
+                  label="Contact Information"
+                  value={formData.phoneNumber}
+                  onChangeText={(value) => handleInputChange('phoneNumber', value)}
+                  placeholder="e.g., 09123456789, (02) 123-4567, 145.500 MHz"
+                  keyboardType="default"
+                  error={errors.phoneNumber}
+                  helperText="Enter mobile number, landline, or radio frequency"
+                />
+              )}
             </View>
           </View>
 
           {/* Quantity and Location */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#007AFF" />
+          {!isPersonnelCategory(formData.category) && (
+            <View style={[styles.section, styles.sectionWithOverlay]}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionIconContainer}>
+                  <Ionicons name="location-outline" size={20} color="#007AFF" />
+                </View>
+                <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
               </View>
-              <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormQuantityInput
-                label="Total Quantity"
-                value={formData.totalQuantity}
-                onChangeValue={(value) => handleInputChange('totalQuantity', value)}
-                required
-                error={errors.totalQuantity}
-                helperText="How many units of this resource do you have?"
-              />
+              
+              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <FormQuantityInput
+                  label="Total Quantity"
+                  value={formData.totalQuantity}
+                  onChangeValue={(value) => handleInputChange('totalQuantity', value)}
+                  required
+                  error={errors.totalQuantity}
+                  helperText="How many units of this resource do you have?"
+                />
 
-              <LocationInput
-                value={formData.location}
-                onChangeText={(value) => handleInputChange('location', value)}
-                placeholder="e.g., Warehouse A, Building 2, Room 101"
-                suggestions={getLocationSuggestions(formData.location)}
-                error={errors.location}
-                helperText="Where can others find this resource? Select from existing locations or type a new one."
-                disabled={loading}
-              />
+                <LocationInput
+                  value={formData.location}
+                  onChangeText={(value) => handleInputChange('location', value)}
+                  placeholder="e.g., Warehouse A, Building 2, Room 101"
+                  suggestions={getLocationSuggestions(formData.location)}
+                  error={errors.location}
+                  helperText="Where can others find this resource? Select from existing locations or type a new one."
+                  disabled={loading}
+                />
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* Condition and Details */}
+          {/* Location (for Personnel) */}
+          {isPersonnelCategory(formData.category) && (
+            <View style={[styles.section, styles.sectionWithOverlay]}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionIconContainer}>
+                  <Ionicons name="location-outline" size={20} color="#007AFF" />
+                </View>
+                <ThemedText style={styles.sectionTitle}>Location</ThemedText>
+              </View>
+              
+              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <LocationInput
+                  value={formData.location}
+                  onChangeText={(value) => handleInputChange('location', value)}
+                  placeholder="e.g., Office, Field Station, Department"
+                  suggestions={getLocationSuggestions(formData.location)}
+                  error={errors.location}
+                  helperText="Where is this personnel typically located? Select from existing locations or type a new one."
+                  disabled={loading}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Condition/Status and Details */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
                 <Ionicons name="settings-outline" size={20} color="#007AFF" />
               </View>
-              <ThemedText style={styles.sectionTitle}>Condition & Details</ThemedText>
+              <ThemedText style={styles.sectionTitle}>
+                {isPersonnelCategory(formData.category) ? "Status & Details" : "Condition & Details"}
+              </ThemedText>
             </View>
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
-                <View style={styles.conditionContainer}>
-                  {conditions.map((condition) => (
-                    <TouchableOpacity
-                      key={condition.value}
-                      style={[
-                        styles.conditionButton,
-                        { borderColor: colors.border },
-                        formData.condition === condition.value && { 
-                          backgroundColor: condition.color,
-                          borderColor: condition.color 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('condition', condition.value)}
-                    >
-                      <View style={[
-                        styles.conditionIndicator,
-                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
-                      ]} />
-                      <ThemedText style={[
-                        styles.conditionButtonText,
-                        formData.condition === condition.value && { color: '#fff' }
-                      ]}>
-                        {condition.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
+              {isPersonnelCategory(formData.category) ? (
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.label, { color: colors.text }]}>Status</ThemedText>
+                  <View style={styles.conditionContainer}>
+                    {statuses
+                      .filter(status => status.value !== 'maintenance' && status.value !== 'retired')
+                      .map((status) => (
+                      <TouchableOpacity
+                        key={status.value}
+                        style={[
+                          styles.conditionButton,
+                          { borderColor: colors.border },
+                          formData.status === status.value && { 
+                            backgroundColor: status.color,
+                            borderColor: status.color 
+                          }
+                        ]}
+                        onPress={() => handleInputChange('status', status.value)}
+                      >
+                        <View style={[
+                          styles.conditionIndicator,
+                          { backgroundColor: formData.status === status.value ? '#fff' : status.color }
+                        ]} />
+                        <ThemedText style={[
+                          styles.conditionButtonText,
+                          formData.status === status.value && { color: '#fff' }
+                        ]}>
+                          {status.label}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              ) : (
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
+                  <View style={styles.conditionContainer}>
+                    {conditions.map((condition) => (
+                      <TouchableOpacity
+                        key={condition.value}
+                        style={[
+                          styles.conditionButton,
+                          { borderColor: colors.border },
+                          formData.condition === condition.value && { 
+                            backgroundColor: condition.color,
+                            borderColor: condition.color 
+                          }
+                        ]}
+                        onPress={() => handleInputChange('condition', condition.value)}
+                      >
+                        <View style={[
+                          styles.conditionIndicator,
+                          { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
+                        ]} />
+                        <ThemedText style={[
+                          styles.conditionButtonText,
+                          formData.condition === condition.value && { color: '#fff' }
+                        ]}>
+                          {condition.label}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
               <FormInput
                 label="Tags (Optional)"
                 value={formData.tags}
                 onChangeText={(value) => handleInputChange('tags', value)}
-                placeholder="e.g., emergency, portable, battery-powered"
+                placeholder={isPersonnelCategory(formData.category) ? "e.g., paramedic, driver, coordinator" : "e.g., emergency, portable, battery-powered"}
                 error={errors.tags}
-                helperText="Add keywords to help others find this resource (separate with commas)"
+                helperText={isPersonnelCategory(formData.category) ? "Add keywords to help identify this personnel's skills or role (separate with commas)" : "Add keywords to help others find this resource (separate with commas)"}
               />
             </View>
           </View>
@@ -458,6 +556,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <ImageUpload
+                key={imageUploadKey}
                 onImageSelected={handleImageSelected}
                 onImageRemoved={handleImageRemoved}
                 currentImageUrl={images[0]}
@@ -515,7 +614,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={mobileScrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Basic Information */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -526,29 +625,8 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
             </View>
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormInput
-                label="Resource Name"
-                value={formData.name}
-                onChangeText={(value) => handleInputChange('name', value)}
-                placeholder="e.g., Emergency Generator, First Aid Kit, Radio"
-                required
-                error={errors.name}
-                helperText="Give it a clear, descriptive name that others will understand"
-              />
-
-              <FormInput
-                label="Description"
-                value={formData.description}
-                onChangeText={(value) => handleInputChange('description', value)}
-                placeholder="Describe what this resource is and how it's used..."
-                multiline
-                numberOfLines={3}
-                error={errors.description}
-                helperText="Provide details about the resource's purpose and usage"
-              />
-
               <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Category</ThemedText>
+                <ThemedText style={[styles.label, { color: colors.text }]}>Category *</ThemedText>
                 <View style={styles.categoryContainer}>
                   {categories.map((category) => (
                     <TouchableOpacity
@@ -578,89 +656,188 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
                     </TouchableOpacity>
                   ))}
                 </View>
+                <ThemedText style={[styles.helperText, { color: colors.text + '70', marginTop: 8 }]}>
+                  Select the category first to see relevant fields
+                </ThemedText>
               </View>
+
+              <FormInput
+                label={isPersonnelCategory(formData.category) ? "Personnel Name" : "Resource Name"}
+                value={formData.name}
+                onChangeText={(value) => handleInputChange('name', value)}
+                placeholder={isPersonnelCategory(formData.category) ? "e.g., John Doe, Maria Santos" : "e.g., Emergency Generator, First Aid Kit, Radio"}
+                required
+                error={errors.name}
+                helperText={isPersonnelCategory(formData.category) ? "Enter the full name of the personnel" : "Give it a clear, descriptive name that others will understand"}
+              />
+
+              <FormInput
+                label="Description (Optional)"
+                value={formData.description}
+                onChangeText={(value) => handleInputChange('description', value)}
+                placeholder={isPersonnelCategory(formData.category) ? "Describe the personnel's role, skills, or responsibilities..." : "Describe what this resource is and how it's used..."}
+                multiline
+                numberOfLines={3}
+                error={errors.description}
+                helperText={isPersonnelCategory(formData.category) ? "Provide details about the personnel's role and capabilities" : "Provide details about the resource's purpose and usage"}
+              />
+
+              {isPersonnelCategory(formData.category) && (
+                <FormInput
+                  label="Contact Information"
+                  value={formData.phoneNumber}
+                  onChangeText={(value) => handleInputChange('phoneNumber', value)}
+                  placeholder="e.g., 09123456789, (02) 123-4567, 145.500 MHz"
+                  keyboardType="default"
+                  error={errors.phoneNumber}
+                  helperText="Enter mobile number, landline, or radio frequency"
+                />
+              )}
             </View>
           </View>
 
           {/* Quantity and Location */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#007AFF" />
+          {!isPersonnelCategory(formData.category) && (
+            <View style={[styles.section, styles.sectionWithOverlay]}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionIconContainer}>
+                  <Ionicons name="location-outline" size={20} color="#007AFF" />
+                </View>
+                <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
               </View>
-              <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormQuantityInput
-                label="Total Quantity"
-                value={formData.totalQuantity}
-                onChangeValue={(value) => handleInputChange('totalQuantity', value)}
-                required
-                error={errors.totalQuantity}
-                helperText="How many units of this resource do you have?"
-              />
+              
+              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <FormQuantityInput
+                  label="Total Quantity"
+                  value={formData.totalQuantity}
+                  onChangeValue={(value) => handleInputChange('totalQuantity', value)}
+                  required
+                  error={errors.totalQuantity}
+                  helperText="How many units of this resource do you have?"
+                />
 
-              <LocationInput
-                value={formData.location}
-                onChangeText={(value) => handleInputChange('location', value)}
-                placeholder="e.g., Warehouse A, Building 2, Room 101"
-                suggestions={getLocationSuggestions(formData.location)}
-                error={errors.location}
-                helperText="Where can others find this resource? Select from existing locations or type a new one."
-                disabled={loading}
-              />
+                <LocationInput
+                  value={formData.location}
+                  onChangeText={(value) => handleInputChange('location', value)}
+                  placeholder="e.g., Warehouse A, Building 2, Room 101"
+                  suggestions={getLocationSuggestions(formData.location)}
+                  error={errors.location}
+                  helperText="Where can others find this resource? Select from existing locations or type a new one."
+                  disabled={loading}
+                />
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* Condition and Details */}
+          {/* Location (for Personnel) */}
+          {isPersonnelCategory(formData.category) && (
+            <View style={[styles.section, styles.sectionWithOverlay]}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionIconContainer}>
+                  <Ionicons name="location-outline" size={20} color="#007AFF" />
+                </View>
+                <ThemedText style={styles.sectionTitle}>Location</ThemedText>
+              </View>
+              
+              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <LocationInput
+                  value={formData.location}
+                  onChangeText={(value) => handleInputChange('location', value)}
+                  placeholder="e.g., Office, Field Station, Department"
+                  suggestions={getLocationSuggestions(formData.location)}
+                  error={errors.location}
+                  helperText="Where is this personnel typically located? Select from existing locations or type a new one."
+                  disabled={loading}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Condition/Status and Details */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
                 <Ionicons name="settings-outline" size={20} color="#007AFF" />
               </View>
-              <ThemedText style={styles.sectionTitle}>Condition & Details</ThemedText>
+              <ThemedText style={styles.sectionTitle}>
+                {isPersonnelCategory(formData.category) ? "Status & Details" : "Condition & Details"}
+              </ThemedText>
             </View>
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
-                <View style={styles.conditionContainer}>
-                  {conditions.map((condition) => (
-                    <TouchableOpacity
-                      key={condition.value}
-                      style={[
-                        styles.conditionButton,
-                        { borderColor: colors.border },
-                        formData.condition === condition.value && { 
-                          backgroundColor: condition.color,
-                          borderColor: condition.color 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('condition', condition.value)}
-                    >
-                      <View style={[
-                        styles.conditionIndicator,
-                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
-                      ]} />
-                      <ThemedText style={[
-                        styles.conditionButtonText,
-                        formData.condition === condition.value && { color: '#fff' }
-                      ]}>
-                        {condition.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
+              {isPersonnelCategory(formData.category) ? (
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.label, { color: colors.text }]}>Status</ThemedText>
+                  <View style={styles.conditionContainer}>
+                    {statuses
+                      .filter(status => status.value !== 'maintenance' && status.value !== 'retired')
+                      .map((status) => (
+                      <TouchableOpacity
+                        key={status.value}
+                        style={[
+                          styles.conditionButton,
+                          { borderColor: colors.border },
+                          formData.status === status.value && { 
+                            backgroundColor: status.color,
+                            borderColor: status.color 
+                          }
+                        ]}
+                        onPress={() => handleInputChange('status', status.value)}
+                      >
+                        <View style={[
+                          styles.conditionIndicator,
+                          { backgroundColor: formData.status === status.value ? '#fff' : status.color }
+                        ]} />
+                        <ThemedText style={[
+                          styles.conditionButtonText,
+                          formData.status === status.value && { color: '#fff' }
+                        ]}>
+                          {status.label}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              ) : (
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
+                  <View style={styles.conditionContainer}>
+                    {conditions.map((condition) => (
+                      <TouchableOpacity
+                        key={condition.value}
+                        style={[
+                          styles.conditionButton,
+                          { borderColor: colors.border },
+                          formData.condition === condition.value && { 
+                            backgroundColor: condition.color,
+                            borderColor: condition.color 
+                          }
+                        ]}
+                        onPress={() => handleInputChange('condition', condition.value)}
+                      >
+                        <View style={[
+                          styles.conditionIndicator,
+                          { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
+                        ]} />
+                        <ThemedText style={[
+                          styles.conditionButtonText,
+                          formData.condition === condition.value && { color: '#fff' }
+                        ]}>
+                          {condition.label}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
               <FormInput
                 label="Tags (Optional)"
                 value={formData.tags}
                 onChangeText={(value) => handleInputChange('tags', value)}
-                placeholder="e.g., emergency, portable, battery-powered"
+                placeholder={isPersonnelCategory(formData.category) ? "e.g., paramedic, driver, coordinator" : "e.g., emergency, portable, battery-powered"}
                 error={errors.tags}
-                helperText="Add keywords to help others find this resource (separate with commas)"
+                helperText={isPersonnelCategory(formData.category) ? "Add keywords to help identify this personnel's skills or role (separate with commas)" : "Add keywords to help others find this resource (separate with commas)"}
               />
             </View>
           </View>
@@ -676,6 +853,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
             
             <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <ImageUpload
+                key={imageUploadKey}
                 onImageSelected={handleImageSelected}
                 onImageRemoved={handleImageRemoved}
                 currentImageUrl={images[0]}
@@ -777,6 +955,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+    overflow: 'visible', // Allow child elements with absolute positioning to overflow
+    zIndex: 1, // Ensure proper stacking context
+  },
+  sectionWithOverlay: {
+    position: 'relative',
+    zIndex: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -801,9 +985,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
+    overflow: 'visible', // Allow child elements with absolute positioning to overflow
   },
   inputGroup: {
     marginBottom: 16,
+    overflow: 'visible', // Allow dropdown to extend beyond bounds
+    zIndex: 1, // Ensure proper stacking context
   },
   label: {
     fontSize: 14,
@@ -853,5 +1040,9 @@ const styles = StyleSheet.create({
   conditionButtonText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });

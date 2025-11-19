@@ -102,11 +102,20 @@ export function AgencyNameInput({
     };
 
     return (
-        <View style={[styles.container, style]}>
+        <View style={[
+            styles.container, 
+            style,
+            showSuggestions && !error && {
+                borderWidth: 2,
+                borderColor: colors.primary,
+                borderRadius: 10,
+                padding: 2,
+            }
+        ]}>
             <View style={[
                 styles.inputContainer,
                 {
-                    borderColor: error ? colors.error : showSuggestions ? colors.primary : colors.border,
+                    borderColor: error ? colors.error : colors.border,
                     backgroundColor: disabled ? colors.surface : colors.background,
                 }
             ]}>
@@ -208,7 +217,9 @@ export function AgencyNameInput({
 const styles = StyleSheet.create({
     container: {
         position: 'relative',
-        zIndex: 1000, // High z-index to ensure suggestions appear above other content
+        zIndex: 9999, // Very high z-index to ensure suggestions appear above other content
+        elevation: 10, // For Android
+        borderWidth: 0, // Default no border, will be added when suggestions show
     },
     inputContainer: {
         flexDirection: 'row',
@@ -237,8 +248,8 @@ const styles = StyleSheet.create({
         borderBottomLeftRadius: 8,
         borderBottomRightRadius: 8,
         maxHeight: 200,
-        zIndex: 1001, // Even higher z-index for the suggestions container
-        elevation: 10, // High elevation for Android
+        zIndex: 10000, // Very high z-index for the suggestions container
+        elevation: 20, // Very high elevation for Android to appear above other elements
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,

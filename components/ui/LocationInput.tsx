@@ -96,7 +96,16 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 
     return (
-        <View style={[styles.container, style]}>
+        <View style={[
+            styles.container, 
+            style,
+            showSuggestions && !error && {
+                borderWidth: 2,
+                borderColor: colors.primary,
+                borderRadius: 10,
+                padding: 2,
+            }
+        ]}>
         <View style={styles.inputContainer}>
             <TextInput
             ref={inputRef}
@@ -192,6 +201,10 @@ import { useColorScheme } from '@/hooks/useColorScheme';
     const styles = StyleSheet.create({
     container: {
         marginBottom: 0,
+        position: 'relative',
+        zIndex: 9999, // Very high z-index to ensure suggestions appear above other content
+        elevation: 10, // For Android
+        borderWidth: 0, // Default no border, will be added when suggestions show
     },
     inputContainer: {
         position: 'relative',
@@ -216,20 +229,20 @@ import { useColorScheme } from '@/hooks/useColorScheme';
     },
     suggestionsContainer: {
         position: 'absolute',
-        top: '65%',
+        top: 48, // Position directly below the input field (48px height)
         left: 0,
         right: 0,
-        zIndex: 1000,
+        zIndex: 10000, // Very high z-index for the suggestions container
         borderWidth: 1,
         borderTopWidth: 0,
         borderBottomLeftRadius: 8,
         borderBottomRightRadius: 8,
         maxHeight: 240,
-        elevation: 8,
+        elevation: 20, // Very high elevation for Android to appear above other elements
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
         marginTop: -1, // Overlap slightly with input border
     },
     suggestionsList: {

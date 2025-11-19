@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useState } from 'react';
+import { Modal, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -86,7 +86,7 @@ export function ResourceHeader({
               onPress={onAddResource}
               activeOpacity={0.8}
             >
-              <Ionicons name="cube-outline" size={18} color="#fff" />
+              <Ionicons name="add" size={18} color="#fff" />
             </TouchableOpacity>
           )}
           

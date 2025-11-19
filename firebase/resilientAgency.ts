@@ -50,11 +50,10 @@ export class ResilientAgencyService {
       throw new Error('At least one contact number is required');
     }
     
-    // Validate contact numbers format (Philippine 11-digit format)
-    const phoneRegex = /^09\d{9}$/;
+    // Validate contact numbers - must be non-empty (allows mobile, landline, radio frequency)
     for (const contactNumber of agencyData.contactNumbers) {
-      if (!phoneRegex.test(contactNumber)) {
-        throw new Error(`Invalid contact number format: ${contactNumber}. Must be 11 digits starting with 09`);
+      if (!contactNumber || contactNumber.trim().length === 0) {
+        throw new Error('Contact numbers cannot be empty');
       }
     }
   }

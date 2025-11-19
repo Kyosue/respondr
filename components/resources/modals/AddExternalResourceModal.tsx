@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     Alert,
     Animated,
@@ -73,28 +73,39 @@ export function AddExternalResourceModal({
   const [imagePublicIds, setImagePublicIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [imageUploadKey, setImageUploadKey] = useState(0); // Key to force ImageUpload remount
   
+  // Refs for scrolling to top
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Reset form function
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      category: 'equipment',
+      agencyName: '',
+      agencyId: '',
+      address: '',
+      contactNumbers: [''],
+      location: '',
+      condition: 'good',
+      totalQuantity: 1,
+      tags: ''
+    });
+    setImages([]);
+    setImagePublicIds([]);
+    setErrors({});
+    setImageUploadKey(prev => prev + 1); // Force ImageUpload to remount
+    // Scroll to top
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
   // Hybrid RAMP hook
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
     visible,
     onClose: () => {
-      // Reset form data
-      setFormData({
-        name: '',
-        description: '',
-        category: 'equipment',
-        agencyName: '',
-        agencyId: '',
-        address: '',
-        contactNumbers: [''],
-        location: '',
-        condition: 'good',
-        totalQuantity: 1,
-        tags: ''
-      });
-      setImages([]);
-      setImagePublicIds([]);
-      setErrors({});
+      resetForm();
       onClose();
     }
   });
@@ -135,10 +146,10 @@ export function AddExternalResourceModal({
       newErrors.address = 'Agency address is required';
     }
 
-    // Validate contact numbers
-    const validContactNumbers = formData.contactNumbers.filter(num => num.trim().length === 11);
+    // Validate contact numbers - must have at least one non-empty contact
+    const validContactNumbers = formData.contactNumbers.filter(num => num.trim().length > 0);
     if (validContactNumbers.length === 0) {
-      newErrors.contactNumbers = 'At least one valid contact number is required';
+      newErrors.contactNumbers = 'At least one contact number is required';
     }
 
     setErrors(newErrors);
@@ -152,22 +163,13 @@ export function AddExternalResourceModal({
       case 'name':
         if (!value || (typeof value === 'string' && !value.trim())) {
           newErrors.name = 'Please enter a name for this resource';
-        } else if (typeof value === 'string' && value.trim().length < 3) {
-          newErrors.name = 'Resource name must be at least 3 characters long';
         } else {
           delete newErrors.name;
         }
         break;
       case 'description':
-        if (!value || (typeof value === 'string' && !value.trim())) {
-          newErrors.description = 'Please provide a description';
-        } else if (typeof value === 'string' && value.trim().length < 10) {
-          newErrors.description = 'Description must be at least 10 characters long';
-        } else if (typeof value === 'string' && value.length > 500) {
-          newErrors.description = 'Description cannot exceed 500 characters';
-        } else {
-          delete newErrors.description;
-        }
+        // Description is optional, no validation needed
+        delete newErrors.description;
         break;
       case 'agencyName':
         if (!value || (typeof value === 'string' && !value.trim())) {
@@ -218,11 +220,9 @@ export function AddExternalResourceModal({
   };
 
   const handleContactNumberChange = (index: number, value: string) => {
-    // Only allow 11 digits for Philippine phone numbers
-    const cleanedValue = value.replace(/\D/g, '').slice(0, 11);
-    
+    // Allow any contact information (mobile, landline, radio frequency)
     const newContactNumbers = [...formData.contactNumbers];
-    newContactNumbers[index] = cleanedValue;
+    newContactNumbers[index] = value;
     setFormData({ ...formData, contactNumbers: newContactNumbers });
   };
 
@@ -283,7 +283,7 @@ export function AddExternalResourceModal({
     try {
       setLoading(true);
       
-      const validContactNumbers = formData.contactNumbers.filter(num => num.trim().length === 11);
+      const validContactNumbers = formData.contactNumbers.filter(num => num.trim().length > 0);
       const tags = formData.tags
         .split(',')
         .map(tag => tag.trim())
@@ -334,6 +334,9 @@ export function AddExternalResourceModal({
 
       await addResource(resourceData);
       
+      // Reset form immediately after successful save
+      resetForm();
+      
       // Show success alert with proper callback handling
       const successConfig = showSuccessAlert(
         'Success',
@@ -356,6 +359,264 @@ export function AddExternalResourceModal({
   };
 
   const handleClose = rampHandleClose;
+  const locationSuggestions = getLocationSuggestions(formData.location);
+
+  const renderFormSections = () => (
+    <ScrollView ref={scrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionIconContainer, { backgroundColor: '#FFF7ED' }]}>
+            <Ionicons name="business-outline" size={20} color="#FF8F00" />
+          </View>
+          <ThemedText style={styles.sectionTitle}>Agency Information</ThemedText>
+        </View>
+
+        <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.inputGroup}>
+            <ThemedText style={[styles.label, { color: colors.text }]}>Agency Name *</ThemedText>
+            <AgencyNameInput
+              value={formData.agencyName}
+              onChangeText={handleAgencyNameChange}
+              onAgencySelect={handleAgencySelect}
+              placeholder="Enter agency name"
+              suggestions={agencies}
+              error={errors.agencyName}
+              helperText="Select from existing agencies or type a new agency name"
+            />
+          </View>
+
+          <FormInput
+            label="Agency Address"
+            value={formData.address}
+            onChangeText={(value) => handleInputChange('address', value)}
+            placeholder="Enter full agency address"
+            multiline
+            numberOfLines={2}
+            required
+            error={errors.address}
+            helperText="Complete address of the agency"
+          />
+
+          <View style={styles.inputGroup}>
+            <ThemedText style={[styles.label, { color: colors.text }]}>Contact Numbers *</ThemedText>
+            <View style={styles.contactNumbersGrid}>
+              {formData.contactNumbers.map((number, index) => (
+                <View key={index} style={styles.contactNumberItem}>
+                  <FormInput
+                    label={`Contact ${index + 1}`}
+                    value={number}
+                    onChangeText={(text) => handleContactNumberChange(index, text)}
+                    placeholder="e.g., 09123456789, (02) 123-4567, 145.500 MHz"
+                    keyboardType="default"
+                    error={errors.contactNumbers && index === 0 ? errors.contactNumbers : undefined}
+                    helperText={index === 0 ? "Enter mobile number, landline, or radio frequency" : undefined}
+                  />
+                  {formData.contactNumbers.length > 1 && (
+                    <TouchableOpacity
+                      style={[styles.removeButton, { backgroundColor: colors.error + '20' }]}
+                      onPress={() => removeContactNumber(index)}
+                    >
+                      <Ionicons name="close" size={16} color={colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+              onPress={addContactNumber}
+            >
+              <Ionicons name="add" size={16} color={colors.primary} />
+              <ThemedText style={[styles.addButtonText, { color: colors.primary }]}>
+                Add Contact Number
+              </ThemedText>
+            </TouchableOpacity>
+            {errors.contactNumbers && (
+              <ThemedText style={[styles.errorText, { color: colors.error }]}>
+                {errors.contactNumbers}
+              </ThemedText>
+            )}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconContainer}>
+            <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+          </View>
+          <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
+        </View>
+
+        <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.inputGroup}>
+            <ThemedText style={[styles.label, { color: colors.text }]}>Category *</ThemedText>
+            <View style={styles.categoryContainer}>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.value}
+                  style={[
+                    styles.categoryButton,
+                    { borderColor: colors.border },
+                    formData.category === category.value && { 
+                      backgroundColor: colors.primary,
+                      borderColor: colors.primary 
+                    }
+                  ]}
+                  onPress={() => handleInputChange('category', category.value)}
+                >
+                  <Ionicons 
+                    name={category.icon as keyof typeof Ionicons.glyphMap} 
+                    size={16} 
+                    color={formData.category === category.value ? '#fff' : colors.primary} 
+                    style={styles.categoryIcon}
+                  />
+                  <ThemedText style={[
+                    styles.categoryButtonText,
+                    formData.category === category.value && { color: '#fff' }
+                  ]}>
+                    {category.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <ThemedText style={[styles.helperText, { color: colors.text + '70', marginTop: 8 }]}>
+              Select the category first to see relevant fields
+            </ThemedText>
+          </View>
+
+          <FormInput
+            label="Resource Name"
+            value={formData.name}
+            onChangeText={(value) => handleInputChange('name', value)}
+            placeholder="e.g., Emergency Generator, First Aid Kit, Radio"
+            required
+            error={errors.name}
+            helperText="Give it a clear, descriptive name that others will understand"
+          />
+
+          <FormInput
+            label="Description (Optional)"
+            value={formData.description}
+            onChangeText={(value) => handleInputChange('description', value)}
+            placeholder="Describe what this resource is and how it's used..."
+            multiline
+            numberOfLines={3}
+            error={errors.description}
+            helperText="Provide details about the resource's purpose and usage"
+          />
+        </View>
+      </View>
+
+      <View style={[styles.section, styles.sectionWithOverlay]}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconContainer}>
+            <Ionicons name="location-outline" size={20} color="#007AFF" />
+          </View>
+          <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
+        </View>
+        
+        <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <FormQuantityInput
+            label="Total Quantity"
+            value={formData.totalQuantity}
+            onChangeValue={(value) => handleInputChange('totalQuantity', value)}
+            required
+            error={errors.totalQuantity}
+            helperText="How many units of this resource does the agency have?"
+          />
+
+          <LocationInput
+            value={formData.location}
+            onChangeText={(value) => handleInputChange('location', value)}
+            placeholder="e.g., Agency Office, Emergency Center"
+            suggestions={locationSuggestions}
+            error={errors.location}
+            helperText="Where is this resource located at the agency? Select from existing locations or type a new one."
+            disabled={loading}
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconContainer}>
+            <Ionicons name="settings-outline" size={20} color="#007AFF" />
+          </View>
+          <ThemedText style={styles.sectionTitle}>Condition & Details</ThemedText>
+        </View>
+        
+        <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.inputGroup}>
+            <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
+            <View style={styles.conditionContainer}>
+              {conditions.map((condition) => (
+                <TouchableOpacity
+                  key={condition.value}
+                  style={[
+                    styles.conditionButton,
+                    { borderColor: colors.border },
+                    formData.condition === condition.value && { 
+                      backgroundColor: condition.color,
+                      borderColor: condition.color 
+                    }
+                  ]}
+                  onPress={() => handleInputChange('condition', condition.value)}
+                >
+                  <View style={[
+                    styles.conditionIndicator,
+                    { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
+                  ]} />
+                  <ThemedText style={[
+                    styles.conditionButtonText,
+                    formData.condition === condition.value && { color: '#fff' }
+                  ]}>
+                    {condition.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <FormInput
+            label="Tags (Optional)"
+            value={formData.tags}
+            onChangeText={(value) => handleInputChange('tags', value)}
+            placeholder="e.g., emergency, portable, battery-powered"
+            error={errors.tags}
+            helperText="Add keywords to help others find this resource (separate with commas)"
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconContainer}>
+            <Ionicons name="camera-outline" size={20} color="#007AFF" />
+          </View>
+          <ThemedText style={styles.sectionTitle}>Photos (Optional)</ThemedText>
+        </View>
+        
+        <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <ImageUpload
+            key={imageUploadKey}
+            onImageSelected={handleImageSelected}
+            onImageRemoved={handleImageRemoved}
+            currentImageUrl={images[0]}
+            imagesCount={images.length}
+            placeholder="Tap to add resource photo"
+            maxImages={5}
+            resourceId="temp"
+            folder="resources"
+            tags={['resource', formData.category, 'external']}
+            quality="auto"
+            format="auto"
+            disabled={loading}
+          />
+        </View>
+      </View>
+    </ScrollView>
+  );
 
   // Platform-specific modal rendering
   if (isWeb) {
@@ -408,255 +669,7 @@ export function AddExternalResourceModal({
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Agency Information - Put this first */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="business-outline" size={20} color="#FF8F00" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Agency Information</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-               <View style={styles.inputGroup}>
-                 <ThemedText style={[styles.label, { color: colors.text }]}>Agency Name *</ThemedText>
-                 <AgencyNameInput
-                   value={formData.agencyName}
-                   onChangeText={handleAgencyNameChange}
-                   onAgencySelect={handleAgencySelect}
-                   placeholder="Enter agency name"
-                   suggestions={agencies}
-                   error={errors.agencyName}
-                   helperText="Select from existing agencies or type a new agency name"
-                 />
-               </View>
-
-              <FormInput
-                label="Agency Address"
-                value={formData.address}
-                onChangeText={(value) => handleInputChange('address', value)}
-                placeholder="Enter full agency address"
-                multiline
-                numberOfLines={2}
-                required
-                error={errors.address}
-                helperText="Complete address of the agency"
-              />
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Contact Numbers * (11 digits each)</ThemedText>
-                <View style={styles.contactNumbersGrid}>
-                  {formData.contactNumbers.map((number, index) => (
-                    <View key={index} style={styles.contactNumberItem}>
-                      <FormInput
-                        label={`Contact ${index + 1}`}
-                        value={number}
-                        onChangeText={(text) => handleContactNumberChange(index, text)}
-                        placeholder="09XXXXXXXXX"
-                        keyboardType="numeric"
-                        error={errors.contactNumbers && index === 0 ? errors.contactNumbers : undefined}
-                      />
-                      {formData.contactNumbers.length > 1 && (
-                        <TouchableOpacity
-                          style={[styles.removeButton, { backgroundColor: colors.error + '20' }]}
-                          onPress={() => removeContactNumber(index)}
-                        >
-                          <Ionicons name="close" size={16} color={colors.error} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
-                </View>
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
-                  onPress={addContactNumber}
-                >
-                  <Ionicons name="add" size={16} color={colors.primary} />
-                  <ThemedText style={[styles.addButtonText, { color: colors.primary }]}>
-                    Add Contact Number
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Basic Information */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormInput
-                label="Resource Name"
-                value={formData.name}
-                onChangeText={(value) => handleInputChange('name', value)}
-                placeholder="e.g., Emergency Generator, First Aid Kit, Radio"
-                required
-                error={errors.name}
-                helperText="Give it a clear, descriptive name that others will understand"
-              />
-
-              <FormInput
-                label="Description"
-                value={formData.description}
-                onChangeText={(value) => handleInputChange('description', value)}
-                placeholder="Describe what this resource is and how it's used..."
-                multiline
-                numberOfLines={3}
-                error={errors.description}
-                helperText="Provide details about the resource's purpose and usage"
-              />
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Category</ThemedText>
-                <View style={styles.categoryContainer}>
-                  {categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.value}
-                      style={[
-                        styles.categoryButton,
-                        { borderColor: colors.border },
-                        formData.category === category.value && { 
-                          backgroundColor: colors.primary,
-                          borderColor: colors.primary 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('category', category.value)}
-                    >
-                      <Ionicons 
-                        name={category.icon as keyof typeof Ionicons.glyphMap} 
-                        size={16} 
-                        color={formData.category === category.value ? '#fff' : colors.primary} 
-                        style={styles.categoryIcon}
-                      />
-                      <ThemedText style={[
-                        styles.categoryButtonText,
-                        formData.category === category.value && { color: '#fff' }
-                      ]}>
-                        {category.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Quantity and Location */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormQuantityInput
-                label="Total Quantity"
-                value={formData.totalQuantity}
-                onChangeValue={(value) => handleInputChange('totalQuantity', value)}
-                required
-                error={errors.totalQuantity}
-                helperText="How many units of this resource does the agency have?"
-              />
-
-              <LocationInput
-                value={formData.location}
-                onChangeText={(value) => handleInputChange('location', value)}
-                placeholder="e.g., Agency Office, Emergency Center"
-                suggestions={getLocationSuggestions(formData.location)}
-                error={errors.location}
-                helperText="Where is this resource located at the agency? Select from existing locations or type a new one."
-                disabled={loading}
-              />
-            </View>
-          </View>
-
-          {/* Condition and Details */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Condition & Details</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
-                <View style={styles.conditionContainer}>
-                  {conditions.map((condition) => (
-                    <TouchableOpacity
-                      key={condition.value}
-                      style={[
-                        styles.conditionButton,
-                        { borderColor: colors.border },
-                        formData.condition === condition.value && { 
-                          backgroundColor: condition.color,
-                          borderColor: condition.color 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('condition', condition.value)}
-                    >
-                      <View style={[
-                        styles.conditionIndicator,
-                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
-                      ]} />
-                      <ThemedText style={[
-                        styles.conditionButtonText,
-                        formData.condition === condition.value && { color: '#fff' }
-                      ]}>
-                        {condition.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <FormInput
-                label="Tags (Optional)"
-                value={formData.tags}
-                onChangeText={(value) => handleInputChange('tags', value)}
-                placeholder="e.g., emergency, portable, battery-powered"
-                error={errors.tags}
-                helperText="Add keywords to help others find this resource (separate with commas)"
-              />
-            </View>
-          </View>
-
-          {/* Photos */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="camera-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Photos (Optional)</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ImageUpload
-                onImageSelected={handleImageSelected}
-                onImageRemoved={handleImageRemoved}
-                currentImageUrl={images[0]}
-                imagesCount={images.length}
-                placeholder="Tap to add resource photo"
-                maxImages={5}
-                resourceId="temp" // Will be updated after resource creation
-                folder="resources"
-                tags={['resource', formData.category, 'external']}
-                quality="auto"
-                format="auto"
-                disabled={loading}
-              />
-            </View>
-          </View>
-        </ScrollView>
+        {renderFormSections()}
           </ThemedView>
         </Animated.View>
       </Animated.View>
@@ -695,255 +708,7 @@ export function AddExternalResourceModal({
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Agency Information - Put this first */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="business-outline" size={20} color="#FF8F00" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Agency Information</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-               <View style={styles.inputGroup}>
-                 <ThemedText style={[styles.label, { color: colors.text }]}>Agency Name *</ThemedText>
-                 <AgencyNameInput
-                   value={formData.agencyName}
-                   onChangeText={handleAgencyNameChange}
-                   onAgencySelect={handleAgencySelect}
-                   placeholder="Enter agency name"
-                   suggestions={agencies}
-                   error={errors.agencyName}
-                   helperText="Select from existing agencies or type a new agency name"
-                 />
-               </View>
-
-              <FormInput
-                label="Agency Address"
-                value={formData.address}
-                onChangeText={(value) => handleInputChange('address', value)}
-                placeholder="Enter full agency address"
-                multiline
-                numberOfLines={2}
-                required
-                error={errors.address}
-                helperText="Complete address of the agency"
-              />
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Contact Numbers * (11 digits each)</ThemedText>
-                <View style={styles.contactNumbersGrid}>
-                  {formData.contactNumbers.map((number, index) => (
-                    <View key={index} style={styles.contactNumberItem}>
-                      <FormInput
-                        label={`Contact ${index + 1}`}
-                        value={number}
-                        onChangeText={(text) => handleContactNumberChange(index, text)}
-                        placeholder="09XXXXXXXXX"
-                        keyboardType="numeric"
-                        error={errors.contactNumbers && index === 0 ? errors.contactNumbers : undefined}
-                      />
-                      {formData.contactNumbers.length > 1 && (
-                        <TouchableOpacity
-                          style={[styles.removeButton, { backgroundColor: colors.error + '20' }]}
-                          onPress={() => removeContactNumber(index)}
-                        >
-                          <Ionicons name="close" size={16} color={colors.error} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
-                </View>
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
-                  onPress={addContactNumber}
-                >
-                  <Ionicons name="add" size={16} color={colors.primary} />
-                  <ThemedText style={[styles.addButtonText, { color: colors.primary }]}>
-                    Add Contact Number
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Basic Information */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Basic Information</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormInput
-                label="Resource Name"
-                value={formData.name}
-                onChangeText={(value) => handleInputChange('name', value)}
-                placeholder="e.g., Emergency Generator, First Aid Kit, Radio"
-                required
-                error={errors.name}
-                helperText="Give it a clear, descriptive name that others will understand"
-              />
-
-              <FormInput
-                label="Description"
-                value={formData.description}
-                onChangeText={(value) => handleInputChange('description', value)}
-                placeholder="Describe what this resource is and how it's used..."
-                multiline
-                numberOfLines={3}
-                error={errors.description}
-                helperText="Provide details about the resource's purpose and usage"
-              />
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Category</ThemedText>
-                <View style={styles.categoryContainer}>
-                  {categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.value}
-                      style={[
-                        styles.categoryButton,
-                        { borderColor: colors.border },
-                        formData.category === category.value && { 
-                          backgroundColor: colors.primary,
-                          borderColor: colors.primary 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('category', category.value)}
-                    >
-                      <Ionicons 
-                        name={category.icon as keyof typeof Ionicons.glyphMap} 
-                        size={16} 
-                        color={formData.category === category.value ? '#fff' : colors.primary} 
-                        style={styles.categoryIcon}
-                      />
-                      <ThemedText style={[
-                        styles.categoryButtonText,
-                        formData.category === category.value && { color: '#fff' }
-                      ]}>
-                        {category.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Quantity and Location */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Quantity & Location</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FormQuantityInput
-                label="Total Quantity"
-                value={formData.totalQuantity}
-                onChangeValue={(value) => handleInputChange('totalQuantity', value)}
-                required
-                error={errors.totalQuantity}
-                helperText="How many units of this resource does the agency have?"
-              />
-
-              <LocationInput
-                value={formData.location}
-                onChangeText={(value) => handleInputChange('location', value)}
-                placeholder="e.g., Agency Office, Emergency Center"
-                suggestions={getLocationSuggestions(formData.location)}
-                error={errors.location}
-                helperText="Where is this resource located at the agency? Select from existing locations or type a new one."
-                disabled={loading}
-              />
-            </View>
-          </View>
-
-          {/* Condition and Details */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Condition & Details</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>Condition</ThemedText>
-                <View style={styles.conditionContainer}>
-                  {conditions.map((condition) => (
-                    <TouchableOpacity
-                      key={condition.value}
-                      style={[
-                        styles.conditionButton,
-                        { borderColor: colors.border },
-                        formData.condition === condition.value && { 
-                          backgroundColor: condition.color,
-                          borderColor: condition.color 
-                        }
-                      ]}
-                      onPress={() => handleInputChange('condition', condition.value)}
-                    >
-                      <View style={[
-                        styles.conditionIndicator,
-                        { backgroundColor: formData.condition === condition.value ? '#fff' : condition.color }
-                      ]} />
-                      <ThemedText style={[
-                        styles.conditionButtonText,
-                        formData.condition === condition.value && { color: '#fff' }
-                      ]}>
-                        {condition.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <FormInput
-                label="Tags (Optional)"
-                value={formData.tags}
-                onChangeText={(value) => handleInputChange('tags', value)}
-                placeholder="e.g., emergency, portable, battery-powered"
-                error={errors.tags}
-                helperText="Add keywords to help others find this resource (separate with commas)"
-              />
-            </View>
-          </View>
-
-          {/* Photos */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Ionicons name="camera-outline" size={20} color="#007AFF" />
-              </View>
-              <ThemedText style={styles.sectionTitle}>Photos (Optional)</ThemedText>
-            </View>
-            
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ImageUpload
-                onImageSelected={handleImageSelected}
-                onImageRemoved={handleImageRemoved}
-                currentImageUrl={images[0]}
-                imagesCount={images.length}
-                placeholder="Tap to add resource photo"
-                maxImages={5}
-                resourceId="temp" // Will be updated after resource creation
-                folder="resources"
-                tags={['resource', formData.category, 'external']}
-                quality="auto"
-                format="auto"
-                disabled={loading}
-              />
-            </View>
-          </View>
-        </ScrollView>
+        {renderFormSections()}
       </ThemedView>
     </Modal>
   );
@@ -1028,6 +793,11 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+    overflow: 'visible',
+  },
+  sectionWithOverlay: {
+    position: 'relative',
+    zIndex: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1051,9 +821,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     borderWidth: 1,
+    overflow: 'visible',
   },
   inputGroup: {
     marginBottom: 20,
+    overflow: 'visible',
+    zIndex: 1,
   },
   label: {
     fontSize: 14,
@@ -1144,6 +917,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   errorText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  helperText: {
     fontSize: 12,
     marginTop: 4,
   },

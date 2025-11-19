@@ -5,6 +5,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Resource, ResourceCategory } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface ResourcesTableProps {
@@ -86,6 +87,76 @@ export function ResourcesTable({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Calculate pagination
+  const totalItems = resources.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedResources = resources.slice(startIndex, endIndex);
+  const showingCount = paginatedResources.length;
+  const startCount = startIndex + 1;
+  const endCount = startIndex + showingCount;
+
+  // Reset to page 1 if current page is out of bounds or when resources list changes
+  React.useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Reset to page 1 when resources list changes (e.g., filters applied)
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [resources.length]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      // Show all pages if total is less than max visible
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      if (currentPage <= 3) {
+        // Near the start
+        for (let i = 2; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('ellipsis');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        // Near the end
+        pages.push('ellipsis');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // In the middle
+        pages.push('ellipsis');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('ellipsis');
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
 
   if (resources.length === 0) {
     return null;
@@ -157,6 +228,17 @@ export function ResourcesTable({
                           <ThemedText style={[styles.externalText, { color: '#FF8F00' }]}>
                             EXTERNAL
                           </ThemedText>
+                          {resource.agencyName && (
+                            <>
+                              <View style={styles.externalDivider} />
+                              <ThemedText
+                                style={[styles.externalAgencyText, { color: '#FF8F00' }]}
+                                numberOfLines={1}
+                              >
+                                {resource.agencyName}
+                              </ThemedText>
+                            </>
+                          )}
                         </View>
                       )}
                     </View>
@@ -226,13 +308,103 @@ export function ResourcesTable({
             );
           })}
         </ScrollView>
+        
+        {/* Pagination Footer for Mobile */}
+        {totalPages > 1 && (
+          <View style={[styles.paginationFooter, styles.paginationFooterMobile, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+            <View style={styles.paginationCounter}>
+              <ThemedText style={[styles.paginationCounterText, { color: colors.text }]}>
+                {showingCount > 0 ? `${startCount}-${endCount}` : '0'} of {totalItems}
+              </ThemedText>
+            </View>
+            <View style={styles.paginationControls}>
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton,
+                  { 
+                    backgroundColor: currentPage === 1 ? 'transparent' : `${colors.primary}20`,
+                    borderColor: colors.border,
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                  }
+                ]}
+                onPress={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <Ionicons 
+                  name="chevron-back" 
+                  size={16} 
+                  color={currentPage === 1 ? colors.text : colors.primary} 
+                />
+              </TouchableOpacity>
+
+              {getPageNumbers().map((page, index) => {
+                if (page === 'ellipsis') {
+                  return (
+                    <View key={`ellipsis-${index}`} style={styles.paginationEllipsis}>
+                      <ThemedText style={[styles.paginationEllipsisText, { color: colors.text }]}>
+                        ...
+                      </ThemedText>
+                    </View>
+                  );
+                }
+
+                const isActive = page === currentPage;
+                return (
+                  <TouchableOpacity
+                    key={page}
+                    style={[
+                      styles.paginationPageButton,
+                      {
+                        backgroundColor: isActive ? colors.primary : 'transparent',
+                        borderColor: isActive ? colors.primary : colors.border,
+                      }
+                    ]}
+                    onPress={() => handlePageChange(page as number)}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.paginationPageButtonText,
+                        {
+                          color: isActive ? '#FFFFFF' : colors.text,
+                          fontWeight: isActive ? '700' : '500',
+                        }
+                      ]}
+                    >
+                      {page}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton,
+                  { 
+                    backgroundColor: currentPage === totalPages ? 'transparent' : `${colors.primary}20`,
+                    borderColor: colors.border,
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                  }
+                ]}
+                onPress={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                <Ionicons 
+                  name="chevron-forward" 
+                  size={16} 
+                  color={currentPage === totalPages ? colors.text : colors.primary} 
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ThemedView>
     );
   }
 
   return (
-    <View style={[styles.table, { borderColor: colors.border }]}>
-        <View style={[styles.tableHeader, { borderBottomColor: colors.border, backgroundColor: `${colors.primary}05` }]}>
+    <View style={[styles.tableContainer, { borderColor: colors.border }]}>
+      {/* Sticky Header */}
+      <View style={[styles.tableHeader, { borderBottomColor: colors.border, backgroundColor: `${colors.primary}05` }]}>
           <View style={[styles.tableHeaderCell, styles.tableHeaderCellName]}>
             <View style={styles.headerTitleContainer}>
               <Ionicons name="cube-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
@@ -282,7 +454,14 @@ export function ResourcesTable({
             </View>
           </View>
         </View>
-        {resources.map((resource, index) => {
+        
+        {/* Scrollable Table Body */}
+        <ScrollView 
+          style={styles.tableBodyScroll}
+          contentContainerStyle={styles.tableBodyContent}
+          showsVerticalScrollIndicator={true}
+        >
+        {paginatedResources.map((resource, index) => {
           const categoryColor = getCategoryColor(resource.category);
           const conditionColor = getConditionColor(resource.condition);
           const statusColor = getStatusColor(resource.availableQuantity, resource.totalQuantity);
@@ -322,7 +501,11 @@ export function ResourcesTable({
                     )}
                   </View>
                   <View style={styles.nameTextContainer}>
-                    <ThemedText style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+                    <ThemedText 
+                      style={[styles.tableCellText, { color: colors.text }]} 
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {resource.name}
                     </ThemedText>
                     {isExternalResource && (
@@ -330,6 +513,17 @@ export function ResourcesTable({
                         <ThemedText style={[styles.externalTextInline, { color: '#FF8F00' }]}>
                           EXTERNAL
                         </ThemedText>
+                        {resource.agencyName && (
+                          <>
+                            <View style={styles.externalDivider} />
+                            <ThemedText
+                              style={[styles.externalAgencyTextInline, { color: '#FF8F00' }]}
+                              numberOfLines={1}
+                            >
+                              {resource.agencyName}
+                            </ThemedText>
+                          </>
+                        )}
                       </View>
                     )}
                   </View>
@@ -353,8 +547,12 @@ export function ResourcesTable({
               <View style={styles.tableCell}>
                 {resource.location ? (
                   <View style={styles.locationCell}>
-                    <Ionicons name="location-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 6 }} />
-                    <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]} numberOfLines={1}>
+                    <Ionicons name="location-outline" size={12} color={colors.text} style={{ opacity: 0.5, marginRight: 6, flexShrink: 0 }} />
+                    <ThemedText 
+                      style={[styles.tableCellText, styles.locationText, { color: colors.text, opacity: 0.8 }]} 
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {resource.location}
                     </ThemedText>
                   </View>
@@ -424,6 +622,99 @@ export function ResourcesTable({
             </TouchableOpacity>
           );
         })}
+        </ScrollView>
+
+      {/* Sticky Pagination Footer */}
+      {totalPages > 1 && (
+        <View style={[styles.paginationFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+          {/* Counter on the left */}
+          <View style={styles.paginationCounter}>
+            <ThemedText style={[styles.paginationCounterText, { color: colors.text }]}>
+              {showingCount > 0 ? `${startCount}-${endCount}` : '0'} of {totalItems}
+            </ThemedText>
+          </View>
+
+          {/* Pagination controls on the right */}
+          <View style={styles.paginationControls}>
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                { 
+                  backgroundColor: currentPage === 1 ? 'transparent' : `${colors.primary}20`,
+                  borderColor: colors.border,
+                  opacity: currentPage === 1 ? 0.5 : 1,
+                }
+              ]}
+              onPress={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <Ionicons 
+                name="chevron-back" 
+                size={16} 
+                color={currentPage === 1 ? colors.text : colors.primary} 
+              />
+            </TouchableOpacity>
+
+            {getPageNumbers().map((page, index) => {
+              if (page === 'ellipsis') {
+                return (
+                  <View key={`ellipsis-${index}`} style={styles.paginationEllipsis}>
+                    <ThemedText style={[styles.paginationEllipsisText, { color: colors.text }]}>
+                      ...
+                    </ThemedText>
+                  </View>
+                );
+              }
+
+              const isActive = page === currentPage;
+              return (
+                <TouchableOpacity
+                  key={page}
+                  style={[
+                    styles.paginationPageButton,
+                    {
+                      backgroundColor: isActive ? colors.primary : 'transparent',
+                      borderColor: isActive ? colors.primary : colors.border,
+                    }
+                  ]}
+                  onPress={() => handlePageChange(page as number)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.paginationPageButtonText,
+                      {
+                        color: isActive ? '#FFFFFF' : colors.text,
+                        fontWeight: isActive ? '700' : '500',
+                      }
+                    ]}
+                  >
+                    {page}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                { 
+                  backgroundColor: currentPage === totalPages ? 'transparent' : `${colors.primary}20`,
+                  borderColor: colors.border,
+                  opacity: currentPage === totalPages ? 0.5 : 1,
+                }
+              ]}
+              onPress={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              <Ionicons 
+                name="chevron-forward" 
+                size={16} 
+                color={currentPage === totalPages ? colors.text : colors.primary} 
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -479,6 +770,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Gabarito',
   },
+  tableContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    flex: 1,
+    minHeight: 400,
+  },
+  tableBodyScroll: {
+    flex: 1,
+  },
+  tableBodyContent: {
+    flexGrow: 1,
+  },
   table: {
     borderWidth: 1,
     borderRadius: 8,
@@ -490,6 +794,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 2,
     alignItems: 'center',
+    position: 'sticky' as any,
+    top: 0,
+    zIndex: 10,
   },
   tableHeaderCell: {
     flex: 1,
@@ -526,6 +833,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-start',
+    minWidth: 0,
+    overflow: 'hidden',
   },
   tableCellName: {
     flex: 2,
@@ -537,6 +846,7 @@ const styles = StyleSheet.create({
   tableCellText: {
     fontSize: 14,
     fontFamily: 'Gabarito',
+    flexShrink: 1,
   },
   resourceNameCell: {
     flexDirection: 'row',
@@ -564,10 +874,18 @@ const styles = StyleSheet.create({
   nameTextContainer: {
     flex: 1,
     minWidth: 0,
+    overflow: 'hidden',
   },
   locationCell: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    width: '100%',
+  },
+  locationText: {
+    flex: 1,
+    minWidth: 0,
   },
   categoryBadge: {
     flexDirection: 'row',
@@ -575,6 +893,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   categoryText: {
     fontSize: 10,
@@ -586,6 +906,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   conditionText: {
     fontSize: 10,
@@ -655,6 +977,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
     marginLeft: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   externalText: {
     fontSize: 9,
@@ -668,9 +993,35 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginTop: 4,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  externalAgencyText: {
+    fontSize: 9,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    flexShrink: 1,
+  },
+  externalAgencyTextInline: {
+    fontSize: 9,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    flexShrink: 1,
+  },
+  externalDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 3,
+    backgroundColor: '#FF8F00',
+    opacity: 0.85,
   },
   externalTextInline: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '700',
     fontFamily: 'Gabarito',
     letterSpacing: 0.5,
@@ -745,6 +1096,68 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     opacity: 0.6,
     fontFamily: 'Gabarito',
+  },
+  paginationFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    position: 'sticky' as any,
+    bottom: 0,
+    zIndex: 10,
+  },
+  paginationFooterMobile: {
+    position: 'relative' as any,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  paginationCounter: {
+    flex: 1,
+  },
+  paginationCounterText: {
+    fontSize: 13,
+    fontFamily: 'Gabarito',
+    opacity: 0.7,
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paginationButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationPageButton: {
+    minWidth: 32,
+    height: 32,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationPageButtonText: {
+    fontSize: 13,
+    fontFamily: 'Gabarito',
+  },
+  paginationEllipsis: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationEllipsisText: {
+    fontSize: 13,
+    fontFamily: 'Gabarito',
+    opacity: 0.5,
   },
 });
 

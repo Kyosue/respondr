@@ -15,16 +15,10 @@ export interface ResourceValidationResult {
 export class ResourceValidator {
   private static readonly VALIDATION_RULES = {
     name: {
-      required: true,
-      minLength: 3,
-      maxLength: 100,
-      pattern: /^[a-zA-Z0-9\s\-_&().,]+$/,
-      message: 'Name must be 3-100 characters and contain only letters, numbers, spaces, and common punctuation'
+      required: true
     },
     description: {
-      required: false,
-      maxLength: 500,
-      message: 'Description cannot exceed 500 characters'
+      required: false
     },
     totalQuantity: {
       required: true,
@@ -100,52 +94,21 @@ export class ResourceValidator {
       return;
     }
 
+    // Only check if name is not empty (trimmed)
     const trimmedName = name.trim();
-    
-    if (trimmedName.length < rules.minLength) {
+    if (trimmedName.length === 0) {
       errors.push({
         field: 'name',
-        message: `Name must be at least ${rules.minLength} characters long`,
-        code: 'MIN_LENGTH'
-      });
-    }
-    
-    if (trimmedName.length > rules.maxLength) {
-      errors.push({
-        field: 'name',
-        message: `Name must be no more than ${rules.maxLength} characters long`,
-        code: 'MAX_LENGTH'
-      });
-    }
-    
-    if (!rules.pattern.test(trimmedName)) {
-      errors.push({
-        field: 'name',
-        message: rules.message,
-        code: 'INVALID_FORMAT'
+        message: 'Resource name cannot be empty',
+        code: 'REQUIRED'
       });
     }
   }
 
   private static validateDescription(description: string | undefined, errors: ResourceValidationError[], warnings: string[]): void {
-    const rules = this.VALIDATION_RULES.description;
-    
-    if (!description) {
+    // Description is optional and has no character limit
+    if (!description || !description.trim()) {
       return; // Description is optional
-    }
-
-    const trimmedDescription = description.trim();
-    
-    if (trimmedDescription.length > rules.maxLength) {
-      errors.push({
-        field: 'description',
-        message: rules.message,
-        code: 'MAX_LENGTH'
-      });
-    }
-    
-    if (trimmedDescription.length > 0 && trimmedDescription.length < 10) {
-      warnings.push('Description is quite short. Consider adding more details.');
     }
   }
 

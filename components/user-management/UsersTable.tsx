@@ -616,11 +616,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     flex: 1,
     minHeight: 400,
-    maxHeight: 800, // Max height for the entire table
   },
   tableBodyScroll: {
     flex: 1,
-    maxHeight: 600, // Max height for scrollable area
   },
   tableBodyContent: {
     flexGrow: 1,
