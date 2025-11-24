@@ -154,13 +154,13 @@ export function HistoricalDataTable({
                 <Ionicons name="time" size={18} color={colors.primary} />
               </View>
               <View>
-                <ThemedText style={[styles.sectionTitleMobile, { color: colors.text }]}>
+            <ThemedText style={[styles.sectionTitleMobile, { color: colors.text }]}>
                   Historical Data
-                </ThemedText>
+            </ThemedText>
                 <ThemedText style={[styles.recordCountMobile, { color: colors.text, opacity: 0.6 }]}>
                   {totalItems} records
-                </ThemedText>
-              </View>
+            </ThemedText>
+          </View>
             </View>
           </View>
           
@@ -180,7 +180,7 @@ export function HistoricalDataTable({
                     styles.rangeButtonMobile,
                     {
                       backgroundColor: selectedRange === range.value
-                        ? colors.primary
+                          ? colors.primary
                         : `${colors.primary}15`,
                       borderColor: colors.border,
                     }
@@ -340,12 +340,12 @@ export function HistoricalDataTable({
             <Ionicons name="time" size={20} color={colors.primary} />
           </View>
           <View style={styles.titleContent}>
-            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-              Historical Data
-            </ThemedText>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+            Historical Data
+          </ThemedText>
             <ThemedText style={[styles.recordCount, { color: colors.text, opacity: 0.6 }]}>
-              {totalItems} records
-            </ThemedText>
+            {totalItems} records
+          </ThemedText>
           </View>
         </View>
       </View>
@@ -361,31 +361,31 @@ export function HistoricalDataTable({
             contentContainerStyle={styles.rangeSelectorContent}
           >
             {timeRanges.map((range) => (
-              <TouchableOpacity
+            <TouchableOpacity
                 key={range.value}
                 onPress={() => onRangeChange?.(range.value)}
-                style={[
+              style={[
                   styles.rangeButton,
-                  {
+                {
                     backgroundColor: selectedRange === range.value
                       ? colors.primary
                       : `${colors.primary}15`,
-                    borderColor: colors.border,
+                  borderColor: colors.border,
                   }
-                ]}
-              >
-                <ThemedText
-                  style={[
+              ]}
+            >
+              <ThemedText
+                style={[
                     styles.rangeButtonText,
-                    {
+                  {
                       color: selectedRange === range.value ? '#FFFFFF' : colors.primary,
                     }
-                  ]}
-                >
+                ]}
+              >
                   {range.label}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
           </ScrollView>
         </View>
       </View>
@@ -646,18 +646,18 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   sectionTitleMobile: {
-    fontSize: 16,
+    fontSize: 18, // H3
     fontWeight: '700',
     fontFamily: 'Gabarito',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   titleContent: {
     flex: 1,
   },
   recordCount: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontFamily: 'Gabarito',
-    lineHeight: 18,
+    lineHeight: 20,
     marginTop: 2,
   },
   controlsContainer: {
@@ -683,10 +683,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   rangeButtonText: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontWeight: '600',
     fontFamily: 'Gabarito',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   scrollViewMobile: {
     maxHeight: 400,
@@ -718,10 +718,10 @@ const styles = StyleSheet.create({
     minWidth: 50,
   },
   timeTextCompact: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontWeight: '600',
     fontFamily: 'Gabarito',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   metricsRowCompact: {
     flex: 1,
@@ -738,10 +738,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metricTextCompact: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontWeight: '600',
     fontFamily: 'Gabarito',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   paginationFooterMobile: {
     flexDirection: 'row',
@@ -770,12 +770,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   paginationPageTextMobile: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontWeight: '600',
     fontFamily: 'Gabarito',
     minWidth: 40,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   headerSection: {
     flexDirection: 'row',
@@ -814,8 +814,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 14, // Body
     fontFamily: 'Gabarito',
+    lineHeight: 20,
   },
   emptyContainer: {
     padding: 40,
@@ -824,9 +825,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 14, // Body
     textAlign: 'center',
     fontFamily: 'Gabarito',
+    lineHeight: 20,
   },
   mobileItem: {
     padding: 16,
@@ -851,9 +853,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   dateHeaderText: {
-    fontSize: 12,
+    fontSize: 12, // Small
     fontWeight: '700',
     fontFamily: 'Gabarito',
+    lineHeight: 16,
   },
   mobileItemRow: {
     flexDirection: 'row',
@@ -867,8 +870,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   mobileLabel: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontFamily: 'Gabarito',
+    lineHeight: 20,
   },
   mobileValue: {
     fontSize: 14,
@@ -890,15 +894,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metricValue: {
-    fontSize: 16,
+    fontSize: 18, // H3
     fontWeight: '700',
     fontFamily: 'Gabarito',
+    lineHeight: 24,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: 12, // Small
     fontFamily: 'Gabarito',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    lineHeight: 16,
   },
   tableContainer: {
     borderWidth: 1,
@@ -929,13 +935,13 @@ const styles = StyleSheet.create({
     flex: 1.5,
   },
   tableHeaderText: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     fontFamily: 'Gabarito',
     opacity: 0.8,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   tableRow: {
     flexDirection: 'row',
@@ -959,11 +965,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   todayBadge: {
-    fontSize: 11,
+    fontSize: 12, // Small
     fontWeight: '600',
     marginTop: 2,
     fontFamily: 'Gabarito',
-    lineHeight: 14,
+    lineHeight: 16,
   },
   metricCell: {
     flexDirection: 'row',
@@ -985,10 +991,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paginationCounterText: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontFamily: 'Gabarito',
     opacity: 0.7,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   paginationControls: {
     flexDirection: 'row',
@@ -1013,9 +1019,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   paginationPageButtonText: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontFamily: 'Gabarito',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   paginationEllipsis: {
     width: 32,
@@ -1024,10 +1030,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   paginationEllipsisText: {
-    fontSize: 13,
+    fontSize: 14, // Body
     fontFamily: 'Gabarito',
     opacity: 0.5,
-    lineHeight: 18,
+    lineHeight: 20,
   },
 });
 

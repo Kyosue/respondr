@@ -3,11 +3,11 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, G, Line, Path, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { HistoricalDataPoint } from './HistoricalDataView';
+import { styles } from './WeatherAnalyticsDashboard.styles';
 import { WeatherData } from './WeatherMetrics';
 
 interface WeatherAnalyticsDashboardProps {
@@ -294,13 +294,6 @@ export function WeatherAnalyticsDashboard({
     return (
       <View 
         style={styles.chartContainer}
-        onStartShouldSetResponder={() => true}
-        onResponderRelease={() => {
-          // Dismiss tooltip when tapping outside chart points
-          if (hoveredPoint) {
-            setHoveredPoint(null);
-          }
-        }}
         {...(Platform.OS === 'web' && {
           onMouseLeave: () => {
             // Dismiss tooltip when mouse leaves chart area (with small delay)
@@ -425,18 +418,27 @@ export function WeatherAnalyticsDashboard({
                       <Circle
                         cx={point.x}
                         cy={point.y}
-                        r={isMobile ? 14 : 12}
+                        r={isMobile ? 18 : 12} // Larger touch target on mobile
                         fill="transparent"
                         onPress={() => {
-                          // Toggle tooltip on press
-                          if (isHovered) {
-                            setHoveredPoint(null);
+                          // On mobile, always show tooltip on tap
+                          // On web, toggle tooltip
+                          if (Platform.OS === 'web') {
+                            if (isHovered) {
+                              setHoveredPoint(null);
+                            } else {
+                              setHoveredPoint(pointData);
+                            }
                           } else {
+                            // Mobile: always show on tap
                             setHoveredPoint(pointData);
                           }
                         }}
                         onPressIn={() => {
-                          setHoveredPoint(pointData);
+                          // On mobile, show immediately on press for better responsiveness
+                          if (Platform.OS !== 'web') {
+                            setHoveredPoint(pointData);
+                          }
                         }}
                         {...(Platform.OS === 'web' && {
                           onMouseEnter: () => {
@@ -472,6 +474,15 @@ export function WeatherAnalyticsDashboard({
           })}
         </Svg>
 
+        {/* Mobile backdrop overlay to dismiss tooltip */}
+        {hoveredPoint && Platform.OS !== 'web' && (
+          <TouchableOpacity
+            style={styles.tooltipBackdrop}
+            activeOpacity={1}
+            onPress={() => setHoveredPoint(null)}
+          />
+        )}
+
         {/* Tooltip with smooth animations */}
         {hoveredPoint && (
           <Animated.View
@@ -479,12 +490,12 @@ export function WeatherAnalyticsDashboard({
               styles.tooltip,
               {
                 left: Math.min(
-                  Math.max(hoveredPoint.x - 90, 10),
-                  chartWidth - 190
+                  Math.max(hoveredPoint.x - (isMobile ? 80 : 90), 10),
+                  chartWidth - (isMobile ? 170 : 190)
                 ),
                 top: hoveredPoint.y < chartHeight / 2 
-                  ? hoveredPoint.y + 20 
-                  : Math.max(hoveredPoint.y - 90, 10),
+                  ? hoveredPoint.y + (isMobile ? 15 : 20) 
+                  : Math.max(hoveredPoint.y - (isMobile ? 80 : 90), 10),
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
                 shadowColor: colors.text,
@@ -493,7 +504,12 @@ export function WeatherAnalyticsDashboard({
               },
             ]}
             onStartShouldSetResponder={() => true}
-            onTouchEnd={() => setHoveredPoint(null)}
+            {...(Platform.OS !== 'web' && {
+              // On mobile, prevent tooltip from being dismissed when tapping inside it
+              onTouchStart: (e) => {
+                e.stopPropagation();
+              },
+            })}
             {...(Platform.OS === 'web' && {
               onMouseEnter: () => {
                 // Keep tooltip visible when hovering over it
@@ -510,10 +526,21 @@ export function WeatherAnalyticsDashboard({
             })}
           >
             <View style={[styles.tooltipHeader, { borderBottomColor: colors.border }]}>
-              <View style={[styles.tooltipDot, { backgroundColor: hoveredPoint.metricColor }]} />
-              <ThemedText style={[styles.tooltipMetricName, { color: colors.text }]}>
-                {hoveredPoint.metricName}
-              </ThemedText>
+              <View style={styles.tooltipHeaderLeft}>
+                <View style={[styles.tooltipDot, { backgroundColor: hoveredPoint.metricColor }]} />
+                <ThemedText style={[styles.tooltipMetricName, { color: colors.text }]}>
+                  {hoveredPoint.metricName}
+                </ThemedText>
+              </View>
+              {Platform.OS !== 'web' && (
+                <TouchableOpacity
+                  onPress={() => setHoveredPoint(null)}
+                  style={styles.tooltipCloseButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={16} color={colors.text} style={{ opacity: 0.6 }} />
+                </TouchableOpacity>
+              )}
             </View>
             <View style={styles.tooltipContent}>
               <ThemedText style={[styles.tooltipValue, { color: hoveredPoint.metricColor }]}>
@@ -742,64 +769,82 @@ export function WeatherAnalyticsDashboard({
               style={[
                 styles.statCard,
                 isMobile && styles.statCardMobile,
-                { backgroundColor: colors.background, borderColor: colors.border },
+                { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border,
+                  borderLeftColor: metric.color,
+                },
               ]}
             >
-              <ExpoLinearGradient
-                colors={metric.gradient as any}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.statCardGradient}
-              >
-                <View style={styles.statCardHeader}>
-                  <View style={[styles.statIcon, { backgroundColor: `${metric.color}20` }]}>
-                    <Ionicons name={metric.icon as any} size={18} color={metric.color} />
+              {/* Compact Header Row */}
+              <View style={styles.statCardHeader}>
+                <View style={styles.statHeaderLeft}>
+                  <View style={[styles.statIconContainer, { backgroundColor: `${metric.color}12` }]}>
+                    <Ionicons name={metric.icon as any} size={16} color={metric.color} />
                   </View>
-                  <View style={styles.statCardContent}>
-                    <ThemedText style={styles.statLabel}>{metric.label}</ThemedText>
-                    <View style={styles.statTrend}>
-                      {metric.stats.trend === 'up' && (
-                        <Ionicons name="trending-up" size={12} color="#FFFFFF" />
-                      )}
-                      {metric.stats.trend === 'down' && (
-                        <Ionicons name="trending-down" size={12} color="#FFFFFF" />
-                      )}
-                      {metric.stats.trend === 'stable' && (
-                        <Ionicons name="remove" size={12} color="#FFFFFF" style={{ opacity: 0.7 }} />
-                      )}
-                      <ThemedText style={styles.statTrendText}>
-                        {metric.stats.percent.toFixed(1)}%
-                      </ThemedText>
-                    </View>
+                  <View style={styles.statCardTitleContainer}>
+                    <ThemedText style={[styles.statLabel, { color: colors.text }]} numberOfLines={1}>
+                      {metric.label}
+                    </ThemedText>
                   </View>
                 </View>
-                <View style={styles.statValueRow}>
-                  <ThemedText style={styles.statCurrentValue}>
+                <View style={styles.statTrend}>
+                  {metric.stats.trend === 'up' && (
+                    <Ionicons name="trending-up" size={12} color={metric.color} />
+                  )}
+                  {metric.stats.trend === 'down' && (
+                    <Ionicons name="trending-down" size={12} color={metric.color} />
+                  )}
+                  {metric.stats.trend === 'stable' && (
+                    <Ionicons name="remove" size={12} color={colors.text} style={{ opacity: 0.4 }} />
+                  )}
+                  <ThemedText style={[styles.statTrendText, { color: colors.text, opacity: 0.6 }]}>
+                    {metric.stats.percent.toFixed(1)}%
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Current Value Row */}
+              <View style={styles.statCurrentSection}>
+                <View style={styles.statCurrentValueContainer}>
+                  <ThemedText style={[styles.statCurrentValue, { color: metric.color }]}>
                     {formatValue(metric.stats.current)}
                   </ThemedText>
-                  <ThemedText style={styles.statUnit}>{metric.unit}</ThemedText>
+                  <ThemedText style={[styles.statUnit, { color: colors.text, opacity: 0.5 }]}>
+                    {metric.unit}
+                  </ThemedText>
                 </View>
-                <View style={styles.statRangeRow}>
-                  <View style={styles.statRangeItem}>
-                    <ThemedText style={styles.statRangeLabel}>Avg</ThemedText>
-                    <ThemedText style={styles.statRangeValue}>
-                      {formatValue(metric.stats.avg)}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.statRangeItem}>
-                    <ThemedText style={styles.statRangeLabel}>Min</ThemedText>
-                    <ThemedText style={styles.statRangeValue}>
-                      {formatValue(metric.stats.min)}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.statRangeItem}>
-                    <ThemedText style={styles.statRangeLabel}>Max</ThemedText>
-                    <ThemedText style={styles.statRangeValue}>
-                      {formatValue(metric.stats.max)}
-                    </ThemedText>
-                  </View>
+              </View>
+
+              {/* Compact Stats Row */}
+              <View style={[styles.statRangeRow, { borderTopColor: colors.border }]}>
+                <View style={styles.statRangeItem}>
+                  <ThemedText style={[styles.statRangeLabel, { color: colors.text, opacity: 0.5 }]}>
+                    Avg
+                  </ThemedText>
+                  <ThemedText style={[styles.statRangeValue, { color: colors.text }]}>
+                    {formatValue(metric.stats.avg)}
+                  </ThemedText>
                 </View>
-              </ExpoLinearGradient>
+                <View style={[styles.statRangeDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.statRangeItem}>
+                  <ThemedText style={[styles.statRangeLabel, { color: colors.text, opacity: 0.5 }]}>
+                    Min
+                  </ThemedText>
+                  <ThemedText style={[styles.statRangeValue, { color: colors.text }]}>
+                    {formatValue(metric.stats.min)}
+                  </ThemedText>
+                </View>
+                <View style={[styles.statRangeDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.statRangeItem}>
+                  <ThemedText style={[styles.statRangeLabel, { color: colors.text, opacity: 0.5 }]}>
+                    Max
+                  </ThemedText>
+                  <ThemedText style={[styles.statRangeValue, { color: colors.text }]}>
+                    {formatValue(metric.stats.max)}
+                  </ThemedText>
+                </View>
+              </View>
             </View>
           );
         })}
@@ -808,376 +853,4 @@ export function WeatherAnalyticsDashboard({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-      web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      },
-    }),
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
-    fontFamily: 'Gabarito',
-    lineHeight: 28,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: 'Gabarito',
-    lineHeight: 18,
-  },
-  dataCountBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  dataCountText: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    lineHeight: 18,
-  },
-  filterSection: {
-    marginBottom: 16,
-  },
-  filterLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    lineHeight: 18,
-  },
-  filterScroll: {
-    marginTop: 4,
-  },
-  filterScrollContent: {
-    gap: 8,
-    paddingRight: 4,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  filterButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    lineHeight: 18,
-  },
-  chartCard: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 16,
-    width: '100%',
-    ...Platform.select({
-      web: {
-        padding: 20,
-        paddingHorizontal: 20,
-        backgroundColor: 'transparent',
-        maxWidth: '100%',
-      },
-      default: {
-        padding: 12,
-      },
-    }),
-  },
-  chartHeader: {
-    paddingHorizontal: 4,
-    ...Platform.select({
-      web: {
-        marginBottom: 18,
-      },
-      default: {
-        marginBottom: 12,
-      },
-    }),
-  },
-  chartTitle: {
-    fontWeight: '700',
-    marginBottom: 4,
-    fontFamily: 'Gabarito',
-    ...Platform.select({
-      web: {
-        fontSize: 18,
-        lineHeight: 26,
-      },
-      default: {
-        fontSize: 16,
-        lineHeight: 22,
-      },
-    }),
-  },
-  chartSubtitle: {
-    fontFamily: 'Gabarito',
-    opacity: 0.7,
-    ...Platform.select({
-      web: {
-        fontSize: 13,
-        lineHeight: 18,
-      },
-      default: {
-        fontSize: 12,
-        lineHeight: 16,
-      },
-    }),
-  },
-  chartContainer: {
-    alignItems: 'center',
-    marginBottom: 12,
-    position: 'relative',
-    paddingVertical: 12,
-    width: '100%',
-    ...Platform.select({
-      web: {
-        maxWidth: '100%',
-      },
-    }),
-  },
-  tooltip: {
-    position: 'absolute',
-    borderRadius: 12,
-    borderWidth: 1,
-    zIndex: 1000,
-    ...Platform.select({
-      web: {
-        minWidth: 180,
-        maxWidth: 220,
-        padding: 12,
-      },
-      default: {
-        minWidth: 160,
-        maxWidth: 200,
-        padding: 10,
-      },
-    }),
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 10,
-      },
-      web: {
-        boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-        transition: 'opacity 0.2s ease, transform 0.2s ease',
-      },
-    }),
-  },
-  tooltipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: 8,
-    marginBottom: 8,
-    borderBottomWidth: 1,
-  },
-  tooltipDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  tooltipMetricName: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    lineHeight: 18,
-  },
-  tooltipContent: {
-    gap: 4,
-  },
-  tooltipValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Gabarito',
-    lineHeight: 24,
-  },
-  tooltipTime: {
-    fontSize: 12,
-    fontFamily: 'Gabarito',
-    lineHeight: 16,
-  },
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendText: {
-    fontSize: 12,
-    fontFamily: 'Gabarito',
-    lineHeight: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statsGridMobile: {
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: 160,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-      web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      },
-    }),
-  },
-  statCardMobile: {
-    width: '48%',
-    minWidth: '48%',
-    flex: 0,
-  },
-  statCardGradient: {
-    padding: 14,
-    minHeight: 140,
-  },
-  statCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 12,
-  },
-  statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statCardContent: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 4,
-    fontFamily: 'Gabarito',
-    lineHeight: 20,
-  },
-  statTrend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statTrendText: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    fontFamily: 'Gabarito',
-    lineHeight: 14,
-  },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-    marginBottom: 12,
-  },
-  statCurrentValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    fontFamily: 'Gabarito',
-    lineHeight: 30,
-  },
-  statUnit: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    fontFamily: 'Gabarito',
-    lineHeight: 18,
-  },
-  statRangeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  statRangeItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statRangeLabel: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 2,
-    fontFamily: 'Gabarito',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    lineHeight: 14,
-  },
-  statRangeValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Gabarito',
-    lineHeight: 16,
-  },
-});
 

@@ -38,6 +38,9 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     if (value === null || value === undefined) return '--';
     if (key === 'lastUpdated') return '';
     
+    // Type guard: ensure value is a number
+    if (typeof value !== 'number') return String(value);
+    
     if (key === 'temperature') {
       return `${value.toFixed(1)}`;
     }

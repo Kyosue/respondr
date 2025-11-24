@@ -2,7 +2,6 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { WeatherData } from './WeatherMetrics';
 
@@ -62,7 +61,7 @@ export function WeatherAlert({ data, thresholds, dismissedAlerts, onDismiss }: W
       }
     }
 
-    // Humidity alerts
+    // Humidity alerts (warnings only - not critical safety issues)
     if (thresholds.humidity) {
       if (data.humidity < thresholds.humidity.min) {
         alerts.push({
@@ -77,8 +76,8 @@ export function WeatherAlert({ data, thresholds, dismissedAlerts, onDismiss }: W
       if (data.humidity > thresholds.humidity.max) {
         alerts.push({
           id: 'humidity-high',
-          type: 'critical',
-          message: `Humidity exceeds threshold (${thresholds.humidity.max}%)`,
+          type: 'warning',
+          message: `High humidity detected (${thresholds.humidity.max}%+)`,
           metric: 'Humidity',
           value: data.humidity,
           threshold: thresholds.humidity.max,

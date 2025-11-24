@@ -2,10 +2,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
+import { WeatherStation } from '@/types/WeatherStation';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { WeatherStation } from './WeatherStationSelector';
+import { useMemo } from 'react';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface WeatherStationSwitcherProps {
   stations: WeatherStation[];
@@ -22,8 +22,34 @@ export function WeatherStationSwitcher({
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
 
-  const activeStations = stations.filter(s => s.isActive);
-  const inactiveStations = stations.filter(s => !s.isActive);
+  // Sort stations: selected first in its group, others maintain original order
+  const activeStations = useMemo(() => {
+    const active = stations.filter(s => s.isActive);
+    if (!selectedStation?.isActive) return active;
+    
+    // Move selected station to first position
+    const selectedIndex = active.findIndex(s => s.id === selectedStation.id);
+    if (selectedIndex > 0) {
+      const reordered = [...active];
+      const [selected] = reordered.splice(selectedIndex, 1);
+      return [selected, ...reordered];
+    }
+    return active;
+  }, [stations, selectedStation]);
+
+  const inactiveStations = useMemo(() => {
+    const inactive = stations.filter(s => !s.isActive);
+    if (!selectedStation || selectedStation.isActive) return inactive;
+    
+    // Move selected station to first position
+    const selectedIndex = inactive.findIndex(s => s.id === selectedStation.id);
+    if (selectedIndex > 0) {
+      const reordered = [...inactive];
+      const [selected] = reordered.splice(selectedIndex, 1);
+      return [selected, ...reordered];
+    }
+    return inactive;
+  }, [stations, selectedStation]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -39,11 +65,19 @@ export function WeatherStationSwitcher({
         </ThemedText>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.stationsScroll}
-      >
+      <View style={styles.scrollContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={!isMobile}
+          contentContainerStyle={styles.stationsScroll}
+          {...(Platform.OS === 'web' && !isMobile && {
+            // @ts-ignore - CSS scrollbar properties for web
+            style: {
+              scrollbarWidth: 'thin',
+              scrollbarColor: `${colors.text}20 transparent`,
+            } as any,
+          })}
+        >
         {/* Active Stations */}
         {activeStations.map((station) => {
           const isSelected = selectedStation?.id === station.id;
@@ -148,7 +182,8 @@ export function WeatherStationSwitcher({
             })}
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -164,7 +199,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  scrollContainer: {
+    marginTop: 4,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -183,6 +221,10 @@ const styles = StyleSheet.create({
   stationsScroll: {
     gap: 8,
     paddingRight: 4,
+    paddingBottom: Platform.select({
+      web: 8,
+      default: 0,
+    }),
   },
   stationChip: {
     flexDirection: 'row',

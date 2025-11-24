@@ -10,7 +10,7 @@ import { HistoricalDataPoint, HistoricalDataView } from './HistoricalDataView';
 import { AlertThreshold, WeatherAlert } from './WeatherAlert';
 import { WeatherAnalyticsDashboard } from './WeatherAnalyticsDashboard';
 import { WeatherData, WeatherMetrics } from './WeatherMetrics';
-import { WeatherStation, generateStations } from './WeatherStationSelector';
+import { WeatherStation, generateStations } from '@/types/WeatherStation';
 import { WeatherStationSwitcher } from './WeatherStationSwitcher';
 
 // Default alert thresholds (can be configured later)
@@ -30,12 +30,21 @@ const WeatherStationScreen: React.FC = () => {
   // Initialize stations
   const [stations, setStations] = useState<WeatherStation[]>(generateStations());
   
-  // Auto-select first active station (prefer Mati if available, otherwise first active)
+  // Auto-select Mati City as default (prefer active Mati, otherwise any Mati, then first active)
   const defaultStation = useMemo(() => {
+    // First, try to find an active Mati City station
     const matiStation = stations.find(s => 
-      s.municipality.name.toLowerCase() === 'mati' && s.isActive
+      s.municipality.name.toLowerCase().includes('mati') && s.isActive
     );
     if (matiStation) return matiStation;
+    
+    // If no active Mati, try to find any Mati station
+    const anyMatiStation = stations.find(s => 
+      s.municipality.name.toLowerCase().includes('mati')
+    );
+    if (anyMatiStation) return anyMatiStation;
+    
+    // Fallback to first active station, or first station if none are active
     return stations.find(s => s.isActive) || stations[0];
   }, [stations]);
   
@@ -252,7 +261,7 @@ const WeatherStationScreen: React.FC = () => {
                 Real-time atmospheric monitoring across Davao Oriental
               </ThemedText>
             </View>
-            {selectedStation && (
+            {selectedStation && !isMobile && (
               <View style={[styles.currentStationBadge, { backgroundColor: `${colors.primary}15` }]}>
                 <Ionicons name="location" size={16} color={colors.primary} />
                 <ThemedText style={[styles.currentStationText, { color: colors.primary }]}>
@@ -308,11 +317,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: Platform.OS === 'web' ? 20 : 100,
   },
   scrollContentMobile: {
-    padding: 12,
     paddingBottom: Platform.OS === 'web' ? 20 : 100,
   },
   centerContent: {
