@@ -27,6 +27,7 @@ import { Resources } from '../components/resources/Resources';
 import { Settings } from '../components/settings/Settings';
 import { SitRep } from '../components/sitrep/SitRep';
 import { UserManagement } from '../components/user-management/UserManagement';
+import WeatherStation from '../components/weather-station/WeatherStation';
 
 export default function IndexScreen() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -119,6 +120,7 @@ export default function IndexScreen() {
           resources: 'Resources',
           sitrep: 'Situation Report',
           'user-management': 'User Management',
+          'weather-station': 'Weather Station',
           reports: 'Reports',
           settings: 'Settings',
         };
@@ -229,6 +231,11 @@ export default function IndexScreen() {
           {activeTab === 'user-management' && (
             <View style={{ flex: 1 }}>
               <UserManagement />
+            </View>
+          )}
+          {activeTab === 'weather-station' && (
+            <View style={{ flex: 1 }}>
+              <WeatherStation />
             </View>
           )}
           {activeTab === 'reports' && (

@@ -10,6 +10,12 @@ const ALL_MENU_ITEMS = [
     requiredRole: ['admin', 'supervisor'] as UserType[],
   },
   {
+    id: 'weather-station',
+    title: 'Weather Station',
+    icon: 'partly-sunny-outline',
+    requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
+  },
+  {
     id: 'reports',
     title: 'Reports',
     icon: 'bar-chart-outline',

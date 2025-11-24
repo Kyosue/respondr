@@ -20,6 +20,7 @@ import { Resources } from '../resources/Resources';
 import { Settings } from '../settings/Settings';
 import { SitRep } from '../sitrep/SitRep';
 import { UserManagement } from '../user-management/UserManagement';
+import WeatherStation from '../weather-station/WeatherStation';
 
 interface DesktopLayoutProps {
   activeTab: string;
@@ -33,6 +34,7 @@ const getPageTitle = (activeTab: string): string => {
     resources: 'Resources',
     sitrep: 'Situation Report',
     'user-management': 'User Management',
+    'weather-station': 'Weather Station',
     reports: 'Reports',
     settings: 'Settings',
   };
@@ -95,6 +97,7 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
               {activeTab === 'resources' && <Resources />}
               {activeTab === 'sitrep' && <SitRep />}
               {activeTab === 'user-management' && <UserManagement />}
+              {activeTab === 'weather-station' && <WeatherStation />}
               {activeTab === 'reports' && <Reports />}
               {activeTab === 'settings' && <Settings />}
             </Animated.View>
