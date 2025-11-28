@@ -136,26 +136,9 @@ const PRIORITY_COLORS = {
 
 type PriorityLevel = keyof typeof PRIORITY_HIERARCHY;
 
-// Function to get the highest priority operation for a municipality
-const getHighestPriorityOperation = (operations: any[]): PriorityLevel | 'none' => {
-  if (!operations || operations.length === 0) {
-    return 'none';
-  }
-
-  let highestPriority: PriorityLevel = 'low';
-  let highestPriorityValue: number = PRIORITY_HIERARCHY.low;
-
-  operations.forEach(operation => {
-    if (operation.priority && PRIORITY_HIERARCHY[operation.priority as PriorityLevel]) {
-      const priorityValue = PRIORITY_HIERARCHY[operation.priority as PriorityLevel];
-      if (priorityValue > highestPriorityValue) {
-        highestPriorityValue = priorityValue;
-        highestPriority = operation.priority as PriorityLevel;
-      }
-    }
-  });
-
-  return highestPriority;
+// Function to check if municipality has operations
+const hasOperations = (operations: any[]): boolean => {
+  return operations && operations.length > 0;
 };
 
 interface DavaoOrientalMapProps {
@@ -313,14 +296,14 @@ const getLabelPosition = (
   try {
     const customPositions: { [key: string]: { x: number; y: number } } = {
       'Baganga': { x: center.x - 40, y: center.y + 10 }, 
-      'Banaybanay': { x: center.x, y: center.y - 25 }, 
+      'Banaybanay': { x: center.x - 10, y: center.y - 10 }, 
       'Boston': { x: center.x, y: center.y + 5 },
       'Caraga': { x: center.x - 35, y: center.y }, 
       'Cateel': { x: center.x - 20, y: center.y + 15 }, 
       'Governor Generoso': { x: center.x - 50, y: center.y - 20 }, 
       'Lupon': { x: center.x + 25, y: center.y - 50 }, 
       'Manay': { x: center.x - 10, y: center.y - 10}, 
-      'City of Mati': { x: center.x, y: center.y - 90 }, // Alternative name
+      'City of Mati': { x: center.x - 5, y: center.y - 78 }, // Alternative name
       'San Isidro': { x: center.x - 35, y: center.y + 5 }, 
       'Tarragona': { x: center.x -5, y: center.y - 5 }, 
     };
@@ -332,8 +315,8 @@ const getLabelPosition = (
   }
 };
 
-// Memoized individual municipality component for better performance
-const MunicipalityFeature = memo<{
+// Memoized component for municipality paths only
+const MunicipalityPath = memo<{
   feature: any;
   bounds: Bounds;
   width: number;
@@ -343,47 +326,13 @@ const MunicipalityFeature = memo<{
   colors: any;
   onPress: () => void;
   operationsByMunicipality?: Record<string, any[]>;
-}>(({ feature, bounds, width, height, municipality, isSelected, colors, onPress, operationsByMunicipality }) => {
-  const processedFeature = useMemo(() => {
-    const cacheKey = `${feature.id}-${width}-${height}-${isSelected}`;
-    
-    if (featureCache.has(cacheKey)) {
-      return featureCache.get(cacheKey)!;
-    }
-    
-    const coordinates = feature.geometry.coordinates;
-    const scaledCoords = scaleCoordinates(coordinates, bounds, width, height);
-    const pathData = coordinatesToPath([scaledCoords]);
-    const center = calculateCenter(scaledCoords);
-    const labelPosition = getLabelPosition(feature.properties.adm3_en, center);
-    
-    const processed: ProcessedFeature = {
-      id: feature.id,
-      pathData,
-      center,
-      municipality,
-      isSelected,
-      labelPosition
-    };
-    
-    featureCache.set(cacheKey, processed);
-    return processed;
-  }, [feature, bounds, width, height, municipality, isSelected]);
-
-  // Get the highest priority operation for this municipality
-  const municipalityOperations = municipality && operationsByMunicipality ? 
-    operationsByMunicipality[municipality.id.toString()] || [] : [];
-  const highestPriority = getHighestPriorityOperation(municipalityOperations);
-  
-  // Use LGU-specific colors for default state, priority colors for operations
-  const priorityColors = highestPriority === 'none' && municipality ? 
-    LGU_COLORS[municipality.name as keyof typeof LGU_COLORS] || LGU_COLORS['Baganga'] :
-    PRIORITY_COLORS[highestPriority];
-  
+  pathData: string;
+  priorityColors: any;
+}>(({ pathData, isSelected, colors, onPress, priorityColors }) => {
   return (
-    <G key={feature.id}>
+    <G>
       <Path
-        d={processedFeature.pathData}
+        d={pathData}
         fill={isSelected ? 'white' : priorityColors.fill}
         fillOpacity={isSelected ? 0.5 : 1}
         stroke={isSelected ? colors.primary : priorityColors.stroke}
@@ -394,15 +343,26 @@ const MunicipalityFeature = memo<{
       />
       {/* Invisible larger touch area for better tap accuracy */}
       <Path
-        d={processedFeature.pathData}
+        d={pathData}
         fill="transparent"
         stroke="transparent"
-        strokeWidth="20"
+        strokeWidth={20}
         onPress={onPress}
       />
+    </G>
+  );
+});
+
+// Memoized component for municipality labels only
+const MunicipalityLabel = memo<{
+  labelPosition: { x: number; y: number };
+  labelText: string;
+  onPress: () => void;
+}>(({ labelPosition, labelText, onPress }) => {
+  return (
       <SvgText
-        x={processedFeature.labelPosition.x}
-        y={processedFeature.labelPosition.y}
+      x={labelPosition.x}
+      y={labelPosition.y}
         fontSize="10"
         fill={'white'}
         textAnchor="middle"
@@ -410,9 +370,8 @@ const MunicipalityFeature = memo<{
         fontFamily="Gabarito"
         onPress={onPress}
       >
-        {feature.properties.adm3_en}
+      {labelText}
       </SvgText>
-    </G>
   );
 });
 
@@ -591,17 +550,64 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
     featureCache.clear();
   }, [width, height]);
   
+  // Memoize processed features for all municipalities
+  const processedFeatures = useMemo(() => {
+    return davaoOrientalData.features.map((feature) => {
+      const municipality = municipalityMap.get(String(feature.id));
+      const isSelected = selectedMunicipality?.id === feature.id;
+      const cacheKey = `${feature.id}-${width}-${height}-${isSelected}`;
+      
+      let processed: ProcessedFeature;
+      if (featureCache.has(cacheKey)) {
+        processed = featureCache.get(cacheKey)!;
+      } else {
+        const coordinates = feature.geometry.coordinates;
+        const scaledCoords = scaleCoordinates(coordinates, bounds, width, height);
+        const pathData = coordinatesToPath([scaledCoords]);
+        const center = calculateCenter(scaledCoords);
+        const labelPosition = getLabelPosition(feature.properties.adm3_en, center);
+        
+        processed = {
+          id: String(feature.id),
+          pathData,
+          center,
+          municipality,
+          isSelected,
+          labelPosition
+        };
+        
+        featureCache.set(cacheKey, processed);
+      }
+      
+      // Check if municipality has operations
+      const municipalityOperations = municipality && operationsByMunicipality ? 
+        operationsByMunicipality[municipality.id.toString()] || [] : [];
+      const hasOps = hasOperations(municipalityOperations);
+      
+      // Use LGU-specific colors for default state, operation color for municipalities with operations
+      const priorityColors = !hasOps && municipality ? 
+        LGU_COLORS[municipality.name as keyof typeof LGU_COLORS] || LGU_COLORS['Baganga'] :
+        PRIORITY_COLORS['medium']; // Use medium priority color as default for operations
+      
+      return {
+        feature,
+        municipality,
+        isSelected,
+        processed,
+        priorityColors
+      };
+    });
+  }, [davaoOrientalData.features, municipalityMap, bounds, width, height, selectedMunicipality, operationsByMunicipality]);
+  
   // Render SVG content - shared between platforms
+  // Render paths first, then labels in a separate group so labels are always on top
   const svgContent = (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      {/* Render all paths first */}
       <G>
-        {davaoOrientalData.features.map((feature) => {
-          const municipality = municipalityMap.get(String(feature.id));
-          const isSelected = selectedMunicipality?.id === feature.id;
-          
-          return (
-            <MunicipalityFeature
-              key={feature.id}
+        {processedFeatures.map(({ feature, municipality, isSelected, processed, priorityColors }) => (
+          <MunicipalityPath
+            key={`path-${feature.id}`}
               feature={feature}
               bounds={bounds}
               width={width}
@@ -611,9 +617,21 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
               colors={colors}
               onPress={() => handleMunicipalityPress(municipality!)}
               operationsByMunicipality={operationsByMunicipality}
+            pathData={processed.pathData}
+            priorityColors={priorityColors}
             />
-          );
-        })}
+        ))}
+      </G>
+      {/* Render all labels in a separate group on top */}
+      <G>
+        {processedFeatures.map(({ feature, municipality, processed }) => (
+          <MunicipalityLabel
+            key={`label-${feature.id}`}
+            labelPosition={processed.labelPosition}
+            labelText={feature.properties.adm3_en}
+            onPress={() => handleMunicipalityPress(municipality!)}
+          />
+        ))}
       </G>
     </Svg>
   );

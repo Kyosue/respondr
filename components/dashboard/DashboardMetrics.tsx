@@ -16,14 +16,12 @@ interface MetricItem {
 
 interface DashboardMetricsProps {
   activeOperations: number;
-  criticalOperations: number;
   resourceUtilization: number; // Percentage
   recentDocuments: number;
 }
 
 export function DashboardMetrics({
   activeOperations,
-  criticalOperations,
   resourceUtilization,
   recentDocuments,
 }: DashboardMetricsProps) {
@@ -38,13 +36,6 @@ export function DashboardMetrics({
       icon: 'location',
       gradient: colorScheme === 'dark' ? ['#4361EE', '#3A0CA3'] : ['#4361EE', '#7209B7'],
       color: '#4361EE'
-    },
-    { 
-      label: 'Critical', 
-      value: criticalOperations,
-      icon: 'alert-circle',
-      gradient: colorScheme === 'dark' ? ['#F44336', '#B91C1C'] : ['#F44336', '#DC2626'],
-      color: '#F44336'
     },
     { 
       label: 'Resource Utilization', 

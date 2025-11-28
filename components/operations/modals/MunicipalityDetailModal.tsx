@@ -11,6 +11,7 @@ import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, Touchabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CurrentOperationsTab } from './CurrentOperationsTab';
 import { HistoryOperationsTab } from './HistoryOperationsTab';
+import { fetchWeatherData, WeatherApiResponse } from '@/services/weatherApi';
 
 interface MunicipalityDetailModalProps {
   visible: boolean;
@@ -41,6 +42,11 @@ export function MunicipalityDetailModal({
   const scrollRef = useRef<ScrollView | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollBtnAnim = useRef(new Animated.Value(0)).current;
+  
+  // Weather data state
+  const [weatherData, setWeatherData] = useState<WeatherApiResponse | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(true);
+  const municipalityRef = useRef(municipality);
 
   const handleScroll = useCallback((event: any) => {
     const y = event?.nativeEvent?.contentOffset?.y ?? 0;
@@ -61,12 +67,75 @@ export function MunicipalityDetailModal({
     }).start();
   }, [showScrollTop, scrollBtnAnim]);
 
+  // Update municipality ref when it changes
+  useEffect(() => {
+    municipalityRef.current = municipality;
+  }, [municipality]);
+
+  // Determine weather condition from data
+  const getWeatherCondition = (data: WeatherApiResponse | null): string => {
+    if (!data) return 'Clear';
+    
+    // Determine condition based on rainfall, temperature, and humidity
+    if (data.rainfall > 5) {
+      return 'Rainy';
+    } else if (data.rainfall > 0.5) {
+      return 'Drizzle';
+    } else if (data.temperature > 32 && data.humidity < 50) {
+      return 'Sunny';
+    } else if (data.humidity > 80) {
+      return 'Cloudy';
+    } else if (data.temperature < 20) {
+      return 'Foggy';
+    } else {
+      return 'Partly Cloudy';
+    }
+  };
+
+  // Fetch weather data
+  const fetchWeather = useCallback(async (isRefresh: boolean = false) => {
+    if (!municipalityRef.current) return;
+    
+    if (!isRefresh) {
+      setIsLoadingWeather(true);
+    }
+
+    try {
+      const data = await fetchWeatherData(municipalityRef.current.name);
+      if (data) {
+        setWeatherData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching weather data:', error);
+    } finally {
+      setIsLoadingWeather(false);
+    }
+  }, []);
+
+  // Fetch weather data when municipality changes or modal opens
+  useEffect(() => {
+    if (visible && municipality) {
+      fetchWeather();
+      
+      // Set up auto-refresh every 10 minutes (matching WeatherStation.tsx)
+      const interval = setInterval(() => {
+        fetchWeather(true);
+      }, 10 * 60 * 1000); // 10 minutes
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [visible, municipality, fetchWeather]);
+
   // Weather-based gradient colors and icons
   const getWeatherGradient = (weatherCondition: string) => {
     const condition = weatherCondition.toLowerCase();
     
     if (condition.includes('sunny') || condition.includes('clear')) {
       return ['#FFD700', '#FFA500', '#FF8C00']; // Sunny: Gold to Orange
+    } else if (condition.includes('partly')) {
+      return ['#87CEEB', '#B0C4DE', '#6495ED']; // Partly Cloudy: Sky Blue to Cornflower Blue
     } else if (condition.includes('cloudy') || condition.includes('overcast')) {
       return ['#87CEEB', '#B0C4DE', '#708090']; // Cloudy: Sky Blue to Gray
     } else if (condition.includes('rain') || condition.includes('drizzle')) {
@@ -97,10 +166,23 @@ export function MunicipalityDetailModal({
       return { name: 'snow', color: '#D3D3D3' };
     } else if (condition.includes('fog') || condition.includes('mist')) {
       return { name: 'partly-sunny', color: '#A9A9A9' };
+    } else if (condition.includes('partly')) {
+      return { name: 'partly-sunny', color: '#87CEEB' };
     } else {
       return { name: 'partly-sunny', color: '#764ba2' };
     }
   };
+
+  // Convert wind direction from degrees to cardinal direction
+  const getWindDirection = (degrees: number): string => {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const index = Math.round(degrees / 45) % 8;
+    return directions[index];
+  };
+
+  // Get current weather condition
+  const weatherCondition = getWeatherCondition(weatherData);
+  const weatherIcon = getWeatherIcon(weatherCondition);
 
   if (!municipality) return null;
 
@@ -144,7 +226,7 @@ export function MunicipalityDetailModal({
               <View style={styles.section}>
                 <View style={styles.weatherCard}>
                   <LinearGradient
-                    colors={getWeatherGradient('Rainy') as [string, string, string]}
+                    colors={getWeatherGradient(weatherCondition) as [string, string, string]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.weatherGradient}
@@ -163,33 +245,57 @@ export function MunicipalityDetailModal({
                         <View style={styles.weatherConditionContainer}>
                           <View style={styles.weatherIconContainer}>
                             <Ionicons 
-                              name={getWeatherIcon('Rainy').name as any} 
+                              name={weatherIcon.name as any} 
                               size={20} 
-                              color={getWeatherIcon('Rainy').color} 
+                              color={weatherIcon.color} 
                             />
                           </View> 
                           <View style={styles.weatherTextContainer}>
                             <ThemedText style={styles.weatherCondition}>
-                              Rainy
+                              {isLoadingWeather ? 'Loading...' : weatherCondition}
                             </ThemedText>
                             <ThemedText style={styles.temperature}>
-                              36°
+                              {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°`}
                             </ThemedText>
                           </View>
                         </View>
                       </View>
 
-                      {/* Weather Details - Horizontal Layout */}
+                      {/* Weather Details - 5 Data Points */}
                       <View style={styles.weatherDetailsContainer}>
+                        <View style={styles.weatherDetailItem}>
+                          <View style={styles.detailIconContainer}>
+                            <Ionicons name="thermometer" size={12} color="white" />
+                          </View>
+                          <ThemedText style={styles.weatherDetailLabel}>
+                            Temp
+                          </ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°C`}
+                          </ThemedText>
+                        </View>
+
                         <View style={styles.weatherDetailItem}>
                           <View style={styles.detailIconContainer}>
                             <Ionicons name="water" size={12} color="white" />
                           </View>
                           <ThemedText style={styles.weatherDetailLabel}>
-                            Rain
+                            Humidity
                           </ThemedText>
                           <ThemedText style={styles.weatherDetailValue}>
-                            0.2 mm/h
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.humidity || 0)}%`}
+                          </ThemedText>
+                        </View>
+
+                        <View style={styles.weatherDetailItem}>
+                          <View style={styles.detailIconContainer}>
+                            <Ionicons name="rainy" size={12} color="white" />
+                          </View>
+                          <ThemedText style={styles.weatherDetailLabel}>
+                            Rainfall
+                          </ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : `${(weatherData?.rainfall || 0).toFixed(1)} mm`}
                           </ThemedText>
                         </View>
 
@@ -201,7 +307,7 @@ export function MunicipalityDetailModal({
                             Wind
                           </ThemedText>
                           <ThemedText style={styles.weatherDetailValue}>
-                            12 km/h
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.windSpeed || 0)} km/h`}
                           </ThemedText>
                         </View>
 
@@ -213,7 +319,7 @@ export function MunicipalityDetailModal({
                             Direction
                           </ThemedText>
                           <ThemedText style={styles.weatherDetailValue}>
-                            NE
+                            {isLoadingWeather ? '--' : getWindDirection(weatherData?.windDirection || 0)}
                           </ThemedText>
                         </View>
                       </View>
@@ -348,7 +454,7 @@ export function MunicipalityDetailModal({
             <View style={styles.section}>
               <View style={styles.weatherCard}>
                 <LinearGradient
-                  colors={getWeatherGradient('Rainy') as [string, string, string]}
+                  colors={getWeatherGradient(weatherCondition) as [string, string, string]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.weatherGradient}
@@ -367,33 +473,57 @@ export function MunicipalityDetailModal({
                       <View style={styles.weatherConditionContainer}>
                         <View style={styles.weatherIconContainer}>
                           <Ionicons 
-                            name={getWeatherIcon('Rainy').name as any} 
+                            name={weatherIcon.name as any} 
                             size={20} 
-                            color={getWeatherIcon('Rainy').color} 
+                            color={weatherIcon.color} 
                           />
                         </View> 
                         <View style={styles.weatherTextContainer}>
                           <ThemedText style={styles.weatherCondition}>
-                            Rainy
+                            {isLoadingWeather ? 'Loading...' : weatherCondition}
                           </ThemedText>
                           <ThemedText style={styles.temperature}>
-                            36°
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°`}
                           </ThemedText>
                         </View>
                       </View>
                     </View>
 
-                    {/* Weather Details - Horizontal Layout */}
+                    {/* Weather Details - 5 Data Points */}
                     <View style={styles.weatherDetailsContainer}>
+                      <View style={styles.weatherDetailItem}>
+                        <View style={styles.detailIconContainer}>
+                          <Ionicons name="thermometer" size={12} color="white" />
+                        </View>
+                        <ThemedText style={styles.weatherDetailLabel}>
+                          Temp
+                        </ThemedText>
+                        <ThemedText style={styles.weatherDetailValue}>
+                          {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°C`}
+                        </ThemedText>
+                      </View>
+
                       <View style={styles.weatherDetailItem}>
                         <View style={styles.detailIconContainer}>
                           <Ionicons name="water" size={12} color="white" />
                         </View>
                         <ThemedText style={styles.weatherDetailLabel}>
-                          Rain
+                          Humidity
                         </ThemedText>
                         <ThemedText style={styles.weatherDetailValue}>
-                          0.2 mm/h
+                          {isLoadingWeather ? '--' : `${Math.round(weatherData?.humidity || 0)}%`}
+                        </ThemedText>
+                      </View>
+
+                      <View style={styles.weatherDetailItem}>
+                        <View style={styles.detailIconContainer}>
+                          <Ionicons name="rainy" size={12} color="white" />
+                        </View>
+                        <ThemedText style={styles.weatherDetailLabel}>
+                          Rainfall
+                        </ThemedText>
+                        <ThemedText style={styles.weatherDetailValue}>
+                          {isLoadingWeather ? '--' : `${(weatherData?.rainfall || 0).toFixed(1)} mm`}
                         </ThemedText>
                       </View>
 
@@ -405,7 +535,7 @@ export function MunicipalityDetailModal({
                           Wind
                         </ThemedText>
                         <ThemedText style={styles.weatherDetailValue}>
-                          12 km/h
+                          {isLoadingWeather ? '--' : `${Math.round(weatherData?.windSpeed || 0)} km/h`}
                         </ThemedText>
                       </View>
 
@@ -417,7 +547,7 @@ export function MunicipalityDetailModal({
                           Direction
                         </ThemedText>
                         <ThemedText style={styles.weatherDetailValue}>
-                          NE
+                          {isLoadingWeather ? '--' : getWindDirection(weatherData?.windDirection || 0)}
                         </ThemedText>
                       </View>
                     </View>
@@ -727,8 +857,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 6,
     paddingVertical: 6,
-    paddingHorizontal: 4,
-    marginHorizontal: 2,
+    paddingHorizontal: 3,
+    marginHorizontal: 1,
   },
   detailIconContainer: {
     width: 18,
@@ -741,14 +871,14 @@ const styles = StyleSheet.create({
   },
   weatherDetailLabel: {
     color: 'white',
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '500',
     marginBottom: 1,
     opacity: 0.9,
   },
   weatherDetailValue: {
     color: 'white',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   sectionTitle: {

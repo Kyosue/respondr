@@ -20,20 +20,6 @@ function getMunicipalityName(id: string): string {
   return municipality?.name || 'Unknown';
 }
 
-function getPriorityColor(priority: OperationRecord['priority'], colors: any): string {
-  switch (priority) {
-    case 'critical':
-      return colors.error;
-    case 'high':
-      return colors.warning;
-    case 'medium':
-      return colors.primary;
-    case 'low':
-      return colors.success;
-    default:
-      return colors.text;
-  }
-}
 
 function formatDate(date: Date | string | number): string {
   const d = typeof date === 'string' || typeof date === 'number' 
@@ -55,10 +41,6 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
   const activeOperations = operations
     .filter(op => op.status === 'active')
     .sort((a, b) => {
-      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      const aPriority = priorityOrder[a.priority] ?? 3;
-      const bPriority = priorityOrder[b.priority] ?? 3;
-      if (aPriority !== bPriority) return aPriority - bPriority;
       return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
     })
     .slice(0, 10);
@@ -104,7 +86,7 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
               style={[
                 styles.mobileItem,
                 { 
-                  borderLeftColor: getPriorityColor(operation.priority, colors),
+                  borderLeftColor: colors.primary,
                   backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`,
                 }
               ]}
@@ -120,11 +102,6 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
                     >
                       {operation.title}
                     </ThemedText>
-                    <View style={[styles.mobilePriorityBadge, { backgroundColor: `${getPriorityColor(operation.priority, colors)}15` }]}>
-                      <ThemedText style={[styles.mobilePriorityText, { color: getPriorityColor(operation.priority, colors) }]}>
-                        {operation.priority.toUpperCase()}
-                      </ThemedText>
-                    </View>
                   </View>
                 </View>
                 <View style={styles.mobileItemBottom}>
@@ -193,11 +170,6 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
           </View>
           <View style={styles.tableHeaderCell}>
             <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
-              Priority
-            </ThemedText>
-          </View>
-          <View style={styles.tableHeaderCell}>
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
               Date
             </ThemedText>
           </View>
@@ -238,19 +210,6 @@ export function OperationsTable({ operations, onOperationPress }: OperationsTabl
                 <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]} numberOfLines={1}>
                   {operation.exactLocation?.barangay || 'N/A'}
                 </ThemedText>
-              </View>
-              <View style={styles.tableCell}>
-                <View
-                  style={[
-                    styles.priorityBadge,
-                    styles.priorityBadgeTable,
-                    { backgroundColor: getPriorityColor(operation.priority, colors) },
-                  ]}
-                >
-                  <ThemedText style={styles.priorityText}>
-                    {operation.priority.toUpperCase()}
-                  </ThemedText>
-                </View>
               </View>
               <View style={styles.tableCell}>
                 <View style={styles.dateCell}>

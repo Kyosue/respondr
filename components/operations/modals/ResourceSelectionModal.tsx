@@ -5,7 +5,6 @@ import {
   Animated,
   Dimensions,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -13,8 +12,8 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useHybridRamp } from '../../../hooks/useHybridRamp';
 import { useColorScheme } from '../../../hooks/useColorScheme';
+import { useHybridRamp } from '../../../hooks/useHybridRamp';
 import { Resource, ResourceCategory } from '../../../types/Resource';
 import { getModalConfig } from '../../../utils/modalUtils';
 import { ThemedText } from '../../ThemedText';
@@ -179,8 +178,8 @@ export function ResourceSelectionModal({
               overflow: 'hidden',
               width: '100%',
               maxWidth: 900,
-              maxHeight: '80%',
-              height: '80%'
+              maxHeight: '100%',
+              height: '100%'
             }}>
               {/* Header */}
               <View style={{
@@ -247,7 +246,7 @@ export function ResourceSelectionModal({
                 <View style={{
                   flexDirection: 'row',
                   flexWrap: 'wrap',
-                  justifyContent: 'flex-start',
+                  justifyContent: 'center',
                   gap: 8
                 }}>
                   {filteredResources.map((resource) => {
@@ -863,5 +862,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 2,
+    alignSelf: 'center',
   },
 });

@@ -29,11 +29,7 @@ export function CurrentOperationsTab({
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   const sortOperations = React.useCallback((list: any[]) => {
-    const priorityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
     return [...(list || [])].sort((a, b) => {
-      const ra = priorityRank[(a.priority || '').toLowerCase()] || 0;
-      const rb = priorityRank[(b.priority || '').toLowerCase()] || 0;
-      if (rb !== ra) return rb - ra;
       const aTime = new Date(a.startDate || a.createdAt || 0).getTime();
       const bTime = new Date(b.startDate || b.createdAt || 0).getTime();
       return bTime - aTime;

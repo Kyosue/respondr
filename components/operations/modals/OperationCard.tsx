@@ -12,7 +12,6 @@ interface OperationCardProps {
     title: string;
     description: string;
     operationType: string;
-    priority: 'low' | 'medium' | 'high' | 'critical';
     status?: 'active' | 'concluded';
     startDate: string | Date | number;
     endDate?: string | Date | number;
@@ -28,6 +27,7 @@ interface OperationCardProps {
       category: string;
       status: string;
     }>;
+    assignedPersonnel?: string[];
     createdAt: string | Date | number;
     updatedAt: string | Date | number;
     createdBy?: string;
@@ -43,21 +43,7 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [updaterName, setUpdaterName] = useState<string | null>(null);
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'critical':
-        return '#7C2D12';
-      case 'high':
-        return '#F44336';
-      case 'medium':
-        return '#FFA500';
-      case 'low':
-        return '#4CAF50';
-      default:
-        return '#FFA500';
-    }
-  };
+  const [personnelMap, setPersonnelMap] = useState<Map<string, { fullName: string; email?: string }>>(new Map());
 
   useEffect(() => {
     let isMounted = true;
@@ -113,6 +99,47 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
     return () => { isMounted = false; };
   }, [operation.updatedBy]);
 
+  // Fetch personnel data
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPersonnel = async () => {
+      try {
+        if (!operation.assignedPersonnel || operation.assignedPersonnel.length === 0) {
+          setPersonnelMap(new Map());
+          return;
+        }
+        const { db } = await import('@/firebase/config');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const map = new Map<string, { fullName: string; email?: string }>();
+        
+        // Fetch all personnel in parallel
+        const promises = operation.assignedPersonnel.map(async (userId) => {
+          try {
+            const userRef = doc(db, 'users', userId);
+            const snap = await getDoc(userRef);
+            if (snap.exists()) {
+              const data = snap.data() as { fullName?: string; email?: string };
+              if (data.fullName) {
+                map.set(userId, { fullName: data.fullName, email: data.email });
+              }
+            }
+          } catch (e) {
+            console.error(`Error fetching user ${userId}:`, e);
+          }
+        });
+        
+        await Promise.all(promises);
+        if (!isMounted) return;
+        setPersonnelMap(map);
+      } catch (e) {
+        console.error('Error fetching personnel:', e);
+        setPersonnelMap(new Map());
+      }
+    };
+    fetchPersonnel();
+    return () => { isMounted = false; };
+  }, [operation.assignedPersonnel]);
+
 
   const formatDate = (value: string | Date | number) => {
     const date = value instanceof Date ? value : new Date(value);
@@ -131,6 +158,41 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
     return operation.resources
       .map(resource => `${resource.quantity}x ${resource.resourceName}`)
       .join(', ');
+  };
+
+  const formatPersonnel = () => {
+    if (!operation.assignedPersonnel || operation.assignedPersonnel.length === 0) {
+      return '';
+    }
+    
+    const getLastName = (fullName: string): string => {
+      const parts = fullName.trim().split(/\s+/);
+      return parts.length > 1 ? parts[parts.length - 1] : fullName;
+    };
+
+    const personnelNames = operation.assignedPersonnel
+      .map(userId => {
+        const person = personnelMap.get(userId);
+        if (!person) return null;
+        const lastName = getLastName(person.fullName);
+        const firstName = person.fullName.replace(lastName, '').trim();
+        return `${lastName}, ${firstName}`;
+      })
+      .filter((name): name is string => name !== null);
+
+    if (personnelNames.length === 0) {
+      return 'Loading...';
+    }
+
+    // Show up to 3 names, then "and X more" if there are more
+    const maxDisplay = 3;
+    if (personnelNames.length <= maxDisplay) {
+      return personnelNames.join(' • ');
+    } else {
+      const displayed = personnelNames.slice(0, maxDisplay).join(' • ');
+      const remaining = personnelNames.length - maxDisplay;
+      return `${displayed} • and ${remaining} more`;
+    }
   };
 
   const canConclude = !!onConclude && operation.status !== 'concluded';
@@ -171,11 +233,6 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
                 <ThemedText style={styles.statusText}>Concluded</ThemedText>
               </View>
             )}
-            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(operation.priority) }]}>
-              <ThemedText style={styles.priorityText}>
-                {operation.priority.charAt(0).toUpperCase() + operation.priority.slice(1)}
-              </ThemedText>
-            </View>
           </View>
         </View>
       </View>
@@ -230,6 +287,18 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
                 </ThemedText>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Assigned Personnel */}
+        {operation.assignedPersonnel && operation.assignedPersonnel.length > 0 && (
+          <View style={styles.detailsRow}>
+            <View style={styles.detailItem}>
+              <Ionicons name="people" size={14} color={colors.text} style={styles.detailIcon} />
+              <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={3}>
+                {formatPersonnel()}
+              </ThemedText>
+            </View>
           </View>
         )}
       </View>

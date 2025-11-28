@@ -62,9 +62,6 @@ export function Dashboard() {
 
   // Calculate metrics
   const activeOperations = operations.filter(op => op.status === 'active').length;
-  const criticalOperations = operations.filter(
-    op => op.status === 'active' && op.priority === 'critical'
-  ).length;
   
   // Calculate resource utilization from total quantities, not resource count
   const totalQuantity = resourceState.resources.reduce((sum, r) => sum + (r.totalQuantity || 0), 0);
@@ -124,7 +121,6 @@ export function Dashboard() {
         {/* Metrics Section */}
         <DashboardMetrics
           activeOperations={activeOperations}
-          criticalOperations={criticalOperations}
           resourceUtilization={resourceUtilization}
           recentDocuments={recentDocuments}
         />

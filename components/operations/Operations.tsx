@@ -162,7 +162,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     gap: 16,
-    padding: 16,
   },
   mobileLayout: {
     flex: 1,

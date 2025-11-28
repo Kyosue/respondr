@@ -259,8 +259,12 @@ export const getUsersWithFilters = async (filters: {
       q = query(q, where('status', '==', filters.status));
     }
     
-    // Order by creation date
-    q = query(q, orderBy('createdAt', 'desc'));
+    // Only use orderBy if we don't have multiple where clauses (to avoid index requirements)
+    // If we have filters, we'll sort in memory instead
+    const hasMultipleFilters = (filters.userType ? 1 : 0) + (filters.status ? 1 : 0) > 1;
+    if (!hasMultipleFilters) {
+      q = query(q, orderBy('createdAt', 'desc'));
+    }
     
     if (filters.limitCount) {
       q = query(q, limit(filters.limitCount));
@@ -274,6 +278,15 @@ export const getUsersWithFilters = async (filters: {
       users.push(userData);
     });
     
+    // Sort in memory if we have multiple filters (to avoid index requirement)
+    if (hasMultipleFilters) {
+      users.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
+        const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
+        return bTime - aTime; // Descending order
+      });
+    }
+    
     // Apply search filter if provided
     if (filters.searchQuery) {
       const searchTerm = filters.searchQuery.toLowerCase();
@@ -284,7 +297,37 @@ export const getUsersWithFilters = async (filters: {
     }
     
     return users;
-  } catch (error) {
+  } catch (error: any) {
+    // Handle index building error gracefully
+    if (error?.message?.includes('index') || error?.code === 'failed-precondition') {
+      console.warn('Firestore index may be building. Fetching without orderBy...');
+      // Retry without orderBy
+      try {
+        let q = query(collection(db, 'users'));
+        if (filters.userType) {
+          q = query(q, where('userType', '==', filters.userType));
+        }
+        if (filters.status) {
+          q = query(q, where('status', '==', filters.status));
+        }
+        const querySnapshot = await getDocs(q);
+        let users: UserData[] = [];
+        querySnapshot.forEach((doc) => {
+          const userData = doc.data() as UserData;
+          users.push(userData);
+        });
+        // Sort in memory
+        users.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
+          const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
+          return bTime - aTime;
+        });
+        return users;
+      } catch (retryError) {
+        console.error('Error getting filtered users (retry failed):', retryError);
+        throw retryError;
+      }
+    }
     console.error('Error getting filtered users:', error);
     throw error;
   }

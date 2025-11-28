@@ -10,7 +10,6 @@ interface OperationCompleteModalProps {
     id: string;
     title: string;
     operationType: string;
-    priority: 'low' | 'medium' | 'high' | 'critical';
     exactLocation?: {
       barangay: string;
       purok: string;
@@ -41,21 +40,6 @@ export function OperationCompleteModal({
     return operation.resources
       .map(resource => `${resource.quantity}x ${resource.resourceName}`)
       .join(', ');
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'critical':
-        return '#DC2626';
-      case 'high':
-        return '#EA580C';
-      case 'medium':
-        return '#D97706';
-      case 'low':
-        return '#059669';
-      default:
-        return '#D97706';
-    }
   };
 
   const handleConfirm = () => {
@@ -102,13 +86,6 @@ export function OperationCompleteModal({
                   <Ionicons name="construct" size={16} color={colors.text} style={styles.detailIcon} />
                   <ThemedText style={[styles.detailText, { color: colors.text, opacity: 0.8 }]}>
                     {operation.operationType}
-                  </ThemedText>
-                </View>
-                
-                <View style={styles.detailRow}>
-                  <Ionicons name="flag" size={16} color={getPriorityColor(operation.priority)} style={styles.detailIcon} />
-                  <ThemedText style={[styles.detailText, { color: colors.text, opacity: 0.8 }]}>
-                    {operation.priority.charAt(0).toUpperCase() + operation.priority.slice(1)} Priority
                   </ThemedText>
                 </View>
                 
