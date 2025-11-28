@@ -4,35 +4,62 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HistoricalDataPoint } from './HistoricalDataView';
+import { degreesToCardinal } from './WeatherMetrics';
 
 interface HistoricalDataTableProps {
   data: HistoricalDataPoint[];
   loading?: boolean;
-  selectedRange?: '1h' | '6h' | '24h' | '7d';
-  onRangeChange?: (range: '1h' | '6h' | '24h' | '7d') => void;
-  timeRanges?: { value: '1h' | '6h' | '24h' | '7d'; label: string }[];
+  selectedRange?: '10m' | '1h' | '6h' | '24h' | '3d';
+  onRangeChange?: (range: '10m' | '1h' | '6h' | '24h' | '3d') => void;
+  timeRanges?: { value: '10m' | '1h' | '6h' | '24h' | '3d'; label: string }[];
+  onRefresh?: () => void;
 }
 
 export function HistoricalDataTable({ 
   data, 
   loading,
-  selectedRange = '24h',
+  selectedRange = '10m',
   onRangeChange,
   timeRanges = [
+    { value: '10m', label: '10 Minutes' },
     { value: '1h', label: '1 Hour' },
     { value: '6h', label: '6 Hours' },
     { value: '24h', label: '24 Hours' },
-    { value: '7d', label: '7 Days' },
+    { value: '3d', label: '3 Days' },
   ],
+  onRefresh,
 }: HistoricalDataTableProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = isMobile ? 10 : 15;
+
+  // Use ref to store the latest onRefresh callback to avoid stale closures
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  // Auto-refresh listener: refresh every 10 minutes
+  useEffect(() => {
+    if (!onRefreshRef.current) return;
+
+    // Set up auto-refresh every 10 minutes (matching transmission frequency)
+    const interval = setInterval(() => {
+      // Use ref to get the latest onRefresh callback to avoid stale closures
+      if (onRefreshRef.current) {
+        onRefreshRef.current();
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []); // Empty dependency array - interval is set up once and uses ref for callback
 
   // Sort by newest first (default)
   const sortedData = [...data].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -270,6 +297,13 @@ export function HistoricalDataTable({
                         {point.windSpeed.toFixed(0)}
                       </ThemedText>
                     </View>
+
+                    <View style={styles.metricCompact}>
+                      <Ionicons name="compass" size={14} color="#FF9800" />
+                      <ThemedText style={[styles.metricTextCompact, { color: colors.text }]}>
+                        {degreesToCardinal(point.windDirection || 0)}
+                      </ThemedText>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -424,6 +458,12 @@ export function HistoricalDataTable({
               Wind Speed
             </ThemedText>
           </View>
+          <View style={styles.tableHeaderCell}>
+            <Ionicons name="compass-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+              Wind Direction
+            </ThemedText>
+          </View>
         </View>
 
         {/* Table Body */}
@@ -487,6 +527,14 @@ export function HistoricalDataTable({
                     <Ionicons name="flag" size={14} color={colors.success || '#4CAF50'} />
                     <ThemedText style={[styles.tableCellText, { color: colors.text }]}>
                       {point.windSpeed.toFixed(1)} km/h
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.tableCell}>
+                  <View style={[styles.metricCell, { backgroundColor: '#FF980010' }]}>
+                    <Ionicons name="compass" size={14} color="#FF9800" />
+                    <ThemedText style={[styles.tableCellText, { color: colors.text }]}>
+                      {degreesToCardinal(point.windDirection || 0)}
                     </ThemedText>
                   </View>
                 </View>

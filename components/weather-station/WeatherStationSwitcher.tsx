@@ -4,6 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { WeatherStation } from '@/types/WeatherStation';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo } from 'react';
 import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -66,6 +67,24 @@ export function WeatherStationSwitcher({
       </View>
 
       <View style={styles.scrollContainer}>
+        {/* Left gradient fade */}
+        <LinearGradient
+          colors={[colors.surface, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.fadeGradient, styles.fadeGradientLeft]}
+          pointerEvents="none"
+        />
+        
+        {/* Right gradient fade */}
+        <LinearGradient
+          colors={['transparent', colors.surface]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.fadeGradient, styles.fadeGradientRight]}
+          pointerEvents="none"
+        />
+        
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={!isMobile}
@@ -203,6 +222,25 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     marginTop: 4,
+    position: 'relative',
+  },
+  fadeGradient: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 20,
+    zIndex: 1,
+    ...Platform.select({
+      web: {
+        pointerEvents: 'none',
+      },
+    }),
+  },
+  fadeGradientLeft: {
+    left: 0,
+  },
+  fadeGradientRight: {
+    right: 0,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -220,6 +258,7 @@ const styles = StyleSheet.create({
   },
   stationsScroll: {
     gap: 8,
+    paddingLeft: 20, // Space from left blur gradient
     paddingRight: 4,
     paddingBottom: Platform.select({
       web: 8,

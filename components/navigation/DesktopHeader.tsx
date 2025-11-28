@@ -2,10 +2,10 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
+import { NotificationButton } from '@/components/ui/NotificationButton';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { generateDisplayName } from '@/utils/nameUtils';
 
 interface DesktopHeaderProps {
   title?: string;
@@ -29,13 +29,24 @@ export function DesktopHeader({ title }: DesktopHeaderProps) {
   // Get first letter of name for avatar placeholder
   const nameInitial = user?.fullName?.charAt(0).toUpperCase() || 'U';
 
+  // Sample notifications data (replace with real data later)
+  const notifications = [
+    { id: '1', title: 'New operation created', message: 'Operation #1234 has been created', time: '2 minutes ago', read: false },
+    { id: '2', title: 'Resource request', message: 'John Doe requested 5 units', time: '15 minutes ago', read: false },
+    { id: '3', title: 'Weather alert', message: 'High humidity detected', time: '1 hour ago', read: true },
+  ];
+
   return (
     <SafeAreaView edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <View style={styles.userProfile}>
-          <ThemedText style={styles.userName} numberOfLines={1}>
-            {generateDisplayName(user?.fullName || 'User')}
-          </ThemedText>
+        <View style={styles.rightSection}>
+          <NotificationButton
+            notifications={notifications}
+            buttonSize={40}
+            iconSize={20}
+            dropdownWidth={360}
+            dropdownMaxHeight={500}
+          />
           <View style={[styles.avatar, { backgroundColor: getUserTypeColor(user?.userType as any) }]}>
             <ThemedText style={styles.avatarText} darkColor="#000" lightColor="#fff">
               {nameInitial}
@@ -56,14 +67,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  userProfile: {
+  rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   avatar: {
     width: 40,

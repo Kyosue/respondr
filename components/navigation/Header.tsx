@@ -13,12 +13,12 @@ import {
 
 import { LogoutModal } from '@/components/modals/LogoutModal';
 import { ThemedText } from '@/components/ThemedText';
+import { NotificationButton } from '@/components/ui/NotificationButton';
 import { getMenuItems } from '@/config/navigation';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLogin } from '@/hooks/useLogin';
-import { generateDisplayName } from '@/utils/nameUtils';
 
 interface HeaderProps {
   userName: string;
@@ -38,6 +38,13 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
   
   // Get menu items based on user role
   const menuItems = user?.userType ? getMenuItems(user.userType) : [];
+
+  // Sample notifications data (replace with real data later)
+  const notifications = [
+    { id: '1', title: 'New operation created', message: 'Operation #1234 has been created', time: '2 minutes ago', read: false },
+    { id: '2', title: 'Resource request', message: 'John Doe requested 5 units', time: '15 minutes ago', read: false },
+    { id: '3', title: 'Weather alert', message: 'High humidity detected', time: '1 hour ago', read: true },
+  ];
 
   // Map user role to color (match UserCard logic)
   const getUserTypeColor = (userType?: 'admin' | 'supervisor' | 'operator') => {
@@ -106,8 +113,14 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
           />
         </TouchableOpacity>
         
-        <View style={styles.profileContainer}>
-          <ThemedText style={styles.userName}>{generateDisplayName(userName)}</ThemedText>
+        <View style={styles.rightSection}>
+          <NotificationButton
+            notifications={notifications}
+            buttonSize={36}
+            iconSize={18}
+            dropdownWidth={320}
+            dropdownMaxHeight={400}
+          />
           <View style={[styles.avatar, { backgroundColor: getUserTypeColor(user?.userType as any) }]}>
             <ThemedText style={styles.avatarText} darkColor="#000" lightColor="#fff">
               {nameInitial}
@@ -232,14 +245,10 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: 8,
   },
-  profileContainer: {
+  rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 12,
-  },
-  userName: {
-    marginRight: 12,
-    fontWeight: '500',
+    gap: 12,
   },
   avatar: {
     width: 36,
@@ -275,6 +284,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     borderColor: 'rgba(200, 200, 200, 0.3)',
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',

@@ -16,6 +16,7 @@ interface WeatherAnalyticsDashboardProps {
 }
 
 type TimeRange = '1h' | '6h' | '24h' | '7d' | '30d';
+type TimeInterval = '10m' | '1h' | '6h' | '1d' | '7d';
 type MetricFilter = 'all' | 'temperature' | 'humidity' | 'rainfall' | 'windSpeed';
 
 export function WeatherAnalyticsDashboard({
@@ -27,6 +28,7 @@ export function WeatherAnalyticsDashboard({
   const { isMobile } = useScreenSize();
   const { width } = Dimensions.get('window');
   const [selectedRange, setSelectedRange] = useState<TimeRange>('24h');
+  const [selectedInterval, setSelectedInterval] = useState<TimeInterval>('10m');
   const [metricFilter, setMetricFilter] = useState<MetricFilter>('all');
   const [hoveredPoint, setHoveredPoint] = useState<{
     x: number;
@@ -128,6 +130,48 @@ export function WeatherAnalyticsDashboard({
     { value: '30d', label: '30 Days' },
   ];
 
+  // Get available intervals based on selected time range
+  const getAvailableIntervals = (range: TimeRange): { value: TimeInterval; label: string }[] => {
+    switch (range) {
+      case '1h':
+        // No interval buttons for 1 hour (10 minutes is default)
+        return [];
+      case '6h':
+        return [
+          { value: '10m', label: '10 Min' },
+          { value: '1h', label: '1 Hour' },
+        ];
+      case '24h':
+        return [
+          { value: '10m', label: '10 Min' },
+          { value: '1h', label: '1 Hour' },
+          { value: '6h', label: '6 Hours' },
+        ];
+      case '7d':
+        return [
+          { value: '10m', label: '10 Min' },
+          { value: '1h', label: '1 Hour' },
+          { value: '6h', label: '6 Hours' },
+          { value: '1d', label: '1 Day' },
+        ];
+      case '30d':
+        return [
+          { value: '10m', label: '10 Min' },
+          { value: '1h', label: '1 Hour' },
+          { value: '6h', label: '6 Hours' },
+          { value: '1d', label: '1 Day' },
+          { value: '7d', label: '7 Days' },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Reset interval to default when time range changes
+  useEffect(() => {
+    setSelectedInterval('10m');
+  }, [selectedRange]);
+
   const metricFilters: { value: MetricFilter; label: string; icon: string }[] = [
     { value: 'all', label: 'All', icon: 'grid-outline' },
     { value: 'temperature', label: 'Temp', icon: 'thermometer-outline' },
@@ -162,7 +206,56 @@ export function WeatherAnalyticsDashboard({
     return historicalData.filter(point => point.timestamp >= cutoff);
   };
 
-  const filteredData = filterDataByRange(selectedRange);
+  // Sample data by interval
+  const sampleDataByInterval = (data: HistoricalDataPoint[], interval: TimeInterval): HistoricalDataPoint[] => {
+    if (data.length === 0) return [];
+
+    // Sort data by timestamp (oldest first for proper sampling)
+    const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    
+    let intervalMs: number;
+    
+    switch (interval) {
+      case '10m':
+        intervalMs = 10 * 60 * 1000; // 10 minutes
+        break;
+      case '1h':
+        intervalMs = 60 * 60 * 1000; // 1 hour
+        break;
+      case '6h':
+        intervalMs = 6 * 60 * 60 * 1000; // 6 hours
+        break;
+      case '1d':
+        intervalMs = 24 * 60 * 60 * 1000; // 1 day
+        break;
+      case '7d':
+        intervalMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+        break;
+    }
+
+    const sampledData: HistoricalDataPoint[] = [];
+    let lastSampledTime: number | null = null;
+
+    // Iterate through sorted data and sample at specified intervals
+    for (const point of sortedData) {
+      const pointTime = point.timestamp.getTime();
+      
+      // If this is the first point or enough time has passed since last sample
+      if (lastSampledTime === null || (pointTime - lastSampledTime) >= intervalMs) {
+        sampledData.push(point);
+        lastSampledTime = pointTime;
+      }
+    }
+
+    // Return sampled data, sorted by newest first
+    return sampledData.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  };
+
+  // Filter by time range first, then sample by interval
+  const rangeFilteredData = filterDataByRange(selectedRange);
+  // On mobile, always use 10 minute interval. On desktop, use selected interval
+  const intervalToUse = isMobile ? '10m' : (selectedRange === '1h' ? '10m' : selectedInterval);
+  const filteredData = sampleDataByInterval(rangeFilteredData, intervalToUse);
 
   // Calculate overall statistics
   const overallStats = useMemo(() => {
@@ -340,9 +433,9 @@ export function WeatherAnalyticsDashboard({
           {/* Grid lines with better styling */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = chartMargin.top + (chartHeight - chartMargin.top - chartMargin.bottom) * (1 - ratio);
-            return (
-              <Line
-                key={ratio}
+    return (
+            <Line
+              key={ratio}
                 x1={chartMargin.left}
                 y1={y}
                 x2={chartWidth - chartMargin.right}
@@ -365,11 +458,11 @@ export function WeatherAnalyticsDashboard({
                 y1={chartMargin.top}
                 x2={x}
                 y2={chartHeight - chartMargin.bottom}
-                stroke={colors.border}
-                strokeWidth={0.5}
+              stroke={colors.border}
+              strokeWidth={0.5}
                 strokeDasharray="2,4"
                 opacity={0.15}
-              />
+            />
             );
           })}
 
@@ -453,19 +546,19 @@ export function WeatherAnalyticsDashboard({
                         })}
                       />
                       {/* Visible circle with smooth size transition */}
-                      <Circle
-                        cx={point.x}
-                        cy={point.y}
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
                         r={isHovered 
                           ? (isMobile ? 7 : 6.5) 
                           : (index === metric.data.length - 1 
                             ? (isMobile ? 5.5 : 5) 
                             : (isMobile ? 4 : 3.5))}
-                        fill={metric.color}
+                    fill={metric.color}
                         opacity={isHovered ? 1 : (index === metric.data.length - 1 ? 1 : 0.7)}
                         stroke={isHovered ? '#FFFFFF' : 'none'}
                         strokeWidth={isHovered ? (isMobile ? 3 : 2.5) : 0}
-                      />
+                  />
                     </G>
                   );
                 })}
@@ -744,13 +837,58 @@ export function WeatherAnalyticsDashboard({
         onLayout={handleContainerLayout}
       >
         <View style={styles.chartHeader}>
-          <ThemedText style={[styles.chartTitle, { color: colors.text }]}>
-            Trend Analysis
-          </ThemedText>
-          <ThemedText style={[styles.chartSubtitle, { color: colors.text, opacity: 0.6 }]}>
-            {selectedRange} view
-          </ThemedText>
+          <View style={styles.chartHeaderLeft}>
+            <ThemedText style={[styles.chartTitle, { color: colors.text }]}>
+              Trend Analysis
+            </ThemedText>
+            <ThemedText style={[styles.chartSubtitle, { color: colors.text, opacity: 0.6 }]}>
+              {selectedRange} view
+            </ThemedText>
+          </View>
+          
+          {/* Interval Selector - Upper Right (Desktop only) */}
+          {!isMobile && getAvailableIntervals(selectedRange).length > 0 && (
+            <View style={styles.intervalSelector}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.intervalScroll}
+                contentContainerStyle={styles.intervalScrollContent}
+              >
+                {getAvailableIntervals(selectedRange).map((interval) => (
+                  <TouchableOpacity
+                    key={interval.value}
+                    onPress={() => setSelectedInterval(interval.value)}
+                    style={[
+                      styles.filterButton,
+                      styles.intervalButton,
+                      {
+                        backgroundColor:
+                          selectedInterval === interval.value
+                            ? colors.primary
+                            : `${colors.primary}15`,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.filterButtonText,
+                        styles.intervalButtonText,
+                        {
+                          color: selectedInterval === interval.value ? '#FFFFFF' : colors.primary,
+                        },
+                      ]}
+                    >
+                      {interval.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
+        
         {renderCombinedChart()}
       </View>
 
@@ -777,7 +915,7 @@ export function WeatherAnalyticsDashboard({
               ]}
             >
               {/* Compact Header Row */}
-              <View style={styles.statCardHeader}>
+                <View style={styles.statCardHeader}>
                 <View style={styles.statHeaderLeft}>
                   <View style={[styles.statIconContainer, { backgroundColor: `${metric.color}12` }]}>
                     <Ionicons name={metric.icon as any} size={16} color={metric.color} />
@@ -787,22 +925,22 @@ export function WeatherAnalyticsDashboard({
                       {metric.label}
                     </ThemedText>
                   </View>
-                </View>
-                <View style={styles.statTrend}>
-                  {metric.stats.trend === 'up' && (
+                  </View>
+                    <View style={styles.statTrend}>
+                      {metric.stats.trend === 'up' && (
                     <Ionicons name="trending-up" size={12} color={metric.color} />
-                  )}
-                  {metric.stats.trend === 'down' && (
+                      )}
+                      {metric.stats.trend === 'down' && (
                     <Ionicons name="trending-down" size={12} color={metric.color} />
-                  )}
-                  {metric.stats.trend === 'stable' && (
+                      )}
+                      {metric.stats.trend === 'stable' && (
                     <Ionicons name="remove" size={12} color={colors.text} style={{ opacity: 0.4 }} />
-                  )}
+                      )}
                   <ThemedText style={[styles.statTrendText, { color: colors.text, opacity: 0.6 }]}>
-                    {metric.stats.percent.toFixed(1)}%
-                  </ThemedText>
-                </View>
-              </View>
+                        {metric.stats.percent.toFixed(1)}%
+                      </ThemedText>
+                    </View>
+                  </View>
 
               {/* Current Value Row */}
               <View style={styles.statCurrentSection}>
@@ -814,37 +952,37 @@ export function WeatherAnalyticsDashboard({
                     {metric.unit}
                   </ThemedText>
                 </View>
-              </View>
+                </View>
 
               {/* Compact Stats Row */}
               <View style={[styles.statRangeRow, { borderTopColor: colors.border }]}>
-                <View style={styles.statRangeItem}>
+                  <View style={styles.statRangeItem}>
                   <ThemedText style={[styles.statRangeLabel, { color: colors.text, opacity: 0.5 }]}>
                     Avg
                   </ThemedText>
                   <ThemedText style={[styles.statRangeValue, { color: colors.text }]}>
-                    {formatValue(metric.stats.avg)}
-                  </ThemedText>
-                </View>
+                      {formatValue(metric.stats.avg)}
+                    </ThemedText>
+                  </View>
                 <View style={[styles.statRangeDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.statRangeItem}>
+                  <View style={styles.statRangeItem}>
                   <ThemedText style={[styles.statRangeLabel, { color: colors.text, opacity: 0.5 }]}>
                     Min
                   </ThemedText>
                   <ThemedText style={[styles.statRangeValue, { color: colors.text }]}>
-                    {formatValue(metric.stats.min)}
-                  </ThemedText>
-                </View>
+                      {formatValue(metric.stats.min)}
+                    </ThemedText>
+                  </View>
                 <View style={[styles.statRangeDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.statRangeItem}>
+                  <View style={styles.statRangeItem}>
                   <ThemedText style={[styles.statRangeLabel, { color: colors.text, opacity: 0.5 }]}>
                     Max
                   </ThemedText>
                   <ThemedText style={[styles.statRangeValue, { color: colors.text }]}>
-                    {formatValue(metric.stats.max)}
-                  </ThemedText>
+                      {formatValue(metric.stats.max)}
+                    </ThemedText>
+                  </View>
                 </View>
-              </View>
             </View>
           );
         })}

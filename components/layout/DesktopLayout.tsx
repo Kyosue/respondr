@@ -73,8 +73,10 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
       />
 
       <View style={styles.container}>
-        {/* Sidebar */}
-        <Sidebar activeTab={activeTab} onTabChange={onTabChange} />
+        {/* Sidebar with floating style */}
+        <View style={styles.sidebarWrapper}>
+          <Sidebar activeTab={activeTab} onTabChange={onTabChange} />
+        </View>
 
         {/* Main Content Area */}
         <View style={styles.mainContent}>
@@ -112,6 +114,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  sidebarWrapper: {
+    marginRight: 16,
+    alignSelf: 'stretch',
   },
   mainContent: {
     flex: 1,

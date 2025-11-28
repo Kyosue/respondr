@@ -8,4 +8,6 @@ export { WeatherDetailModal } from './modals/WeatherDetailModal';
 export { type WeatherStation, generateStations } from '@/types/WeatherStation';
 export { WeatherStationSwitcher } from './WeatherStationSwitcher';
 export { WeatherAnalyticsDashboard } from './WeatherAnalyticsDashboard';
+export { PAGASAAdvisory } from './PAGASAAdvisory';
+export * from '@/services/pagasaAdvisoryService';
 

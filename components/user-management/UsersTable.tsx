@@ -255,39 +255,66 @@ export function UsersTable({
                   <View style={styles.mobileActions}>
                     {canEdit && onEdit && (
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.secondaryButton, { backgroundColor: `${colors.primary}20` }]}
+                        style={[
+                          styles.actionButton, 
+                          styles.secondaryButton, 
+                          { 
+                            backgroundColor: colors.primary,
+                            borderColor: colors.primary,
+                            borderWidth: 1,
+                          }
+                        ]}
                         onPress={(e) => {
                           e.stopPropagation();
                           onEdit(user);
                         }}
+                        activeOpacity={0.8}
                       >
-                        <Ionicons name="create-outline" size={14} color={colors.primary} />
+                        <Ionicons name="create-outline" size={14} color="#FFFFFF" />
                       </TouchableOpacity>
                     )}
                     {canToggleStatus && onToggleStatus && (
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.secondaryButton, { backgroundColor: `${statusColor}20` }]}
+                        style={[
+                          styles.actionButton, 
+                          styles.secondaryButton, 
+                          { 
+                            backgroundColor: statusColor,
+                            borderColor: statusColor,
+                            borderWidth: 1,
+                          }
+                        ]}
                         onPress={(e) => {
                           e.stopPropagation();
                           onToggleStatus(user);
                         }}
+                        activeOpacity={0.8}
                       >
                         <Ionicons 
                           name={user.status === 'active' ? 'pause-outline' : 'play-outline'} 
                           size={14} 
-                          color={statusColor} 
+                          color="#FFFFFF" 
                         />
                       </TouchableOpacity>
                     )}
                     {canDelete && onDelete && (
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.dangerButton, { backgroundColor: `${colors.error}20` }]}
+                        style={[
+                          styles.actionButton, 
+                          styles.dangerButton, 
+                          { 
+                            backgroundColor: colors.error,
+                            borderColor: colors.error,
+                            borderWidth: 1,
+                          }
+                        ]}
                         onPress={(e) => {
                           e.stopPropagation();
                           onDelete(user);
                         }}
+                        activeOpacity={0.8}
                       >
-                        <Ionicons name="trash-outline" size={14} color={colors.error} />
+                        <Ionicons name="trash-outline" size={14} color="#FFFFFF" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -422,39 +449,66 @@ export function UsersTable({
               <View style={styles.actionsCell}>
                 {canEdit && onEdit && (
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.iconButton, { backgroundColor: `${colors.primary}20` }]}
+                    style={[
+                      styles.actionButton, 
+                      styles.iconButton, 
+                      { 
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                        borderWidth: 1,
+                      }
+                    ]}
                     onPress={(e) => {
                       e.stopPropagation();
                       onEdit(user);
                     }}
+                    activeOpacity={0.8}
                   >
-                    <Ionicons name="create-outline" size={16} color={colors.primary} />
+                    <Ionicons name="create-outline" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 )}
                 {canToggleStatus && onToggleStatus && (
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.iconButton, { backgroundColor: `${statusColor}20` }]}
+                    style={[
+                      styles.actionButton, 
+                      styles.iconButton, 
+                      { 
+                        backgroundColor: statusColor,
+                        borderColor: statusColor,
+                        borderWidth: 1,
+                      }
+                    ]}
                     onPress={(e) => {
                       e.stopPropagation();
                       onToggleStatus(user);
                     }}
+                    activeOpacity={0.8}
                   >
                     <Ionicons 
                       name={user.status === 'active' ? 'pause-outline' : 'play-outline'} 
                       size={16} 
-                      color={statusColor} 
+                      color="#FFFFFF" 
                     />
                   </TouchableOpacity>
                 )}
                 {canDelete && onDelete && (
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.iconButton, { backgroundColor: `${colors.error}20` }]}
+                    style={[
+                      styles.actionButton, 
+                      styles.iconButton, 
+                      { 
+                        backgroundColor: colors.error,
+                        borderColor: colors.error,
+                        borderWidth: 1,
+                      }
+                    ]}
                     onPress={(e) => {
                       e.stopPropagation();
                       onDelete(user);
                     }}
+                    activeOpacity={0.8}
                   >
-                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                    <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -757,8 +811,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 8,
     gap: 4,
+    justifyContent: 'center',
+    minWidth: 36,
+    minHeight: 36,
   },
   secondaryButton: {
     // backgroundColor set dynamically
@@ -767,8 +824,10 @@ const styles = StyleSheet.create({
     // backgroundColor set dynamically
   },
   iconButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 36,
+    minHeight: 36,
   },
   scrollView: {
     flex: 1,

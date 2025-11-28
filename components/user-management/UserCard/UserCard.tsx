@@ -147,37 +147,61 @@ export const UserCard = memo(function UserCard({
         <View style={[styles.actionButtonsContainer, { borderTopColor: colors.border }]}>
           {onEdit && (
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.primary + '10' }]}
+              style={[
+                styles.actionButton, 
+                { 
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
+                  borderWidth: 1,
+                }
+              ]}
               onPress={() => onEdit(user)}
+              activeOpacity={0.8}
             >
-              <Ionicons name="create" size={18} color={colors.primary} />
-              <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>
+              <Ionicons name="create" size={18} color="#FFFFFF" />
+              <ThemedText style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
                 Edit
               </ThemedText>
             </TouchableOpacity>
           )}
           {onToggleStatus && (
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: statusColor + '10' }]}
+              style={[
+                styles.actionButton, 
+                { 
+                  backgroundColor: statusColor,
+                  borderColor: statusColor,
+                  borderWidth: 1,
+                }
+              ]}
               onPress={() => onToggleStatus(user)}
+              activeOpacity={0.8}
             >
               <Ionicons 
                 name={userStatus === 'active' ? 'pause' : 'play'} 
                 size={18} 
-                color={statusColor} 
+                color="#FFFFFF" 
               />
-              <ThemedText style={[styles.actionButtonText, { color: statusColor }]}>
+              <ThemedText style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
                 {userStatus === 'active' ? 'Pause' : 'Activate'}
               </ThemedText>
             </TouchableOpacity>
           )}
           {onDelete && (
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: '#EF444410' }]}
+              style={[
+                styles.actionButton, 
+                { 
+                  backgroundColor: '#EF4444',
+                  borderColor: '#EF4444',
+                  borderWidth: 1,
+                }
+              ]}
               onPress={() => onDelete(user)}
+              activeOpacity={0.8}
             >
-              <Ionicons name="trash" size={18} color="#EF4444" />
-              <ThemedText style={[styles.actionButtonText, { color: '#EF4444' }]}>
+              <Ionicons name="trash" size={18} color="#FFFFFF" />
+              <ThemedText style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
                 Delete
               </ThemedText>
             </TouchableOpacity>

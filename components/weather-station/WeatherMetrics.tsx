@@ -6,11 +6,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
+/**
+ * Convert wind direction in degrees to cardinal direction
+ * @param degrees Wind direction in degrees (0-360)
+ * @returns Cardinal direction string (N, NE, E, SE, S, SW, W, NW)
+ */
+export function degreesToCardinal(degrees: number): string {
+  // Normalize degrees to 0-360 range
+  const normalized = ((degrees % 360) + 360) % 360;
+  
+  // Define cardinal directions with their degree ranges
+  // Each direction covers 45 degrees (360 / 8 = 45)
+  const directions = [
+    { name: 'N', min: 337.5, max: 22.5 },   // 0° ± 22.5° (wraps around)
+    { name: 'NE', min: 22.5, max: 67.5 },
+    { name: 'E', min: 67.5, max: 112.5 },
+    { name: 'SE', min: 112.5, max: 157.5 },
+    { name: 'S', min: 157.5, max: 202.5 },
+    { name: 'SW', min: 202.5, max: 247.5 },
+    { name: 'W', min: 247.5, max: 292.5 },
+    { name: 'NW', min: 292.5, max: 337.5 },
+  ];
+  
+  // Handle the wrap-around case for North (0°)
+  if (normalized >= 337.5 || normalized < 22.5) {
+    return 'N';
+  }
+  
+  // Check other directions
+  for (const dir of directions) {
+    if (normalized >= dir.min && normalized < dir.max) {
+      return dir.name;
+    }
+  }
+  
+  // Fallback (shouldn't happen)
+  return 'N';
+}
+
 export interface WeatherData {
   temperature: number; // Celsius
   humidity: number; // Percentage
   rainfall: number; // mm
   windSpeed: number; // km/h
+  windDirection: number; // degrees (0-360)
   lastUpdated: Date;
 }
 
@@ -53,6 +92,9 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     if (key === 'windSpeed') {
       return `${value.toFixed(1)}`;
     }
+    if (key === 'windDirection') {
+      return degreesToCardinal(value);
+    }
     return String(value);
   };
 
@@ -92,6 +134,15 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
       icon: 'flag',
       gradient: colorScheme === 'dark' ? ['#4CAF50', '#2E7D32'] : ['#4CAF50', '#388E3C'],
       color: '#4CAF50'
+    },
+    {
+      key: 'windDirection',
+      label: 'Wind Direction',
+      value: formatValue('windDirection', data.windDirection),
+      unit: '',
+      icon: 'compass',
+      gradient: colorScheme === 'dark' ? ['#FF9800', '#F57C00'] : ['#FF9800', '#FB8C00'],
+      color: '#FF9800'
     },
   ] : [];
 

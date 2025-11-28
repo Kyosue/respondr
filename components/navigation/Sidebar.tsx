@@ -62,7 +62,8 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         { 
           backgroundColor: colors.surface, 
           borderRightColor: colors.border,
-          width: isCollapsed ? 80 : 250
+          width: isCollapsed ? 80 : 250,
+          flex: 1,
         }
       ]}
       edges={['top', 'left']}
@@ -272,20 +273,20 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 const styles = StyleSheet.create({
   sidebar: {
     width: 250,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(150, 150, 150, 0.2)',
+    borderRadius: 16,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 2, height: 0 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 4,
+        elevation: 8,
       },
       web: {
-        boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
       },
     }),
   },

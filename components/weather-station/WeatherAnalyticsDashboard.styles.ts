@@ -110,6 +110,9 @@ export const styles = StyleSheet.create({
     }),
   },
   chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     paddingHorizontal: 4,
     ...Platform.select({
       web: {
@@ -119,6 +122,38 @@ export const styles = StyleSheet.create({
         marginBottom: 12,
       },
     }),
+  },
+  chartHeaderLeft: {
+    flex: 1,
+  },
+  intervalSelector: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    ...Platform.select({
+      web: {
+        marginTop: 0,
+      },
+      default: {
+        marginTop: 2,
+      },
+    }),
+  },
+  intervalScroll: {
+    maxWidth: Platform.select({
+      web: 400,
+      default: 200,
+    }),
+  },
+  intervalScrollContent: {
+    gap: 6,
+    paddingRight: 4,
+  },
+  intervalButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  intervalButtonText: {
+    fontSize: 12, // Small
   },
   chartTitle: {
     fontWeight: '700',

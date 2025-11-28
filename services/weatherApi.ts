@@ -71,6 +71,7 @@ export interface WeatherApiResponse {
   humidity: number; // Percentage
   rainfall: number; // mm
   windSpeed: number; // km/h
+  windDirection: number; // degrees (0-360)
   timestamp: Date;
   location?: {
     lat: number;
@@ -88,7 +89,7 @@ export async function fetchWeatherFromOpenMeteo(
   lon: number
 ): Promise<WeatherApiResponse | null> {
   try {
-    const currentUrl = `${WEATHER_API_CONFIG.openMeteo.baseUrl}/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m&timezone=Asia/Manila`;
+    const currentUrl = `${WEATHER_API_CONFIG.openMeteo.baseUrl}/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,winddirection_10m&timezone=Asia/Manila`;
     
     const response = await fetch(currentUrl);
     if (!response.ok) throw new Error('Failed to fetch weather data');
@@ -101,6 +102,7 @@ export async function fetchWeatherFromOpenMeteo(
       humidity: current.relative_humidity_2m,
       rainfall: current.precipitation || 0,
       windSpeed: current.windspeed_10m * 3.6, // Convert m/s to km/h
+      windDirection: current.winddirection_10m || 0, // degrees (0-360)
       timestamp: new Date(current.time),
       location: { lat, lon, name: 'Weather Station' },
     };
@@ -132,7 +134,7 @@ export async function fetchHistoricalWeatherFromOpenMeteo(
     // This endpoint provides data from past_days ago up to current time
     // past_days can be 0-7, so we cap it at 7
     const pastDays = Math.min(Math.max(daysBack, 1), 7);
-    const url = `${WEATHER_API_CONFIG.openMeteo.baseUrl}/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m&past_days=${pastDays}&timezone=Asia/Manila`;
+    const url = `${WEATHER_API_CONFIG.openMeteo.baseUrl}/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,winddirection_10m&past_days=${pastDays}&timezone=Asia/Manila`;
     
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch historical data');
@@ -165,12 +167,14 @@ export async function fetchHistoricalWeatherFromOpenMeteo(
       const currentHumidity = hourly.relative_humidity_2m[i];
       const currentRainfall = hourly.precipitation[i] || 0;
       const currentWind = hourly.windspeed_10m[i] * 3.6;
+      const currentWindDir = hourly.winddirection_10m[i] || 0;
       
       // Next hour's values (for interpolation)
       const nextTemp = hasNext ? hourly.temperature_2m[nextIndex] : currentTemp;
       const nextHumidity = hasNext ? hourly.relative_humidity_2m[nextIndex] : currentHumidity;
       const nextRainfall = hasNext ? (hourly.precipitation[nextIndex] || 0) : currentRainfall;
       const nextWind = hasNext ? hourly.windspeed_10m[nextIndex] * 3.6 : currentWind;
+      const nextWindDir = hasNext ? (hourly.winddirection_10m[nextIndex] || 0) : currentWindDir;
       
       // Generate 6 data points per hour (every 10 minutes: 0, 10, 20, 30, 40, 50)
       for (let minute = 0; minute < 60; minute += 10) {
@@ -195,18 +199,32 @@ export async function fetchHistoricalWeatherFromOpenMeteo(
         // Rainfall is cumulative, so distribute it evenly across the hour
         const interpolatedRainfall = currentRainfall * (1 - interpolationFactor) + (nextRainfall * interpolationFactor);
         const interpolatedWind = currentWind + (nextWind - currentWind) * interpolationFactor;
+        // Wind direction: handle circular interpolation (0-360 degrees)
+        let interpolatedWindDir = currentWindDir;
+        if (hasNext) {
+          let dirDiff = nextWindDir - currentWindDir;
+          // Handle wrap-around (e.g., 350° to 10° = 20° change, not -340°)
+          if (dirDiff > 180) dirDiff -= 360;
+          if (dirDiff < -180) dirDiff += 360;
+          interpolatedWindDir = currentWindDir + dirDiff * interpolationFactor;
+          // Normalize to 0-360
+          if (interpolatedWindDir < 0) interpolatedWindDir += 360;
+          if (interpolatedWindDir >= 360) interpolatedWindDir -= 360;
+        }
         
         // Add small random variation to make it more realistic (±2% variation)
         const variation = 0.02;
         const tempVariation = (Math.random() - 0.5) * variation * Math.abs(interpolatedTemp);
         const humidityVariation = (Math.random() - 0.5) * variation * Math.abs(interpolatedHumidity);
         const windVariation = (Math.random() - 0.5) * variation * Math.abs(interpolatedWind);
+        const windDirVariation = (Math.random() - 0.5) * 5; // ±2.5 degrees variation
         
         results.push({
           temperature: interpolatedTemp + tempVariation,
           humidity: Math.max(0, Math.min(100, interpolatedHumidity + humidityVariation)),
           rainfall: Math.max(0, interpolatedRainfall),
           windSpeed: Math.max(0, interpolatedWind + windVariation),
+          windDirection: Math.max(0, Math.min(360, interpolatedWindDir + windDirVariation)),
           timestamp,
           location: { lat, lon, name: 'Weather Station' },
         });
@@ -249,6 +267,7 @@ export async function fetchWeatherFromOpenWeatherMap(
       humidity: data.main.humidity,
       rainfall: data.rain?.['1h'] || 0, // May not always be available
       windSpeed: data.wind?.speed ? data.wind.speed * 3.6 : 0, // Convert m/s to km/h
+      windDirection: data.wind?.deg || 0, // degrees (0-360)
       timestamp: new Date(data.dt * 1000),
       location: { lat, lon, name: data.name },
     };
@@ -285,6 +304,7 @@ export async function fetchWeatherFromWeatherAPI(
       humidity: current.humidity,
       rainfall: current.precip_mm || 0,
       windSpeed: current.wind_kph,
+      windDirection: current.wind_degree || 0, // degrees (0-360)
       timestamp: new Date(current.last_updated),
       location: { lat, lon, name: data.location.name },
     };

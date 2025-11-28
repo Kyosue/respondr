@@ -12,6 +12,8 @@ import { WeatherAnalyticsDashboard } from './WeatherAnalyticsDashboard';
 import { WeatherData, WeatherMetrics } from './WeatherMetrics';
 import { WeatherStation, generateStations } from '@/types/WeatherStation';
 import { WeatherStationSwitcher } from './WeatherStationSwitcher';
+import { PAGASAAdvisory } from './PAGASAAdvisory';
+import { calculateRainfallAnalytics, RainfallAnalytics } from '@/services/pagasaAdvisoryService';
 
 // Default alert thresholds (can be configured later)
 const DEFAULT_THRESHOLDS: AlertThreshold = {
@@ -51,6 +53,7 @@ const WeatherStationScreen: React.FC = () => {
   const [selectedStation, setSelectedStation] = useState<WeatherStation | null>(defaultStation);
   const [currentData, setCurrentData] = useState<WeatherData | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
+  const [rainfallAnalytics, setRainfallAnalytics] = useState<RainfallAnalytics | null>(null);
   const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -85,6 +88,7 @@ const WeatherStationScreen: React.FC = () => {
           humidity: current.humidity,
           rainfall: current.rainfall,
           windSpeed: current.windSpeed,
+          windDirection: current.windDirection || 0,
           lastUpdated: current.timestamp,
         });
         setIsConnected(true);
@@ -110,22 +114,34 @@ const WeatherStationScreen: React.FC = () => {
         
         if (historical.length > 0) {
           // Transform historical data to match expected format
-          setHistoricalData(historical.map(h => ({
+          const transformedHistorical = historical.map(h => ({
             timestamp: h.timestamp,
             temperature: h.temperature,
             humidity: h.humidity,
             rainfall: h.rainfall,
             windSpeed: h.windSpeed,
-          })));
+            windDirection: h.windDirection || 0,
+          }));
+          setHistoricalData(transformedHistorical);
+          
+          // Calculate PAGASA rainfall analytics
+          const analytics = calculateRainfallAnalytics(transformedHistorical);
+          setRainfallAnalytics(analytics);
         } else {
           // If no historical data, create a single point from current data
-          setHistoricalData([{
+          const singlePoint = [{
             timestamp: current.timestamp,
             temperature: current.temperature,
             humidity: current.humidity,
             rainfall: current.rainfall,
             windSpeed: current.windSpeed,
-          }]);
+            windDirection: current.windDirection || 0,
+          }];
+          setHistoricalData(singlePoint);
+          
+          // Calculate PAGASA analytics even with single point
+          const analytics = calculateRainfallAnalytics(singlePoint);
+          setRainfallAnalytics(analytics);
         }
       } else {
         // If API call failed, set connection status
@@ -281,6 +297,11 @@ const WeatherStationScreen: React.FC = () => {
           />
         )}
 
+        {/* PAGASA Rainfall Advisory */}
+        {rainfallAnalytics && (
+          <PAGASAAdvisory analytics={rainfallAnalytics} showPrediction={true} />
+        )}
+
         {/* Alerts */}
         {currentData && (
           <WeatherAlert
@@ -301,6 +322,11 @@ const WeatherStationScreen: React.FC = () => {
         <HistoricalDataView
           data={historicalData}
           loading={isLoading}
+          onRefresh={() => {
+            if (selectedStation) {
+              fetchWeatherData(selectedStation.id, true);
+            }
+          }}
         />
       </ScrollView>
     </View>

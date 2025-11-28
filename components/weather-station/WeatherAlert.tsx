@@ -86,6 +86,8 @@ export function WeatherAlert({ data, thresholds, dismissedAlerts, onDismiss }: W
     }
 
     // Rainfall alerts (critical if exceeds)
+    // Note: PAGASA advisories are now handled separately in PAGASAAdvisory component
+    // This alert is kept for backward compatibility and non-PAGASA thresholds
     if (thresholds.rainfall && data.rainfall > thresholds.rainfall.max) {
       alerts.push({
         id: 'rainfall-high',
