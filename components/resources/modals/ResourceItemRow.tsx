@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
     Image,
+    Platform,
     StyleSheet,
     TextInput,
     TouchableOpacity,
@@ -61,7 +62,8 @@ export function ResourceItemRow({
   return (
     <View style={[styles.container, { 
       backgroundColor: colors.surface,
-      borderColor: colors.border 
+      borderColor: colors.border,
+      shadowColor: colors.text,
     }]}>
       <View style={styles.header}>
         <View style={styles.resourceInfo}>
@@ -74,7 +76,7 @@ export function ResourceItemRow({
               />
             ) : (
               <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name={getCategoryIcon(item.resource.category) as any} size={16} color={colors.primary} />
+                <Ionicons name={getCategoryIcon(item.resource.category) as any} size={24} color={colors.primary} />
               </View>
             )}
           </View>
@@ -82,23 +84,34 @@ export function ResourceItemRow({
             <ThemedText style={styles.resourceName}>
               {item.resource.name}
             </ThemedText>
-            <ThemedText style={styles.resourceCategory}>
-              {item.resource.category}
+            <View style={styles.resourceMetaRow}>
+              <View style={[styles.categoryBadge, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name={getCategoryIcon(item.resource.category) as any} size={12} color={colors.primary} />
+                <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
+                  {item.resource.category.charAt(0).toUpperCase() + item.resource.category.slice(1)}
             </ThemedText>
-            <ThemedText style={styles.availability}>
-              Available: {item.resource.availableQuantity}
+              </View>
+              <View style={[styles.availabilityBadge, { backgroundColor: colors.success + '15' }]}>
+                <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                <ThemedText style={[styles.availability, { color: colors.success }]}>
+                  {item.resource.availableQuantity} available
             </ThemedText>
+              </View>
+            </View>
           </View>
         </View>
         {showRemoveButton && (
           <TouchableOpacity
             onPress={onRemove}
-            style={styles.removeButton}
+            style={[styles.removeButton, { backgroundColor: colors.error + '15' }]}
+            activeOpacity={0.7}
           >
-            <Ionicons name="close-circle" size={20} color={colors.error} />
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
           </TouchableOpacity>
         )}
       </View>
+
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <View style={styles.controls}>
         <View style={styles.controlGroup}>
@@ -124,7 +137,10 @@ export function ResourceItemRow({
       </View>
 
       <View style={styles.notesContainer}>
-        <ThemedText style={styles.notesLabel}>Notes (Optional)</ThemedText>
+        <View style={styles.notesHeader}>
+          <Ionicons name="document-text-outline" size={16} color={colors.text} style={{ opacity: 0.7 }} />
+          <ThemedText style={[styles.notesLabel, { color: colors.text }]}>Notes (Optional)</ThemedText>
+        </View>
         <TextInput
           style={[styles.notesInput, { 
             backgroundColor: colors.background,
@@ -133,7 +149,7 @@ export function ResourceItemRow({
           }]}
           value={item.notes}
           onChangeText={(text) => updateItem('notes', text)}
-          placeholder="Add notes for this resource"
+          placeholder="Add notes for this resource..."
           placeholderTextColor={colors.text + '80'}
           multiline
           numberOfLines={2}
@@ -145,26 +161,40 @@ export function ResourceItemRow({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
+    ...Platform.select({
+      web: {
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+      default: {
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 3,
+      },
+    }),
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
   resourceInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
   },
   resourceImageContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 10,
     marginRight: 12,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -175,57 +205,93 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
   resourceDetails: {
     flex: 1,
+    paddingTop: 0,
   },
   resourceName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+    lineHeight: 21,
+  },
+  resourceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
   },
   resourceCategory: {
-    fontSize: 12,
-    opacity: 0.7,
+    fontSize: 11,
+    fontWeight: '600',
     textTransform: 'capitalize',
-    marginBottom: 2,
+  },
+  availabilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
   },
   availability: {
-    fontSize: 12,
-    opacity: 0.6,
+    fontSize: 11,
+    fontWeight: '600',
   },
   removeButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+    opacity: 0.3,
   },
   controls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 10,
   },
   controlGroup: {
     flex: 1,
-    marginRight: 12,
   },
   notesContainer: {
-    marginTop: 8,
+    marginTop: 0,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 5,
   },
   notesLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    opacity: 0.7,
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.8,
   },
   notesInput: {
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 10,
+    fontSize: 14,
     textAlignVertical: 'top',
+    minHeight: 70,
   },
 });

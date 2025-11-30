@@ -1,18 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   TouchableOpacity,
   View
 } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -295,6 +295,7 @@ function FullScreenImageViewer({
       transparent={true}
       animationType={isWeb ? 'none' : 'fade'}
       onRequestClose={handleClose}
+      statusBarTranslucent={false}
     >
       {isWeb && (
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
@@ -307,15 +308,15 @@ function FullScreenImageViewer({
           isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
         ]}
       >
-      <StatusBar 
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} 
-        backgroundColor={colors.background}
-      />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <PanGestureHandler onHandlerStateChange={handleSwipeStateChange}>
-          <SafeAreaView style={[styles.fullScreenContainer, isWeb && styles.webPanel, { backgroundColor: colors.background }]}>
-        {/* Header */}
-        <View style={[styles.fullScreenHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <SafeAreaView 
+            style={[styles.fullScreenContainer, isWeb && styles.webPanel, { backgroundColor: colors.background }]}
+            edges={['top']}
+          >
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            {/* Header */}
+            <View style={[styles.fullScreenHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -370,7 +371,6 @@ function FullScreenImageViewer({
             </View>
           )}
         </View>
-
           </SafeAreaView>
         </PanGestureHandler>
       </GestureHandlerRootView>

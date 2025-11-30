@@ -15,16 +15,6 @@ const AGENCY_LEVELS = [
   { value: 'barangay', label: 'Barangay', icon: 'home-outline', color: '#8B5CF6' },
 ];
 
-const DOCUMENT_TYPES = [
-  { value: 'memorandum', label: 'Memorandum', icon: 'document-text-outline', color: '#3B82F6' },
-  { value: 'circular', label: 'Circular', icon: 'radio-outline', color: '#8B5CF6' },
-  { value: 'advisory', label: 'Advisory', icon: 'megaphone-outline', color: '#F59E0B' },
-  { value: 'directive', label: 'Directive', icon: 'arrow-forward-outline', color: '#EF4444' },
-  { value: 'executive-order', label: 'Executive Order', icon: 'shield-outline', color: '#DC2626' },
-  { value: 'ordinance', label: 'Ordinance', icon: 'library-outline', color: '#10B981' },
-  { value: 'policy', label: 'Policy', icon: 'book-outline', color: '#6B7280' },
-];
-
 const PRIORITIES = [
   { value: 'urgent', label: 'Urgent', icon: 'alert-circle-outline', color: '#FF3B30' },
   { value: 'high', label: 'High', icon: 'arrow-up-circle-outline', color: '#FF9500' },
@@ -58,29 +48,6 @@ export function MemoFilterPopover({ filters, onFilterChange }: MemoFilterPopover
       searchPlaceholder: 'Search agency levels...',
     },
     {
-      id: 'documentType',
-      title: 'Document Type',
-      icon: 'document-text-outline',
-      options: [
-        { value: 'all', label: 'All Types', icon: 'document-text-outline', color: '#6B7280' },
-        ...DOCUMENT_TYPES.map((type) => ({
-          value: type.value,
-          label: type.label,
-          icon: type.icon,
-          color: type.color,
-        })),
-      ],
-      selectedValue: filters.documentType || 'all',
-      onSelect: (value) => {
-        onFilterChange({
-          ...filters,
-          documentType: value === 'all' ? undefined : value,
-        });
-      },
-      searchable: true,
-      searchPlaceholder: 'Search document types...',
-    },
-    {
       id: 'priority',
       title: 'Priority',
       icon: 'flag-outline',
@@ -108,7 +75,6 @@ export function MemoFilterPopover({ filters, onFilterChange }: MemoFilterPopover
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.agencyLevel) count++;
-    if (filters.documentType) count++;
     if (filters.priority) count++;
     if (filters.issuingAgency) count++;
     if (filters.uploadedBy) count++;

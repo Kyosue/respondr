@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
@@ -23,7 +23,7 @@ export const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     alignItems: 'center',
   },
   filterButton: {
@@ -50,13 +50,52 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  addButton: {
+  headerButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  filterButtonWrapper: {
+    marginLeft: -8,
+  },
+  documentGroup: {
+    marginBottom: 12,
+    ...Platform.select({
+      web: {
+        marginBottom: 32,
+      },
+    }),
+  },
+  groupHeader: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    opacity: 0.8,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 20,
+      },
+      default: {
+        paddingHorizontal: 16,
+      },
+    }),
+  },
+  documentsSectionContainer: {
+    ...Platform.select({
+      web: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start',
+        gap: 16,
+        paddingHorizontal: 20,
+      },
+      default: {
+        paddingHorizontal: 16,
+      },
+    }),
   },
   filtersContainer: {
     borderBottomWidth: 1,
@@ -112,7 +151,6 @@ export const styles = StyleSheet.create({
     marginTop: 8,
   },
   documentsList: {
-    paddingHorizontal: 20,
     paddingBottom: 20,
   },
   documentsGrid: {
@@ -127,83 +165,127 @@ export const styles = StyleSheet.create({
   documentItem: {
     flexDirection: 'row',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     marginBottom: 12,
+    ...Platform.select({
+      ios: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+        transition: 'all 0.2s ease',
+      },
+    }),
     position: 'relative',
   },
   documentItemSelected: {
     borderWidth: 2,
     borderColor: '#4CAF50',
     backgroundColor: '#4CAF5010',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)',
+      },
+    }),
   },
   documentCard: {
-    width: 260,
+    width: 280,
     flexDirection: 'column',
     marginBottom: 0,
-    padding: 10,
+    padding: 14,
+    minHeight: 140,
   },
   documentIcon: {
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    flexShrink: 0,
   },
   documentInfo: {
     flex: 1,
   },
   documentTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 6,
-    lineHeight: 18,
+    marginBottom: 4,
+    lineHeight: 20,
   },
   documentMeta: {
     fontSize: 12,
     marginBottom: 8,
+    opacity: 0.7,
   },
   documentBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexWrap: 'wrap',
   },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   badgeText: {
-    color: '#fff',
     fontSize: 11,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    flex: 1,
+  },
   documentDate: {
-    fontSize: 12,
+    fontSize: 11,
+    marginLeft: 4,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
   },
   moreButton: {
     justifyContent: 'center',
     paddingLeft: 8,
+    padding: 4,
   },
-  cardHeader: {
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    flex: 1,
+  },
+  titleContainer: {
+    flex: 1,
+    marginLeft: 0,
+  },
+  cardBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 'auto',
+    paddingTop: 8,
+    borderTopWidth: 1,
   },
-  cardActions: {
+  metaRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 8,
   },
   selectedIndicator: {
     position: 'absolute',
@@ -213,6 +295,20 @@ export const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4CAF50',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+      },
+    }),
   },
   multiSelectBar: {
     backgroundColor: 'transparent',
@@ -259,6 +355,54 @@ export const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  searchSection: {
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  searchContainer: {
+    marginBottom: 12,
+  },
+  searchInputWrapper: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 1,
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    paddingHorizontal: 16,
+    paddingLeft: 48,
+    paddingRight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+      web: {
+        outlineStyle: 'none',
+        outlineWidth: 0,
+      },
+    }),
+  },
+  clearSearchButton: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 1,
+    padding: 4,
   },
 });
 

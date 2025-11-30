@@ -47,7 +47,6 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
   const [memoNumber, setMemoNumber] = useState('');
   const [issuingAgency, setIssuingAgency] = useState('');
   const [agencyLevel, setAgencyLevel] = useState<'national' | 'regional' | 'provincial' | 'municipal' | 'barangay'>('national');
-  const [documentType, setDocumentType] = useState<'memorandum' | 'circular' | 'advisory' | 'directive' | 'executive-order' | 'ordinance' | 'policy'>('memorandum');
   const [effectiveDate, setEffectiveDate] = useState(new Date());
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [showEffectiveDatePicker, setShowEffectiveDatePicker] = useState(false);
@@ -62,16 +61,6 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
     { value: 'provincial', label: 'Provincial' },
     { value: 'municipal', label: 'Municipal' },
     { value: 'barangay', label: 'Barangay' },
-  ];
-
-  const documentTypes = [
-    { value: 'memorandum', label: 'Memorandum' },
-    { value: 'circular', label: 'Circular' },
-    { value: 'advisory', label: 'Advisory' },
-    { value: 'directive', label: 'Directive' },
-    { value: 'executive-order', label: 'Executive Order' },
-    { value: 'ordinance', label: 'Ordinance' },
-    { value: 'policy', label: 'Policy' },
   ];
 
   const priorities = [
@@ -138,7 +127,7 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
       return;
     }
 
-    if (!title || !memoNumber || !issuingAgency) {
+    if (!title || !issuingAgency) {
       Alert.alert('Incomplete Information', 'Please fill in all required fields');
       return;
     }
@@ -157,7 +146,6 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
         memoNumber,
         issuingAgency,
         agencyLevel,
-        documentType,
         effectiveDate: effectiveDate,
         expirationDate: expirationDate || undefined,
         priority,
@@ -186,7 +174,6 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
     setMemoNumber('');
     setIssuingAgency('');
     setAgencyLevel('national');
-    setDocumentType('memorandum');
     setEffectiveDate(new Date());
     setExpirationDate(null);
     setPriority('normal');
@@ -362,8 +349,8 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
             )}
 
             {renderField(
-              'Memo Number',
-              true,
+              'Memo Number (Optional)',
+              false,
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, color: colors.text }]}
                 value={memoNumber}
@@ -386,8 +373,6 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
             )}
 
             {renderField('Agency Level', true, renderSelectField(agencyLevel, agencyLevels, setAgencyLevel))}
-
-            {renderField('Document Type', true, renderSelectField(documentType, documentTypes, setDocumentType))}
 
             {renderField(
               'Effective Date',
@@ -668,8 +653,8 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
             )}
 
             {renderField(
-              'Memo Number',
-              true,
+              'Memo Number (Optional)',
+              false,
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, color: colors.text }]}
                 value={memoNumber}
@@ -692,8 +677,6 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
             )}
 
             {renderField('Agency Level', true, renderSelectField(agencyLevel, agencyLevels, setAgencyLevel))}
-
-            {renderField('Document Type', true, renderSelectField(documentType, documentTypes, setDocumentType))}
 
             {renderField(
               'Effective Date',

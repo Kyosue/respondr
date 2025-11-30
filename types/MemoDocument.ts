@@ -18,10 +18,10 @@ export interface MemoDocument {
   lastModified: Date;
   
   // Memo-specific fields
-  memoNumber: string;
+  memoNumber?: string;
   issuingAgency: string;
   agencyLevel: 'national' | 'regional' | 'provincial' | 'municipal' | 'barangay';
-  documentType: 'memorandum' | 'circular' | 'advisory' | 'directive' | 'executive-order' | 'ordinance' | 'policy';
+  documentType?: 'memorandum' | 'circular' | 'advisory' | 'directive' | 'executive-order' | 'ordinance' | 'policy';
   effectiveDate: Date;
   expirationDate?: Date;
   priority: 'urgent' | 'high' | 'normal' | 'low';

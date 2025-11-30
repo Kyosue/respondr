@@ -4,7 +4,9 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { HistoricalDataPoint } from './HistoricalDataView';
 
 /**
  * Convert wind direction in degrees to cardinal direction
@@ -54,12 +56,13 @@ export interface WeatherData {
 }
 
 interface WeatherMetricsProps {
-  data: WeatherData | null;
+  historicalData: HistoricalDataPoint[];
   onMetricPress?: (metric: string) => void;
+  onRefresh?: () => void;
 }
 
 interface MetricItem {
-  key: keyof WeatherData;
+  key: keyof HistoricalDataPoint;
   label: string;
   value: string | number;
   unit: string;
@@ -68,14 +71,48 @@ interface MetricItem {
   color: string;
 }
 
-export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
+export function WeatherMetrics({ historicalData, onMetricPress, onRefresh }: WeatherMetricsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
+  
+  // Use ref to store the latest onRefresh callback to avoid stale closures
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
-  const formatValue = (key: keyof WeatherData, value: number | Date | null): string => {
+  // Auto-refresh every 10 minutes
+  useEffect(() => {
+    if (!onRefreshRef.current) return;
+
+    // Set up auto-refresh every 10 minutes
+    const interval = setInterval(() => {
+      // Use ref to get the latest onRefresh callback to avoid stale closures
+      if (onRefreshRef.current) {
+        onRefreshRef.current();
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []); // Empty dependency array - interval is set up once and uses ref for callback
+
+  // Get the latest data point from historical data (most recent)
+  const getLatestDataPoint = (): HistoricalDataPoint | null => {
+    if (historicalData.length === 0) return null;
+    
+    // Sort by timestamp (newest first) and get the first one
+    const sorted = [...historicalData].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return sorted[0];
+  };
+
+  const latestData = getLatestDataPoint();
+
+  const formatValue = (key: keyof HistoricalDataPoint, value: number | Date | null): string => {
     if (value === null || value === undefined) return '--';
-    if (key === 'lastUpdated') return '';
+    if (key === 'timestamp') return '';
     
     // Type guard: ensure value is a number
     if (typeof value !== 'number') return String(value);
@@ -98,11 +135,11 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     return String(value);
   };
 
-  const metrics: MetricItem[] = data ? [
+  const metrics: MetricItem[] = latestData ? [
     {
       key: 'temperature',
       label: 'Temperature',
-      value: formatValue('temperature', data.temperature),
+      value: formatValue('temperature', latestData.temperature),
       unit: '°C',
       icon: 'thermometer',
       gradient: colorScheme === 'dark' ? ['#F44336', '#B91C1C'] : ['#F44336', '#DC2626'],
@@ -111,7 +148,7 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     {
       key: 'humidity',
       label: 'Humidity',
-      value: formatValue('humidity', data.humidity),
+      value: formatValue('humidity', latestData.humidity),
       unit: '%',
       icon: 'water',
       gradient: colorScheme === 'dark' ? ['#2196F3', '#1565C0'] : ['#2196F3', '#1976D2'],
@@ -120,7 +157,7 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     {
       key: 'rainfall',
       label: 'Rainfall',
-      value: formatValue('rainfall', data.rainfall),
+      value: formatValue('rainfall', latestData.rainfall),
       unit: 'mm',
       icon: 'rainy',
       gradient: colorScheme === 'dark' ? ['#00BCD4', '#00838F'] : ['#00BCD4', '#0097A7'],
@@ -129,7 +166,7 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     {
       key: 'windSpeed',
       label: 'Wind Speed',
-      value: formatValue('windSpeed', data.windSpeed),
+      value: formatValue('windSpeed', latestData.windSpeed),
       unit: 'km/h',
       icon: 'flag',
       gradient: colorScheme === 'dark' ? ['#4CAF50', '#2E7D32'] : ['#4CAF50', '#388E3C'],
@@ -138,7 +175,7 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
     {
       key: 'windDirection',
       label: 'Wind Direction',
-      value: formatValue('windDirection', data.windDirection),
+      value: formatValue('windDirection', latestData.windDirection),
       unit: '',
       icon: 'compass',
       gradient: colorScheme === 'dark' ? ['#FF9800', '#F57C00'] : ['#FF9800', '#FB8C00'],
@@ -147,12 +184,12 @@ export function WeatherMetrics({ data, onMetricPress }: WeatherMetricsProps) {
   ] : [];
 
   const handlePress = (metric: MetricItem) => {
-    if (onMetricPress && data) {
+    if (onMetricPress && latestData) {
       onMetricPress(metric.key);
     }
   };
 
-  if (!data) {
+  if (!latestData) {
     return (
       <View style={styles.container}>
         <View style={[styles.noDataCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>

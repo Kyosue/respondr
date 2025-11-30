@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -38,304 +38,259 @@ export function ResourceDetailsTab({ resource }: ResourceDetailsTabProps) {
     }
   };
 
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'vehicles': return 'car-outline';
+      case 'medical': return 'medkit-outline';
+      case 'equipment': return 'construct-outline';
+      case 'communication': return 'radio-outline';
+      case 'personnel': return 'people-outline';
+      case 'tools': return 'hammer-outline';
+      case 'supplies': return 'cube-outline';
+      default: return 'cube-outline';
+    }
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: colors.background }]} 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.contentContainer}
+    >
       <View style={[styles.contentWrapper, isWeb && styles.webContentWrapper]}>
-        {/* Basic Information Section */}
-        <SectionHeader icon="information-circle" title="Basic Information" />
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <DetailRow label="Name" value={resource.name} />
-          <DetailRow label="Description" value={resource.description} />
-          <DetailRow label="Category" value={resource.category} />
-          <DetailRow label="Location" value={resource.location} />
-        </View>
-
-        {/* Two-column layout for web */}
-        {isWeb ? (
-          <View style={styles.webTwoColumn}>
-            {/* Left Column */}
-            <View style={styles.webColumn}>
-              {/* Quantity & Availability Section */}
-              <SectionHeader icon="bar-chart" title="Quantity & Availability" />
-              <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                <QuantityDisplay
-                  totalQuantity={resource.totalQuantity}
-                  availableQuantity={resource.availableQuantity}
-                  availabilityPercentage={availabilityPercentage}
-                />
+        {/* Hero Section with Key Info */}
+        <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.heroContent}>
+            <View style={styles.heroLeft}>
+              <View style={[styles.heroIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
               </View>
-
-              {/* Status & Condition Section */}
-              <SectionHeader icon="checkmark-circle" title="Status & Condition" />
-              <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                <StatusBadge
-                  label="Status"
-                  value={resource.status}
-                  color={getStatusColor(resource.status)}
-                />
-                <StatusBadge
-                  label="Condition"
-                  value={resource.condition}
-                  color={getConditionColor(resource.condition)}
-                />
+              <View style={styles.heroTextContainer}>
+                <ThemedText style={styles.heroTitle}>{resource.name}</ThemedText>
+                <View style={styles.heroMeta}>
+                  <View style={[styles.categoryChip, { backgroundColor: `${colors.primary}15` }]}>
+                    <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
+                    <ThemedText style={[styles.categoryText, { color: colors.primary }]}>
+                      {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
+                    </ThemedText>
+                  </View>
+                  {resource.location && (
+                    <View style={styles.locationChip}>
+                      <Ionicons name="location-outline" size={14} color={colors.text} style={{ opacity: 0.6 }} />
+                      <ThemedText style={[styles.locationText, { color: colors.text }]} numberOfLines={1}>
+                        {resource.location}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
-
-            {/* Right Column */}
-            <View style={styles.webColumn}>
-              {/* Tags Section */}
-              {resource.tags.length > 0 && (
-                <>
-                  <SectionHeader icon="pricetag" title="Tags" />
-                  <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                    <TagsDisplay tags={resource.tags} />
-                  </View>
-                </>
-              )}
-
-              {/* Maintenance Section */}
-              <SectionHeader icon="construct" title="Maintenance" />
-              <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                {resource.lastMaintenance ? (
-                  <DetailRow
-                    label="Last Maintenance"
-                    value={resource.lastMaintenance ? new Date(resource.lastMaintenance).toLocaleDateString() : 'Never'}
-                  />
-                ) : (
-                  <EmptyState text="No maintenance records" />
-                )}
-                {resource.nextMaintenance && (
-                  <DetailRow
-                    label="Next Maintenance"
-                    value={resource.nextMaintenance ? new Date(resource.nextMaintenance).toLocaleDateString() : 'Not scheduled'}
-                  />
-                )}
+            <View style={styles.heroRight}>
+              <View style={[styles.statusChip, { 
+                backgroundColor: `${getStatusColor(resource.status)}20`,
+                borderColor: getStatusColor(resource.status)
+              }]}>
+                <View style={[styles.statusDot, { backgroundColor: getStatusColor(resource.status) }]} />
+                <ThemedText style={[styles.statusText, { color: getStatusColor(resource.status) }]}>
+                  {resource.status.charAt(0).toUpperCase() + resource.status.slice(1)}
+                </ThemedText>
               </View>
             </View>
           </View>
-        ) : (
-          /* Mobile layout - single column */
-          <>
-            {/* Quantity & Availability Section */}
-            <SectionHeader icon="bar-chart" title="Quantity & Availability" />
-            <View style={[styles.section, { backgroundColor: colors.surface }]}>
-              <QuantityDisplay
-                totalQuantity={resource.totalQuantity}
-                availableQuantity={resource.availableQuantity}
-                availabilityPercentage={availabilityPercentage}
-              />
+          {resource.description && (
+            <View style={[styles.descriptionContainer, { borderTopColor: colors.border }]}>
+              <ThemedText style={[styles.descriptionText, { color: colors.text }]}>
+                {resource.description}
+              </ThemedText>
             </View>
+          )}
+        </View>
 
-            {/* Status & Condition Section */}
-            <SectionHeader icon="checkmark-circle" title="Status & Condition" />
-            <View style={[styles.section, { backgroundColor: colors.surface }]}>
-              <StatusBadge
-                label="Status"
-                value={resource.status}
-                color={getStatusColor(resource.status)}
-              />
-              <StatusBadge
-                label="Condition"
-                value={resource.condition}
-                color={getConditionColor(resource.condition)}
-              />
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon="cube"
+            label="Total"
+            value={resource.totalQuantity}
+            color={colors.text}
+            backgroundColor={`${colors.text}10`}
+          />
+          <StatCard
+            icon="checkmark-circle"
+            label="Available"
+            value={resource.availableQuantity}
+            color={colors.success}
+            backgroundColor={`${colors.success}15`}
+          />
+          <StatCard
+            icon="people"
+            label="In Use"
+            value={resource.totalQuantity - resource.availableQuantity}
+            color={colors.warning}
+            backgroundColor={`${colors.warning}15`}
+          />
+          <StatCard
+            icon="trending-up"
+            label="Availability"
+            value={`${availabilityPercentage.toFixed(0)}%`}
+            color={availabilityPercentage > 30 ? colors.success : colors.warning}
+            backgroundColor={availabilityPercentage > 30 ? `${colors.success}15` : `${colors.warning}15`}
+          />
+        </View>
+
+        {/* Availability Progress */}
+        <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.progressHeader}>
+            <View style={styles.progressHeaderLeft}>
+              <Ionicons name="bar-chart" size={20} color={colors.primary} />
+              <ThemedText style={[styles.progressTitle, { color: colors.text }]}>
+                Availability Overview
+              </ThemedText>
             </View>
+            <ThemedText style={[styles.progressPercentage, { 
+              color: availabilityPercentage > 30 ? colors.success : colors.warning 
+            }]}>
+              {availabilityPercentage.toFixed(1)}%
+            </ThemedText>
+          </View>
+          <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+            <View 
+              style={[
+                styles.progressBar, 
+                { 
+                  backgroundColor: availabilityPercentage > 30 ? colors.success : colors.warning,
+                  width: `${availabilityPercentage}%` 
+                }
+              ]} 
+            />
+          </View>
+          <View style={styles.progressStats}>
+            <View style={styles.progressStatItem}>
+              <ThemedText style={[styles.progressStatLabel, { color: colors.text }]}>Available</ThemedText>
+              <ThemedText style={[styles.progressStatValue, { color: colors.success }]}>
+                {resource.availableQuantity}
+              </ThemedText>
+            </View>
+            <View style={styles.progressStatItem}>
+              <ThemedText style={[styles.progressStatLabel, { color: colors.text }]}>In Use</ThemedText>
+              <ThemedText style={[styles.progressStatValue, { color: colors.warning }]}>
+                {resource.totalQuantity - resource.availableQuantity}
+              </ThemedText>
+            </View>
+            <View style={styles.progressStatItem}>
+              <ThemedText style={[styles.progressStatLabel, { color: colors.text }]}>Total</ThemedText>
+              <ThemedText style={[styles.progressStatValue, { color: colors.text }]}>
+                {resource.totalQuantity}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
 
-            {/* Tags Section */}
-            {resource.tags.length > 0 && (
-              <>
-                <SectionHeader icon="pricetag" title="Tags" />
-                <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                  <TagsDisplay tags={resource.tags} />
+        {/* Condition & Status */}
+        <View style={styles.conditionStatusRow}>
+          <View style={[styles.conditionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.conditionHeader}>
+              <Ionicons name="shield-checkmark" size={18} color={getConditionColor(resource.condition)} />
+              <ThemedText style={[styles.conditionLabel, { color: colors.text }]}>Condition</ThemedText>
+            </View>
+            <View style={[styles.conditionBadge, { 
+              backgroundColor: `${getConditionColor(resource.condition)}20`,
+              borderColor: getConditionColor(resource.condition)
+            }]}>
+              <View style={[styles.conditionDot, { backgroundColor: getConditionColor(resource.condition) }]} />
+              <ThemedText style={[styles.conditionText, { color: getConditionColor(resource.condition) }]}>
+                {resource.condition.replace('_', ' ').charAt(0).toUpperCase() + resource.condition.replace('_', ' ').slice(1)}
+              </ThemedText>
+            </View>
+          </View>
+
+          <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.statusHeader}>
+              <Ionicons name="checkmark-circle" size={18} color={getStatusColor(resource.status)} />
+              <ThemedText style={[styles.statusLabel, { color: colors.text }]}>Status</ThemedText>
+            </View>
+            <View style={[styles.statusBadge, { 
+              backgroundColor: `${getStatusColor(resource.status)}20`,
+              borderColor: getStatusColor(resource.status)
+            }]}>
+              <View style={[styles.statusDot, { backgroundColor: getStatusColor(resource.status) }]} />
+              <ThemedText style={[styles.statusText, { color: getStatusColor(resource.status) }]}>
+                {resource.status.charAt(0).toUpperCase() + resource.status.slice(1)}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* Tags */}
+        {resource.tags.length > 0 && (
+          <View style={[styles.tagsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.tagsHeader}>
+              <Ionicons name="pricetag" size={20} color={colors.primary} />
+              <ThemedText style={[styles.tagsTitle, { color: colors.text }]}>Tags</ThemedText>
+            </View>
+            <View style={styles.tagsContainer}>
+              {resource.tags.map((tag, index) => (
+                <View key={index} style={[styles.tag, { backgroundColor: `${colors.primary}15`, borderColor: colors.primary }]}>
+                  <Ionicons name="pricetag" size={12} color={colors.primary} />
+                  <ThemedText style={[styles.tagText, { color: colors.primary }]}>{tag}</ThemedText>
                 </View>
-              </>
-            )}
-
-            {/* Maintenance Section */}
-            <SectionHeader icon="construct" title="Maintenance" />
-            <View style={[styles.section, { backgroundColor: colors.surface }]}>
-              {resource.lastMaintenance ? (
-                <DetailRow
-                  label="Last Maintenance"
-                  value={resource.lastMaintenance ? new Date(resource.lastMaintenance).toLocaleDateString() : 'Never'}
-                />
-              ) : (
-                <EmptyState text="No maintenance records" />
-              )}
-              {resource.nextMaintenance && (
-                <DetailRow
-                  label="Next Maintenance"
-                  value={resource.nextMaintenance ? new Date(resource.nextMaintenance).toLocaleDateString() : 'Not scheduled'}
-                />
-              )}
+              ))}
             </View>
-          </>
+          </View>
+        )}
+
+        {/* Resource Images */}
+        {resource.images && resource.images.length > 0 && (
+          <View style={[styles.imagesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.imagesHeader}>
+              <Ionicons name="images" size={20} color={colors.primary} />
+              <ThemedText style={[styles.imagesTitle, { color: colors.text }]}>
+                Resource Images ({resource.images.length})
+              </ThemedText>
+            </View>
+            <View style={styles.imagesGrid}>
+              {resource.images.map((imageUri, index) => (
+                <View 
+                  key={index} 
+                  style={[
+                    styles.imageItem, 
+                    { 
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    }
+                  ]}
+                >
+                  <Image 
+                    source={{ uri: imageUri }} 
+                    style={styles.image}
+                    resizeMode="cover"
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
         )}
       </View>
     </ScrollView>
   );
 }
 
-interface SectionHeaderProps {
+interface StatCardProps {
   icon: string;
-  title: string;
-}
-
-function SectionHeader({ icon, title }: SectionHeaderProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  return (
-    <View style={styles.sectionHeader}>
-      <Ionicons name={icon as any} size={18} color={colors.primary} />
-      <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>{title}</ThemedText>
-    </View>
-  );
-}
-
-interface DetailRowProps {
   label: string;
-  value: string;
-}
-
-function DetailRow({ label, value }: DetailRowProps) {
-  return (
-    <View style={styles.detailRow}>
-      <ThemedText style={styles.detailLabel}>{label}</ThemedText>
-      <ThemedText style={styles.detailValue}>{value}</ThemedText>
-    </View>
-  );
-}
-
-interface EmptyStateProps {
-  text: string;
-}
-
-function EmptyState({ text }: EmptyStateProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  return (
-    <View style={styles.emptyState}>
-      <Ionicons name="information-circle-outline" size={16} color={colors.text} style={{ opacity: 0.5 }} />
-      <ThemedText style={[styles.emptyText, { color: colors.text }]}>{text}</ThemedText>
-    </View>
-  );
-}
-
-interface QuantityDisplayProps {
-  totalQuantity: number;
-  availableQuantity: number;
-  availabilityPercentage: number;
-}
-
-function QuantityDisplay({ totalQuantity, availableQuantity, availabilityPercentage }: QuantityDisplayProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  return (
-    <>
-      <View style={styles.quantityContainer}>
-        <QuantityItem 
-          value={totalQuantity} 
-          label="Total" 
-          icon="cube-outline"
-          color={colors.text}
-        />
-        <QuantityItem 
-          value={availableQuantity} 
-          label="Available" 
-          icon="checkmark-circle-outline"
-          color={colors.success}
-        />
-        <QuantityItem 
-          value={totalQuantity - availableQuantity} 
-          label="In Use" 
-          icon="people-outline"
-          color={colors.warning}
-        />
-      </View>
-      
-      <View style={styles.availabilityContainer}>
-        <View style={styles.availabilityHeader}>
-          <ThemedText style={styles.availabilityLabel}>Availability</ThemedText>
-          <ThemedText style={[styles.availabilityPercentage, { 
-            color: availabilityPercentage > 30 ? colors.success : colors.warning 
-          }]}>
-            {availabilityPercentage.toFixed(0)}%
-          </ThemedText>
-        </View>
-        <View style={[styles.availabilityTrack, { backgroundColor: colors.border }]}>
-          <View 
-            style={[
-              styles.availabilityBar, 
-              { 
-                backgroundColor: availabilityPercentage > 30 ? colors.success : colors.warning,
-                width: `${availabilityPercentage}%` 
-              }
-            ]} 
-          />
-        </View>
-      </View>
-    </>
-  );
-}
-
-interface QuantityItemProps {
-  value: number;
-  label: string;
-  icon: string;
+  value: number | string;
   color: string;
+  backgroundColor: string;
 }
 
-function QuantityItem({ value, label, icon, color }: QuantityItemProps) {
+function StatCard({ icon, label, value, color, backgroundColor }: StatCardProps) {
   return (
-    <View style={styles.quantityItem}>
-      <View style={[styles.quantityIconContainer, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon as any} size={16} color={color} />
+    <View style={[styles.statCard, { backgroundColor }]}>
+      <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
+        <Ionicons name={icon as any} size={20} color={color} />
       </View>
-      <ThemedText style={[styles.quantityValue, { color }]}>{value}</ThemedText>
-      <ThemedText style={styles.quantityLabel}>{label}</ThemedText>
-    </View>
-  );
-}
-
-interface StatusBadgeProps {
-  label: string;
-  value: string;
-  color: string;
-}
-
-function StatusBadge({ label, value, color }: StatusBadgeProps) {
-  return (
-    <View style={styles.statusRow}>
-      <ThemedText style={styles.statusLabel}>{label}</ThemedText>
-      <View style={[styles.statusBadge, { backgroundColor: `${color}20`, borderColor: color }]}>
-        <View style={[styles.statusIndicator, { backgroundColor: color }]} />
-        <ThemedText style={[styles.statusText, { color }]}>
-          {value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1)}
-        </ThemedText>
-      </View>
-    </View>
-  );
-}
-
-interface TagsDisplayProps {
-  tags: string[];
-}
-
-function TagsDisplay({ tags }: TagsDisplayProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  return (
-    <View style={styles.tagsContainer}>
-      {tags.map((tag, index) => (
-        <View key={index} style={[styles.tag, { backgroundColor: `${colors.primary}15`, borderColor: colors.primary }]}>
-          <Ionicons name="pricetag" size={12} color={colors.primary} style={styles.tagIcon} />
-          <ThemedText style={[styles.tagText, { color: colors.primary }]}>{tag}</ThemedText>
-        </View>
-      ))}
+      <ThemedText style={[styles.statValue, { color }]}>{value}</ThemedText>
+      <ThemedText style={styles.statLabel}>{label}</ThemedText>
     </View>
   );
 }
@@ -343,232 +298,567 @@ function TagsDisplay({ tags }: TagsDisplayProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 16,
+    ...Platform.select({
+      web: {
+        padding: 24,
+      },
+    }),
   },
   contentWrapper: {
     flex: 1,
   },
   webContentWrapper: {
-    maxWidth: 1200,
+    maxWidth: 1000,
     alignSelf: 'center',
     width: '100%',
   },
-  webTwoColumn: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: 8,
-  },
-  webColumn: {
-    flex: 1,
-  },
   
-  // Section header styles
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 8,
+  // Hero Card
+  heroCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
     ...Platform.select({
       web: {
-        marginTop: 24,
-        marginBottom: 12,
+        padding: 28,
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
       },
     }),
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    ...Platform.select({
-      web: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginLeft: 10,
-      },
-    }),
-  },
-  
-  // Section styles
-  section: {
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 8,
-    ...Platform.select({
-      web: {
-        padding: 20,
-        marginBottom: 16,
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-      },
-    }),
-  },
-  
-  // Detail row styles
-  detailRow: {
+  heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-    ...Platform.select({
-      web: {
-        marginBottom: 20,
-        paddingBottom: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-      },
-    }),
   },
-  detailLabel: {
-    fontSize: 14,
-    opacity: 0.6,
+  heroLeft: {
+    flexDirection: 'row',
     flex: 1,
-    fontWeight: '500',
+    marginRight: 16,
+  },
+  heroIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  heroTextContainer: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+    lineHeight: 30,
     ...Platform.select({
       web: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 28,
+        lineHeight: 34,
       },
     }),
   },
-  detailValue: {
-    fontSize: 14,
+  heroMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+  categoryText: {
+    fontSize: 13,
     fontWeight: '600',
-    flex: 2,
-    textAlign: 'right',
-    lineHeight: 20,
+    textTransform: 'capitalize',
+  },
+  locationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  locationText: {
+    fontSize: 13,
+    opacity: 0.7,
+  },
+  heroRight: {
+    alignItems: 'flex-end',
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  descriptionContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  descriptionText: {
+    fontSize: 15,
+    lineHeight: 22,
+    opacity: 0.8,
     ...Platform.select({
       web: {
-        fontSize: 15,
-        fontWeight: '700',
-        lineHeight: 22,
+        fontSize: 16,
+        lineHeight: 24,
       },
     }),
   },
   
-  // Quantity display styles
-  quantityContainer: {
+  // Stats Grid
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+    ...Platform.select({
+      web: {
+        gap: 16,
+        marginBottom: 24,
+      },
+    }),
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '47%',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        minWidth: '23%',
+        padding: 20,
+      },
+      default: {
+      },
+    }),
+  },
+  statIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+    ...Platform.select({
+      web: {
+        fontSize: 32,
+      },
+    }),
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.7,
+    textAlign: 'center',
+    ...Platform.select({
+      web: {
+        fontSize: 13,
+      },
+    }),
+  },
+  
+  // Progress Card
+  progressCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        padding: 24,
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+    }),
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  progressHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    ...Platform.select({
+      web: {
+        fontSize: 20,
+      },
+    }),
+  },
+  progressPercentage: {
+    fontSize: 24,
+    fontWeight: '700',
+    ...Platform.select({
+      web: {
+        fontSize: 28,
+      },
+    }),
+  },
+  progressTrack: {
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressBar: {
+    height: 12,
+    borderRadius: 6,
+  },
+  progressStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 20,
   },
-  quantityItem: {
+  progressStatItem: {
     alignItems: 'center',
-    flex: 1,
   },
-  quantityIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  quantityValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  quantityLabel: {
-    fontSize: 11,
-    opacity: 0.6,
-    textAlign: 'center',
-  },
-  
-  // Availability styles
-  availabilityContainer: {
-    marginTop: 12,
-  },
-  availabilityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  availabilityLabel: {
-    fontSize: 13,
+  progressStatLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 4,
     fontWeight: '500',
-    opacity: 0.6,
   },
-  availabilityPercentage: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  availabilityTrack: {
-    height: 6,
-    borderRadius: 3,
-  },
-  availabilityBar: {
-    height: 6,
-    borderRadius: 3,
+  progressStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    ...Platform.select({
+      web: {
+        fontSize: 20,
+      },
+    }),
   },
   
-  // Status badge styles
-  statusRow: {
+  // Condition & Status Row
+  conditionStatusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
+    ...Platform.select({
+      web: {
+        gap: 16,
+        marginBottom: 24,
+      },
+    }),
+  },
+  conditionCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
+      },
+    }),
+  },
+  conditionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    gap: 8,
+    marginBottom: 12,
+  },
+  conditionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    opacity: 0.7,
+    ...Platform.select({
+      web: {
+        fontSize: 15,
+      },
+    }),
+  },
+  conditionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  conditionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  conditionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    ...Platform.select({
+      web: {
+        fontSize: 15,
+      },
+    }),
+  },
+  statusCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
+      },
+    }),
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   statusLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    opacity: 0.6,
-    flex: 1,
+    fontWeight: '600',
+    opacity: 0.7,
+    ...Platform.select({
+      web: {
+        fontSize: 15,
+      },
+    }),
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-  },
-  statusIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    borderWidth: 1.5,
+    gap: 8,
+    alignSelf: 'flex-start',
   },
   
-  // Tags styles
+  // Tags Card
+  tagsCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        padding: 24,
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+    }),
+  },
+  tagsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  tagsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    ...Platform.select({
+      web: {
+        fontSize: 20,
+      },
+    }),
+  },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 10,
   },
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 12,
-  },
-  tagIcon: {
-    marginRight: 4,
+    borderWidth: 1.5,
+    gap: 6,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+      },
+    }),
   },
   tagText: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    ...Platform.select({
+      web: {
+        fontSize: 14,
+      },
+    }),
   },
   
-  // Empty state styles
-  emptyState: {
+  // Images Card
+  imagesCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        padding: 24,
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+    }),
+  },
+  imagesHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
+    gap: 10,
+    marginBottom: 16,
   },
-  emptyText: {
-    fontSize: 13,
-    opacity: 0.5,
-    marginLeft: 6,
-    fontStyle: 'italic',
+  imagesTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    ...Platform.select({
+      web: {
+        fontSize: 20,
+      },
+    }),
+  },
+  imagesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    ...Platform.select({
+      web: {
+        gap: 16,
+      },
+    }),
+  },
+  imageItem: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    aspectRatio: 1,
+    ...Platform.select({
+      web: {
+        width: '31%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      default: {
+        width: '47%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 2,
+      },
+    }),
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
 });

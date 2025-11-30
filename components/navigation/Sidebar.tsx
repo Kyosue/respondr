@@ -174,7 +174,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                       }
                     ]}
                   >
-                    {tab.label}
+                    {tab.id === 'sitrep' ? 'Situation Report' : tab.label}
                   </ThemedText>
                 )}
               </TouchableOpacity>

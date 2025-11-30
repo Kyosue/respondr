@@ -1,7 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
+  TouchableOpacity,
   View
 } from 'react-native';
 
@@ -30,8 +32,8 @@ import { useResourceFilters } from './hooks/useResourceFilters';
 import { useResourceSearch } from './hooks/useResourceSearch';
 import { ResourceActionsMenu } from './ResourceActions/ResourceActionsMenu';
 import { ResourceCard } from './ResourceCard/ResourceCard';
-import { ResourceHeader } from './ResourceHeader/ResourceHeader';
 import { ResourceSortOption } from './ResourceHeader/ResourceFilterPopover';
+import { ResourceHeader } from './ResourceHeader/ResourceHeader';
 import { ResourcesTable } from './ResourcesTable';
 import { styles } from './styles/Resources.styles';
 
@@ -63,6 +65,10 @@ export function Resources() {
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const [agencies, setAgencies] = useState<any[]>([]);
   const [loadingAgencies, setLoadingAgencies] = useState(false);
+  
+  // Pagination state for mobile
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Number of resources to load per page
   
   // Confirmation modal hook
   const confirmationModal = useConfirmationModal();
@@ -243,8 +249,14 @@ export function Resources() {
           return b.name.localeCompare(a.name);
         case 'recently-added':
           // Sort by creation date (newest first), ignoring any default grouping
-          const dateA = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt : a.createdAt.toDate?.() || new Date(0)) : new Date(0);
-          const dateB = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt : b.createdAt.toDate?.() || new Date(0)) : new Date(0);
+          const getDate = (dateValue: Date | any): Date => {
+            if (!dateValue) return new Date(0);
+            if (dateValue instanceof Date) return dateValue;
+            if (typeof dateValue.toDate === 'function') return dateValue.toDate();
+            return new Date(0);
+          };
+          const dateA = getDate(a.createdAt);
+          const dateB = getDate(b.createdAt);
           return dateB.getTime() - dateA.getTime();
         case 'default':
         default:
@@ -253,6 +265,20 @@ export function Resources() {
       }
     });
   }, [getFilteredResources, sortOption]);
+
+  // Paginated resources for mobile
+  const paginatedResources = useMemo(() => {
+    if (isWeb) return filteredResources;
+    return filteredResources.slice(0, currentPage * itemsPerPage);
+  }, [filteredResources, currentPage, itemsPerPage, isWeb]);
+
+  const hasMoreResources = !isWeb && filteredResources.length > paginatedResources.length;
+  const totalPages = Math.ceil(filteredResources.length / itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedAgency, selectedResourceType, selectedStatus, selectedCondition, searchQuery, sortOption]);
 
   const renderResourceList = () => {
     if (state.loading) {
@@ -290,21 +316,44 @@ export function Resources() {
     }
 
     return (
-      <View style={styles.resourcesContainer}>
-        {filteredResources.map((resource: Resource) => (
-          <ResourceCard
-            key={resource.id}
-            resource={resource}
-            onPress={handleResourcePress}
-            onEdit={canEditResources ? handleEditResource : () => {}}
-            onDelete={canDeleteResources ? handleDelete : () => {}}
-            onBorrow={handleBorrowResource}
-            onReturn={handleReturnResource}
-            isActionsMenuOpen={openActionsMenuId === resource.id}
-            onActionsMenuToggle={handleActionsMenuToggleWithResource}
-          />
-        ))}
-      </View>
+      <>
+        <View style={styles.resourcesContainer}>
+          {paginatedResources.map((resource: Resource) => (
+            <ResourceCard
+              key={resource.id}
+              resource={resource}
+              onPress={handleResourcePress}
+              onEdit={canEditResources ? handleEditResource : () => {}}
+              onDelete={canDeleteResources ? handleDelete : () => {}}
+              onBorrow={handleBorrowResource}
+              onReturn={handleReturnResource}
+              isActionsMenuOpen={openActionsMenuId === resource.id}
+              onActionsMenuToggle={handleActionsMenuToggleWithResource}
+            />
+          ))}
+        </View>
+        {hasMoreResources && (
+          <View style={styles.loadMoreContainer}>
+            <TouchableOpacity
+              style={[styles.loadMoreButton, { backgroundColor: 'white', borderColor: colors.border }]}
+              onPress={() => setCurrentPage(prev => prev + 1)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-down" size={20} color="#black" />
+              <ThemedText style={styles.loadMoreText}>
+                Load More ({paginatedResources.length} of {filteredResources.length})
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
+        {!hasMoreResources && paginatedResources.length > 0 && (
+          <View style={styles.endOfListContainer}>
+            <ThemedText style={[styles.endOfListText, { color: colors.text }]}>
+              Showing all {filteredResources.length} resource{filteredResources.length !== 1 ? 's' : ''}
+            </ThemedText>
+          </View>
+        )}
+      </>
     );
   };
 

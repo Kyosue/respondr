@@ -163,10 +163,9 @@ export class MemoService {
       title: string;
       description?: string;
       uploadedBy: string;
-      memoNumber: string;
+      memoNumber?: string;
       issuingAgency: string;
       agencyLevel: 'national' | 'regional' | 'provincial' | 'municipal' | 'barangay';
-      documentType: 'memorandum' | 'circular' | 'advisory' | 'directive' | 'executive-order' | 'ordinance' | 'policy';
       effectiveDate: Date;
       expirationDate?: Date;
       priority: 'urgent' | 'high' | 'normal' | 'low';
@@ -243,10 +242,8 @@ export class MemoService {
                 uploadedBy: metadata.uploadedBy,
                 
                 // Memo-specific fields
-                memoNumber: metadata.memoNumber,
                 issuingAgency: metadata.issuingAgency,
                 agencyLevel: metadata.agencyLevel,
-                documentType: metadata.documentType,
                 effectiveDate: metadata.effectiveDate,
                 priority: metadata.priority,
                 distributionList: metadata.distributionList || [],
@@ -260,6 +257,11 @@ export class MemoService {
               // Only add optional fields if they have values
               if (metadata.description) {
                 firestoreData.description = metadata.description;
+              }
+
+              // Only add memoNumber if it exists (Firestore doesn't support undefined)
+              if (metadata.memoNumber) {
+                firestoreData.memoNumber = metadata.memoNumber;
               }
 
               // Only add expirationDate if it exists (Firestore doesn't support undefined)
@@ -369,10 +371,10 @@ export class MemoService {
       uploadedAt: safeDateConvert(data.uploadedAt),
       lastModified: safeDateConvert(data.lastModified),
       
-      memoNumber: data.memoNumber || '',
+      memoNumber: data.memoNumber,
       issuingAgency: data.issuingAgency || '',
       agencyLevel: data.agencyLevel || 'national',
-      documentType: data.documentType || 'memorandum',
+      documentType: data.documentType,
       effectiveDate: safeDateConvert(data.effectiveDate),
       expirationDate: data.expirationDate ? safeDateConvert(data.expirationDate) : undefined,
       priority: data.priority || 'normal',
@@ -413,9 +415,6 @@ export class MemoService {
       if (filters) {
         if (filters.agencyLevel) {
           constraints.push(where('agencyLevel', '==', filters.agencyLevel));
-        }
-        if (filters.documentType) {
-          constraints.push(where('documentType', '==', filters.documentType));
         }
         if (filters.issuingAgency) {
           constraints.push(where('issuingAgency', '==', filters.issuingAgency));

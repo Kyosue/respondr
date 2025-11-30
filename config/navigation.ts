@@ -17,8 +17,8 @@ const ALL_MENU_ITEMS = [
   },
   {
     id: 'reports',
-    title: 'Reports',
-    icon: 'bar-chart-outline',
+    title: 'Documents',
+    icon: 'document-text-outline',
     requiredRole: ['admin', 'supervisor', 'operator'] as UserType[],
   },
   {
@@ -64,7 +64,7 @@ export const BOTTOM_TABS = [
   },
   {
     id: 'sitrep',
-    label: 'Sit Rep',
-    icon: 'document-text-outline',
+    label: 'SitRep',
+    icon: 'reader-outline',
   },
 ];

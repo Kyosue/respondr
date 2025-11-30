@@ -5,12 +5,10 @@ import {
   Animated,
   Image,
   Modal,
-  Platform,
   ScrollView,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -26,6 +24,7 @@ import { Resource, ResourceTransaction } from '@/types/Resource';
 import { getModalConfig } from '@/utils/modalUtils';
 import { BorrowerForm, BorrowerInfo } from './BorrowerForm';
 import { ResourceItem, ResourceItemRow } from './ResourceItemRow';
+import { styles } from './SmartBorrowModal.styles';
 
 interface SmartBorrowModalProps {
   // For single resource borrowing
@@ -70,31 +69,21 @@ export function SmartBorrowModal({
   const [loading, setLoading] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<ResourceTransaction | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Step state: 1 = borrower form, 2 = select resources, 3 = review selected resources (only for borrow mode)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   
   // Search and filtering state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'available'>('name');
   const [showSearchFilters, setShowSearchFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   // Hybrid RAMP hook
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
     visible,
     onClose: () => {
-      // Reset form data
-      setResourceItems([]);
-      setBorrowerInfo({
-        borrowerName: '',
-        borrowerContact: '',
-        borrowerDepartment: '',
-        borrowerPicture: null,
-      });
-      setSelectedTransaction(null);
-      setErrors({});
-      setSearchQuery('');
-      setSelectedCategory('all');
-      setSortBy('name');
-      setShowSearchFilters(false);
+      resetFormState();
       onClose();
     }
   });
@@ -149,20 +138,7 @@ export function SmartBorrowModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!visible) {
-      setResourceItems([]);
-      setBorrowerInfo({
-        borrowerName: '',
-        borrowerContact: '',
-        borrowerDepartment: '',
-        borrowerPicture: null,
-      });
-      setErrors({});
-      setSelectedTransaction(null);
-      // Reset refs
-      prevVisibleRef.current = false;
-      prevResourceRef.current = null;
-      prevModeRef.current = '';
-      prevSelectedResourcesRef.current = [];
+      resetFormState();
     }
   }, [visible]);
 
@@ -187,14 +163,25 @@ export function SmartBorrowModal({
     }
   }, [visible, resource, mode, getActiveTransactions, getUserTransactions]);
 
+  const validateBorrowerForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!borrowerInfo.borrowerName.trim()) {
+      newErrors.borrowerName = 'Borrower name is required';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (mode === 'borrow') {
+      // Validate borrower info
       if (!borrowerInfo.borrowerName.trim()) {
         newErrors.borrowerName = 'Borrower name is required';
       }
       
+      // Validate resources
       if (resourceItems.length === 0) {
         newErrors.resources = 'Please select at least one resource';
       }
@@ -211,6 +198,37 @@ export function SmartBorrowModal({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (validateBorrowerForm()) {
+        // For single resource mode, skip step 2 and go directly to step 3
+        if (isSingleResource) {
+          setCurrentStep(3);
+        } else {
+          setCurrentStep(2);
+        }
+        setErrors({}); // Clear errors when moving to next step
+      }
+    } else if (currentStep === 2) {
+      // Move to review selected resources step
+      if (resourceItems.length === 0) {
+        Alert.alert('No Resources Selected', 'Please select at least one resource to continue.');
+        return;
+      }
+      setCurrentStep(3);
+      setErrors({});
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+    } else if (currentStep === 3) {
+      setCurrentStep(2);
+    }
+    setErrors({});
   };
 
   const handleSubmit = async () => {
@@ -287,6 +305,30 @@ export function SmartBorrowModal({
   };
 
   const handleClose = rampHandleClose;
+
+  // Reset all form state
+  const resetFormState = () => {
+    setResourceItems([]);
+    setBorrowerInfo({
+      borrowerName: '',
+      borrowerContact: '',
+      borrowerDepartment: '',
+      borrowerPicture: null,
+    });
+    setSelectedTransaction(null);
+    setErrors({});
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setSortBy('name');
+    setShowSearchFilters(false);
+    setCurrentStep(1); // Reset to first step
+    setViewMode('card');
+    // Reset refs
+    prevVisibleRef.current = false;
+    prevResourceRef.current = null;
+    prevModeRef.current = '';
+    prevSelectedResourcesRef.current = [];
+  };
 
   const addResource = (resource: Resource) => {
     // Check against the actual state
@@ -379,6 +421,695 @@ export function SmartBorrowModal({
     }
   };
 
+  // Render modal content (shared between web and mobile)
+  const renderModalContent = () => {
+    // For borrow mode, show step-based flow
+    if (mode === 'borrow') {
+    return (
+        <View style={styles.mobileContentContainer}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+              <Ionicons name="close" size={20} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <ThemedText type="subtitle" style={styles.title}>
+                  {currentStep === 1 
+                    ? 'Borrower Information'
+                    : currentStep === 2
+                    ? 'Select Resources'
+                    : 'Review Selection'
+                }
+              </ThemedText>
+                {/* Step indicator */}
+                <View style={styles.stepIndicator}>
+                  <View style={[styles.stepDot, currentStep >= 1 && styles.stepDotActive, { backgroundColor: currentStep >= 1 ? colors.primary : colors.border }]} />
+                  <View style={[styles.stepLine, { backgroundColor: (currentStep >= 2 && isMultiResource) || currentStep >= 3 ? colors.primary : colors.border }]} />
+                  {isMultiResource && (
+                    <>
+                      <View style={[styles.stepDot, currentStep >= 2 && styles.stepDotActive, { backgroundColor: currentStep >= 2 ? colors.primary : colors.border }]} />
+                      <View style={[styles.stepLine, { backgroundColor: currentStep >= 3 ? colors.primary : colors.border }]} />
+                    </>
+                  )}
+                  <View style={[styles.stepDot, currentStep >= 3 && styles.stepDotActive, { backgroundColor: currentStep >= 3 ? colors.primary : colors.border }]} />
+                </View>
+                {currentStep === 2 && (
+                  <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                    {resourceItems.length > 0 
+                      ? `${resourceItems.length} selected - Tap to add more`
+                      : 'Browse and select resources to borrow'
+                    }
+                  </ThemedText>
+                )}
+                {currentStep === 3 && (
+                <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                  {resourceItems.length} resource{resourceItems.length !== 1 ? 's' : ''} selected
+                </ThemedText>
+              )}
+            </View>
+          </View>
+        </View>
+
+          {currentStep === 2 ? (
+            // Step 2: Use View wrapper instead of ScrollView to prevent nested scroll conflicts
+            <View style={styles.step2Wrapper}>
+              {/* Resource Information - Only for single resource mode */}
+          {isSingleResource && (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Resource Information</ThemedText>
+              <View style={[styles.resourceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.resourceHeader}>
+                  <View style={styles.resourceImageContainer}>
+                    {resource.images && resource.images.length > 0 ? (
+                      <Image 
+                        source={{ uri: resource.images[0] }} 
+                        style={styles.resourceImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                        <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.resourceDetails}>
+                    <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
+                    <View style={styles.resourceCategoryContainer}>
+                      <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
+                      <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
+                        {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.resourceDescription} numberOfLines={2}>
+                      {resource.description}
+                    </ThemedText>
+                  </View>
+                </View>
+                
+                <View style={[styles.availabilityInfo, { backgroundColor: colors.background }]}>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.success + '20' }]}>
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Available</ThemedText>
+                      <ThemedText style={[styles.availabilityValue, { color: colors.success }]}>
+                        {resource.availableQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.primary + '20' }]}>
+                      <Ionicons name="cube" size={16} color={colors.primary} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Total</ThemedText>
+                      <ThemedText style={styles.availabilityValue}>
+                        {resource.totalQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+              {/* Available Resources Section - Only for multi-resource mode */}
+              {isMultiResource && (
+            <View style={styles.section}>
+                  <View style={styles.resourcesHeader}>
+                    <View style={styles.resourcesHeaderLeft}>
+                      <Ionicons name="cube-outline" size={20} color={colors.primary} />
+                      <ThemedText style={styles.addResourcesTitle}>
+                        Available Resources
+                  </ThemedText>
+                </View>
+                    <View style={styles.resourcesHeaderRight}>
+                      <View style={[styles.viewModeToggle, { borderColor: colors.border }]}>
+                  <TouchableOpacity
+                          onPress={() => setViewMode('card')}
+                          style={[
+                            styles.viewModeButton,
+                            styles.viewModeButtonLeft,
+                            {
+                              backgroundColor: viewMode === 'card' ? colors.primary : colors.surface,
+                              borderColor: colors.border,
+                            }
+                          ]}
+                          activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                            name="grid" 
+                            size={16} 
+                            color={viewMode === 'card' ? "#fff" : colors.text} 
+                          />
+                  </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setViewMode('list')}
+                          style={[
+                            styles.viewModeButton,
+                            styles.viewModeButtonRight,
+                            {
+                              backgroundColor: viewMode === 'list' ? colors.primary : colors.surface,
+                              borderColor: colors.border,
+                            }
+                          ]}
+                          activeOpacity={0.7}
+                            >
+                          <Ionicons 
+                            name="list" 
+                            size={16} 
+                            color={viewMode === 'list' ? "#fff" : colors.text} 
+                          />
+                            </TouchableOpacity>
+                          </View>
+                    <TouchableOpacity
+                      onPress={() => setShowSearchFilters(!showSearchFilters)}
+                        style={[
+                          styles.filterButton, 
+                          { 
+                            backgroundColor: showSearchFilters ? colors.primary : colors.surface,
+                            borderColor: colors.border,
+                            borderWidth: showSearchFilters ? 0 : 1,
+                          }
+                        ]}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons 
+                          name={showSearchFilters ? "filter" : "filter-outline"} 
+                          size={16} 
+                          color={showSearchFilters ? "#fff" : colors.text} 
+                        />
+                        <ThemedText style={[
+                          styles.filterButtonText,
+                          { color: showSearchFilters ? "#fff" : colors.text }
+                        ]}>
+                          {showSearchFilters ? 'Hide Filters' : 'Filter'}
+                        </ThemedText>
+                    </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Search and Filter Controls */}
+                  {showSearchFilters && (
+                    <View style={[styles.searchFiltersContainer, { backgroundColor: colors.surface }]}>
+                      {/* Search Input */}
+                      <View style={styles.searchInputContainer}>
+                        <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
+                        <TextInput
+                          style={[styles.searchInput, { 
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                            color: colors.text 
+                          }]}
+                          value={searchQuery}
+                          onChangeText={setSearchQuery}
+                          placeholder="Search resources..."
+                          placeholderTextColor={colors.text + '80'}
+                        />
+                        {searchQuery.length > 0 && (
+                          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                            <Ionicons name="close-circle" size={20} color={colors.text} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {/* Category Filter */}
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+                        {availableCategories.map((category) => (
+                          <TouchableOpacity
+                            key={category}
+                            onPress={() => setSelectedCategory(category)}
+                            style={[
+                              styles.categoryChip,
+                              { 
+                                backgroundColor: selectedCategory === category ? colors.primary : colors.background,
+                                borderColor: colors.border 
+                              }
+                            ]}
+                          >
+                            <ThemedText style={[
+                              styles.categoryChipText,
+                              { color: selectedCategory === category ? '#fff' : colors.text }
+                            ]}>
+                              {category === 'all' ? 'All' : category.charAt(0).toUpperCase() + category.slice(1)}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+
+                      {/* Sort Options */}
+                      <View style={styles.sortContainer}>
+                        <ThemedText style={styles.sortLabel}>Sort by:</ThemedText>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
+                          {[
+                            { key: 'name', label: 'Name' },
+                            { key: 'category', label: 'Category' },
+                            { key: 'available', label: 'Available' }
+                          ].map((option) => (
+                            <TouchableOpacity
+                              key={option.key}
+                              onPress={() => setSortBy(option.key as any)}
+                              style={[
+                                styles.sortChip,
+                                { 
+                                  backgroundColor: sortBy === option.key ? colors.primary : colors.background,
+                                  borderColor: colors.border 
+                                }
+                              ]}
+                            >
+                              <ThemedText style={[
+                                styles.sortChipText,
+                                { color: sortBy === option.key ? '#fff' : colors.text }
+                              ]}>
+                                {option.label}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Resources Grid - Scrollable */}
+                  <View style={styles.resourcesScrollContainer}>
+                  <ScrollView 
+                      showsVerticalScrollIndicator={true}
+                    style={styles.resourcesScroll}
+                    contentContainerStyle={styles.resourcesGridContent}
+                  >
+                    {(() => {
+                      const availableResources = getFilteredAvailableResources()
+                        .filter(r => !resourceItems.some((item: ResourceItem) => item.resource.id === r.id));
+                      
+                      if (availableResources.length === 0) {
+                        return (
+                          <View style={styles.noResourcesContainer}>
+                            <Ionicons name="cube-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
+                            <ThemedText style={styles.noResourcesText}>
+                              {searchQuery || selectedCategory !== 'all' 
+                                ? 'No resources match your filters' 
+                                : 'No available resources'
+                              }
+                            </ThemedText>
+                            {(searchQuery || selectedCategory !== 'all') && (
+                              <TouchableOpacity
+                                onPress={() => {
+                                  setSearchQuery('');
+                                  setSelectedCategory('all');
+                                }}
+                                style={[styles.clearFiltersButton, { backgroundColor: colors.primary }]}
+                              >
+                                <ThemedText style={styles.clearFiltersText}>Clear Filters</ThemedText>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      }
+                      
+                      return viewMode === 'card' ? (
+                        <View style={styles.resourcesGrid}>
+                          {availableResources.map((availableResource) => (
+                            <TouchableOpacity
+                              key={availableResource.id}
+                              style={[styles.resourceGridCard, { 
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border,
+                                shadowColor: colors.text,
+                              }]}
+                              onPress={() => addResource(availableResource)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.resourceGridImageContainer}>
+                                {availableResource.images && availableResource.images.length > 0 ? (
+                                  <Image 
+                                    source={{ uri: availableResource.images[0] }} 
+                                    style={styles.resourceGridImage}
+                                    resizeMode="cover"
+                                  />
+                                ) : (
+                                  <View style={[styles.resourceGridIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={28} color={colors.primary} />
+                                  </View>
+                                )}
+                              </View>
+                              
+                              <View style={styles.resourceCardContent}>
+                              <ThemedText style={styles.resourceCardName} numberOfLines={2}>
+                                {availableResource.name}
+                              </ThemedText>
+                                
+                                <View style={styles.resourceCardMeta}>
+                                  <View style={[styles.resourceCategoryBadge, { backgroundColor: `${colors.primary}15` }]}>
+                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={12} color={colors.primary} />
+                                    <ThemedText style={[styles.resourceCategoryText, { color: colors.primary }]} numberOfLines={1}>
+                                      {availableResource.category.charAt(0).toUpperCase() + availableResource.category.slice(1)}
+                              </ThemedText>
+                                  </View>
+                                </View>
+                                
+                                <View style={styles.resourceAvailabilityContainer}>
+                                  <View style={[styles.availabilityBadge, { backgroundColor: colors.success + '15' }]}>
+                                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                                    <ThemedText style={[styles.resourceQuantity, { color: colors.success }]}>
+                                      {availableResource.availableQuantity} available
+                                    </ThemedText>
+                                  </View>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.resourcesList}>
+                          {availableResources.map((availableResource) => (
+                            <TouchableOpacity
+                              key={availableResource.id}
+                              style={[styles.resourceListItem, { 
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border,
+                              }]}
+                              onPress={() => addResource(availableResource)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.resourceListImageContainer}>
+                                {availableResource.images && availableResource.images.length > 0 ? (
+                                  <Image 
+                                    source={{ uri: availableResource.images[0] }} 
+                                    style={styles.resourceListImage}
+                                    resizeMode="cover"
+                                  />
+                                ) : (
+                                  <View style={[styles.resourceListIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={24} color={colors.primary} />
+                </View>
+              )}
+            </View>
+                              
+                              <View style={styles.resourceListContent}>
+                                <View style={styles.resourceListHeader}>
+                                  <ThemedText style={styles.resourceListItemName} numberOfLines={1}>
+                                    {availableResource.name}
+                  </ThemedText>
+                                  <View style={[styles.availabilityBadge, { backgroundColor: colors.success + '15' }]}>
+                                    <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                                    <ThemedText style={[styles.resourceQuantity, { color: colors.success }]}>
+                                      {availableResource.availableQuantity}
+                  </ThemedText>
+                </View>
+                  </View>
+                                
+                                <View style={styles.resourceListMeta}>
+                                  <View style={[styles.resourceCategoryBadge, { backgroundColor: `${colors.primary}15` }]}>
+                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={12} color={colors.primary} />
+                                    <ThemedText style={[styles.resourceCategoryText, { color: colors.primary }]} numberOfLines={1}>
+                                      {availableResource.category.charAt(0).toUpperCase() + availableResource.category.slice(1)}
+                    </ThemedText>
+                  </View>
+                                  {availableResource.description && (
+                                    <ThemedText style={[styles.resourceListDescription, { color: colors.text + '80' }]} numberOfLines={1}>
+                                      {availableResource.description}
+                                    </ThemedText>
+                )}
+              </View>
+            </View>
+                              
+                              <View style={styles.resourceListAction}>
+                                <Ionicons name="add-circle" size={24} color={colors.primary} />
+            </View>
+                            </TouchableOpacity>
+                          ))}
+          </View>
+                      );
+                    })()}
+                    </ScrollView>
+            </View>
+            </View>
+              )}
+          </View>
+          ) : (
+            // Step 1 and Step 3 - Use ScrollView for scrolling content
+            <ScrollView 
+              style={styles.content} 
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {currentStep === 1 ? (
+                // Step 1: Borrower Information
+                <BorrowerForm
+                  borrowerInfo={borrowerInfo}
+                  onBorrowerInfoChange={setBorrowerInfo}
+                  errors={errors}
+                  showImagePicker={true}
+                />
+              ) : (
+                // Step 3: Review Selected Resources
+                <>
+                {/* Resource Information - Only for single resource mode */}
+          {isSingleResource && (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Resource Information</ThemedText>
+              <View style={[styles.resourceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.resourceHeader}>
+                  <View style={styles.resourceImageContainer}>
+                    {resource.images && resource.images.length > 0 ? (
+                      <Image 
+                        source={{ uri: resource.images[0] }} 
+                        style={styles.resourceImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                        <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.resourceDetails}>
+                    <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
+                    <View style={styles.resourceCategoryContainer}>
+                      <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
+                      <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
+                        {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.resourceDescription} numberOfLines={2}>
+                      {resource.description}
+                    </ThemedText>
+                  </View>
+                </View>
+                
+                <View style={[styles.availabilityInfo, { backgroundColor: colors.background }]}>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.success + '20' }]}>
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Available</ThemedText>
+                      <ThemedText style={[styles.availabilityValue, { color: colors.success }]}>
+                        {resource.availableQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.primary + '20' }]}>
+                      <Ionicons name="cube" size={16} color={colors.primary} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Total</ThemedText>
+                      <ThemedText style={styles.availabilityValue}>
+                        {resource.totalQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+                {/* Selected Resources Review */}
+            <View style={styles.section}>
+                  <View style={styles.resourcesSectionHeader}>
+                    <View>
+                  <ThemedText style={styles.sectionTitle}>
+                    {isMultiResource 
+                          ? `Selected Resources (${resourceItems.length})` 
+                      : 'Borrow Details'
+                    }
+                  </ThemedText>
+                      {isMultiResource && (
+                        <ThemedText style={[styles.sectionSubtitle, { color: colors.text + '80' }]}>
+                          Review your selections and make any adjustments
+                    </ThemedText>
+                )}
+              </View>
+                </View>
+                  
+                  {resourceItems.map((item, index) => (
+                        <ResourceItemRow
+                      key={item.resource.id}
+                          item={item}
+                          onUpdate={(updatedItem) => updateResourceItem(index, updatedItem)}
+                          onRemove={() => removeResourceItem(index)}
+                          errors={{
+                            quantity: errors[`quantity_${index}`],
+                          }}
+                          showRemoveButton={isMultiResource}
+                        />
+                  ))}
+
+                  {isMultiResource && resourceItems.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setCurrentStep(2)}
+                      style={[styles.addMoreButton, { 
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border 
+                      }]}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                      <ThemedText style={[styles.addMoreButtonText, { color: colors.primary }]}>
+                        Add More Resources
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
+                  </View>
+              </>
+            )}
+          </ScrollView>
+          )}
+
+          {/* Footer with action buttons */}
+          <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+            {currentStep === 1 ? (
+              <View style={styles.footerButtonContainer}>
+                <FormButton
+                  title="Next"
+                  onPress={handleNext}
+                  variant="primary"
+                />
+                      </View>
+            ) : currentStep === 2 ? (
+              <View style={styles.footerButtonsRow}>
+                          <TouchableOpacity
+                  onPress={handleBack}
+                  style={[styles.backButton, { borderColor: colors.border }]}
+                >
+                  <Ionicons name="arrow-back" size={16} color={colors.text} />
+                  <ThemedText style={[styles.backButtonText, { color: colors.text }]}>Back</ThemedText>
+                          </TouchableOpacity>
+                <View style={styles.footerButtonContainer}>
+                  <FormButton
+                    title="Next"
+                    onPress={handleNext}
+                    variant="primary"
+                    disabled={resourceItems.length === 0}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.footerButtonsRow}>
+                            <TouchableOpacity
+                  onPress={handleBack}
+                  style={[styles.backButton, { borderColor: colors.border }]}
+                >
+                  <Ionicons name="arrow-back" size={16} color={colors.text} />
+                  <ThemedText style={[styles.backButtonText, { color: colors.text }]}>Back</ThemedText>
+                            </TouchableOpacity>
+                <View style={styles.footerButtonContainer}>
+                  <FormButton
+                    title={isMultiResource ? 'Borrow All' : 'Borrow Resource'}
+                    onPress={handleSubmit}
+                    variant="primary"
+                    disabled={loading || resourceItems.length === 0}
+                    loading={loading}
+                  />
+                      </View>
+                    </View>
+                  )}
+          </View>
+                          </View>
+                        );
+                      }
+                      
+    // Return mode - no steps, show return details directly
+                      return (
+      <View style={styles.mobileContentContainer}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+              <Ionicons name="close" size={20} color={colors.text} />
+                            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <ThemedText type="subtitle" style={styles.title}>
+                Return Resource
+              </ThemedText>
+                        </View>
+                </View>
+            </View>
+
+        <ScrollView 
+          style={styles.content} 
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Return Details */}
+          {selectedTransaction && (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Return Details</ThemedText>
+              
+              <View style={styles.transactionInfo}>
+                <View style={styles.transactionItem}>
+                  <ThemedText style={styles.transactionLabel}>Borrowed Quantity:</ThemedText>
+                  <ThemedText style={styles.transactionValue}>
+                    {selectedTransaction.quantity}
+                  </ThemedText>
+                </View>
+                <View style={styles.transactionItem}>
+                  <ThemedText style={styles.transactionLabel}>Borrowed Date:</ThemedText>
+                  <ThemedText style={styles.transactionValue}>
+                    {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString() : 'Unknown'}
+                  </ThemedText>
+                </View>
+                {selectedTransaction.dueDate && (
+                  <View style={styles.transactionItem}>
+                    <ThemedText style={styles.transactionLabel}>Due Date:</ThemedText>
+                    <ThemedText style={[
+                      styles.transactionValue,
+                      selectedTransaction.dueDate < new Date() && { color: colors.error }
+                    ]}>
+                      {selectedTransaction.dueDate ? new Date(selectedTransaction.dueDate).toLocaleDateString() : 'Unknown'}
+                    </ThemedText>
+                  </View>
+                )}
+                {selectedTransaction.notes && (
+                  <View style={styles.transactionItem}>
+                    <ThemedText style={styles.transactionLabel}>Original Notes:</ThemedText>
+                    <ThemedText style={styles.transactionValue}>
+                      {selectedTransaction.notes}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Footer with action button */}
+        <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+          <View style={styles.footerButtonContainer}>
+            <FormButton
+              title="Return Resource"
+              onPress={handleSubmit}
+              variant="success"
+              disabled={loading || !selectedTransaction}
+              loading={loading}
+            />
+            </View>
+          </View>
+      </View>
+    );
+  };
+
   if (!visible) return null;
 
   // Platform-specific modal rendering
@@ -409,365 +1140,7 @@ export function SmartBorrowModal({
             }
           ]}>
             <ThemedView style={styles.modalContent}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-              <Ionicons name="close" size={20} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <ThemedText type="subtitle" style={styles.title}>
-                {mode === 'borrow' 
-                  ? (isMultiResource ? 'Borrow Multiple Resources' : 'Borrow Single Resource')
-                  : 'Return Resource'
-                }
-              </ThemedText>
-              {isMultiResource && resourceItems.length > 0 && (
-                <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
-                  {resourceItems.length} resource{resourceItems.length !== 1 ? 's' : ''} selected
-                </ThemedText>
-              )}
-            </View>
-            <View style={styles.headerButton}>
-              <FormButton
-                title={mode === 'borrow' 
-                  ? (isMultiResource ? 'Borrow All' : 'Borrow Resource')
-                  : 'Return Resource'
-                }
-                onPress={handleSubmit}
-                variant={mode === 'borrow' ? 'primary' : 'success'}
-                disabled={loading || (mode === 'return' && !selectedTransaction)}
-                loading={loading}
-              />
-            </View>
-          </View>
-        </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Resource Information */}
-          {isSingleResource && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Resource Information</ThemedText>
-              <View style={[styles.resourceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={styles.resourceHeader}>
-                  <View style={styles.resourceImageContainer}>
-                    {resource.images && resource.images.length > 0 ? (
-                      <Image 
-                        source={{ uri: resource.images[0] }} 
-                        style={styles.resourceImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                        <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.resourceDetails}>
-                    <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
-                    <View style={styles.resourceCategoryContainer}>
-                      <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
-                      <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
-                        {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={styles.resourceDescription} numberOfLines={2}>
-                      {resource.description}
-                    </ThemedText>
-                  </View>
-                </View>
-                
-                <View style={[styles.availabilityInfo, { backgroundColor: colors.background }]}>
-                  <View style={styles.availabilityItem}>
-                    <View style={[styles.availabilityIcon, { backgroundColor: colors.success + '20' }]}>
-                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    </View>
-                    <View>
-                      <ThemedText style={styles.availabilityLabel}>Available</ThemedText>
-                      <ThemedText style={[styles.availabilityValue, { color: colors.success }]}>
-                        {resource.availableQuantity} units
-                      </ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.availabilityItem}>
-                    <View style={[styles.availabilityIcon, { backgroundColor: colors.primary + '20' }]}>
-                      <Ionicons name="cube" size={16} color={colors.primary} />
-                    </View>
-                    <View>
-                      <ThemedText style={styles.availabilityLabel}>Total</ThemedText>
-                      <ThemedText style={styles.availabilityValue}>
-                        {resource.totalQuantity} units
-                      </ThemedText>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Borrower Information - Only for borrow mode */}
-          {mode === 'borrow' && (
-            <BorrowerForm
-              borrowerInfo={borrowerInfo}
-              onBorrowerInfoChange={setBorrowerInfo}
-              errors={errors}
-              showImagePicker={true}
-            />
-          )}
-
-          {/* Resource Items - Only for borrow mode */}
-          {mode === 'borrow' && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
-                {isMultiResource 
-                  ? (resourceItems.length > 0 
-                      ? `Selected Resources (${resourceItems.length})` 
-                      : 'Select Resources to Borrow')
-                  : 'Borrow Details'
-                }
-              </ThemedText>
-              
-              {resourceItems.map((item, index) => (
-                <ResourceItemRow
-                  key={item.resource.id}
-                  item={item}
-                  onUpdate={(updatedItem) => updateResourceItem(index, updatedItem)}
-                  onRemove={() => removeResourceItem(index)}
-                  errors={{
-                    quantity: errors[`quantity_${index}`],
-                  }}
-                  showRemoveButton={isMultiResource}
-                />
-              ))}
-
-              {/* Add more resources button - Only in multi-resource mode */}
-              {isMultiResource && (
-                <View style={styles.addResourcesSection}>
-                  <View style={styles.resourcesHeader}>
-                    <ThemedText style={styles.addResourcesTitle}>
-                      {resourceItems.length > 0 ? 'Add More Resources' : 'Available Resources'}
-                    </ThemedText>
-                    <TouchableOpacity
-                      onPress={() => setShowSearchFilters(!showSearchFilters)}
-                      style={[styles.filterButton, { backgroundColor: colors.primary }]}
-                    >
-                      <Ionicons name="filter" size={16} color="#fff" />
-                      <ThemedText style={styles.filterButtonText}>Filter</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Search and Filter Controls */}
-                  {showSearchFilters && (
-                    <View style={[styles.searchFiltersContainer, { backgroundColor: colors.surface }]}>
-                      {/* Search Input */}
-                      <View style={styles.searchInputContainer}>
-                        <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
-                        <TextInput
-                          style={[styles.searchInput, { 
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
-                            color: colors.text 
-                          }]}
-                          value={searchQuery}
-                          onChangeText={setSearchQuery}
-                          placeholder="Search resources..."
-                          placeholderTextColor={colors.text + '80'}
-                        />
-                        {searchQuery.length > 0 && (
-                          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                            <Ionicons name="close-circle" size={20} color={colors.text} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-
-                      {/* Category Filter */}
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                        {availableCategories.map((category) => (
-                          <TouchableOpacity
-                            key={category}
-                            onPress={() => setSelectedCategory(category)}
-                            style={[
-                              styles.categoryChip,
-                              { 
-                                backgroundColor: selectedCategory === category ? colors.primary : colors.background,
-                                borderColor: colors.border 
-                              }
-                            ]}
-                          >
-                            <ThemedText style={[
-                              styles.categoryChipText,
-                              { color: selectedCategory === category ? '#fff' : colors.text }
-                            ]}>
-                              {category === 'all' ? 'All' : category.charAt(0).toUpperCase() + category.slice(1)}
-                            </ThemedText>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-
-                      {/* Sort Options */}
-                      <View style={styles.sortContainer}>
-                        <ThemedText style={styles.sortLabel}>Sort by:</ThemedText>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
-                          {[
-                            { key: 'name', label: 'Name' },
-                            { key: 'category', label: 'Category' },
-                            { key: 'available', label: 'Available' }
-                          ].map((option) => (
-                            <TouchableOpacity
-                              key={option.key}
-                              onPress={() => setSortBy(option.key as any)}
-                              style={[
-                                styles.sortChip,
-                                { 
-                                  backgroundColor: sortBy === option.key ? colors.primary : colors.background,
-                                  borderColor: colors.border 
-                                }
-                              ]}
-                            >
-                              <ThemedText style={[
-                                styles.sortChipText,
-                                { color: sortBy === option.key ? '#fff' : colors.text }
-                              ]}>
-                                {option.label}
-                              </ThemedText>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Resources Grid */}
-                  <ScrollView 
-                    showsVerticalScrollIndicator={false} 
-                    style={styles.resourcesScroll}
-                    contentContainerStyle={styles.resourcesGridContent}
-                  >
-                    {(() => {
-                      const availableResources = getFilteredAvailableResources()
-                        .filter(r => !resourceItems.some((item: ResourceItem) => item.resource.id === r.id));
-                      
-                      if (availableResources.length === 0) {
-                        return (
-                          <View style={styles.noResourcesContainer}>
-                            <Ionicons name="cube-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
-                            <ThemedText style={styles.noResourcesText}>
-                              {searchQuery || selectedCategory !== 'all' 
-                                ? 'No resources match your filters' 
-                                : 'No available resources'
-                              }
-                            </ThemedText>
-                            {(searchQuery || selectedCategory !== 'all') && (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setSearchQuery('');
-                                  setSelectedCategory('all');
-                                }}
-                                style={[styles.clearFiltersButton, { backgroundColor: colors.primary }]}
-                              >
-                                <ThemedText style={styles.clearFiltersText}>Clear Filters</ThemedText>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        );
-                      }
-                      
-                      return (
-                        <View style={styles.resourcesGrid}>
-                          {availableResources.map((availableResource) => (
-                            <TouchableOpacity
-                              key={availableResource.id}
-                              style={[styles.resourceGridCard, { 
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border 
-                              }]}
-                              onPress={() => addResource(availableResource)}
-                            >
-                              <View style={styles.resourceGridImageContainer}>
-                                {availableResource.images && availableResource.images.length > 0 ? (
-                                  <Image 
-                                    source={{ uri: availableResource.images[0] }} 
-                                    style={styles.resourceGridImage}
-                                    resizeMode="cover"
-                                  />
-                                ) : (
-                                  <View style={[styles.resourceGridIconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={24} color={colors.primary} />
-                                  </View>
-                                )}
-                              </View>
-                              <ThemedText style={styles.resourceCardName} numberOfLines={2}>
-                                {availableResource.name}
-                              </ThemedText>
-                              <ThemedText style={styles.resourceQuantity}>
-                                Available: {availableResource.availableQuantity}
-                              </ThemedText>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      );
-                    })()}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Return Details - Only for return mode */}
-          {mode === 'return' && selectedTransaction && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Return Details</ThemedText>
-              
-              <View style={styles.transactionInfo}>
-                <View style={styles.transactionItem}>
-                  <ThemedText style={styles.transactionLabel}>Borrowed Quantity:</ThemedText>
-                  <ThemedText style={styles.transactionValue}>
-                    {selectedTransaction.quantity}
-                  </ThemedText>
-                </View>
-                <View style={styles.transactionItem}>
-                  <ThemedText style={styles.transactionLabel}>Borrowed Date:</ThemedText>
-                  <ThemedText style={styles.transactionValue}>
-                    {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString() : 'Unknown'}
-                  </ThemedText>
-                </View>
-                {selectedTransaction.dueDate && (
-                  <View style={styles.transactionItem}>
-                    <ThemedText style={styles.transactionLabel}>Due Date:</ThemedText>
-                    <ThemedText style={[
-                      styles.transactionValue,
-                      selectedTransaction.dueDate < new Date() && { color: colors.error }
-                    ]}>
-                      {selectedTransaction.dueDate ? new Date(selectedTransaction.dueDate).toLocaleDateString() : 'Unknown'}
-                    </ThemedText>
-                  </View>
-                )}
-                {selectedTransaction.notes && (
-                  <View style={styles.transactionItem}>
-                    <ThemedText style={styles.transactionLabel}>Original Notes:</ThemedText>
-                    <ThemedText style={styles.transactionValue}>
-                      {selectedTransaction.notes}
-                    </ThemedText>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-
-          {/* Terms & Conditions */}
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Terms & Conditions</ThemedText>
-            <View style={[styles.termsContainer, { backgroundColor: colors.surface }]}>
-              <ThemedText style={styles.termsText}>
-                • Resources must be returned in the same condition as borrowed{'\n'}
-                • Report any damage or issues immediately{'\n'}
-                • Late returns may result in restricted access{'\n'}
-                • Follow all safety protocols when using resources
-                {isMultiResource && '\n• Each resource may have different due dates'}
-              </ThemedText>
-            </View>
-          </View>
-        </ScrollView>
+              {renderModalContent()}
             </ThemedView>
           </Animated.View>
         </Animated.View>
@@ -781,828 +1154,13 @@ export function SmartBorrowModal({
       visible={visible}
       {...getMobileModalConfig()}
       onRequestClose={handleClose}
+      statusBarTranslucent={false}
     >
-      <MobileModalSafeAreaWrapper>
+      <MobileModalSafeAreaWrapper backgroundColor={colors.background}>
         <ThemedView style={styles.mobileContainer}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-              <Ionicons name="close" size={20} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <ThemedText type="subtitle" style={styles.title}>
-                {mode === 'borrow' 
-                  ? (isMultiResource ? 'Borrow Multiple Resources' : 'Borrow Single Resource')
-                  : 'Return Resource'
-                }
-              </ThemedText>
-              {isMultiResource && resourceItems.length > 0 && (
-                <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
-                  {resourceItems.length} resource{resourceItems.length !== 1 ? 's' : ''} selected
-                </ThemedText>
-              )}
-            </View>
-            <View style={styles.headerButton}>
-              <FormButton
-                title={mode === 'borrow' 
-                  ? (isMultiResource ? 'Borrow All' : 'Borrow Resource')
-                  : 'Return Resource'
-                }
-                onPress={handleSubmit}
-                variant={mode === 'borrow' ? 'primary' : 'success'}
-                disabled={loading || (mode === 'return' && !selectedTransaction)}
-                loading={loading}
-              />
-            </View>
-          </View>
-        </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Resource Information */}
-          {isSingleResource && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Resource Information</ThemedText>
-              <View style={[styles.resourceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={styles.resourceHeader}>
-                  <View style={styles.resourceImageContainer}>
-                    {resource.images && resource.images.length > 0 ? (
-                      <Image 
-                        source={{ uri: resource.images[0] }} 
-                        style={styles.resourceImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                        <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.resourceDetails}>
-                    <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
-                    <View style={styles.resourceCategoryContainer}>
-                      <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
-                      <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
-                        {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={styles.resourceDescription} numberOfLines={2}>
-                      {resource.description}
-                    </ThemedText>
-                  </View>
-                </View>
-                
-                <View style={[styles.availabilityInfo, { backgroundColor: colors.background }]}>
-                  <View style={styles.availabilityItem}>
-                    <View style={[styles.availabilityIcon, { backgroundColor: colors.success + '20' }]}>
-                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    </View>
-                    <View>
-                      <ThemedText style={styles.availabilityLabel}>Available</ThemedText>
-                      <ThemedText style={[styles.availabilityValue, { color: colors.success }]}>
-                        {resource.availableQuantity} units
-                      </ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.availabilityItem}>
-                    <View style={[styles.availabilityIcon, { backgroundColor: colors.primary + '20' }]}>
-                      <Ionicons name="cube" size={16} color={colors.primary} />
-                    </View>
-                    <View>
-                      <ThemedText style={styles.availabilityLabel}>Total</ThemedText>
-                      <ThemedText style={styles.availabilityValue}>
-                        {resource.totalQuantity} units
-                      </ThemedText>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Borrower Information - Only for borrow mode */}
-          {mode === 'borrow' && (
-            <BorrowerForm
-              borrowerInfo={borrowerInfo}
-              onBorrowerInfoChange={setBorrowerInfo}
-              errors={errors}
-              showImagePicker={true}
-            />
-          )}
-
-          {/* Resource Items - Only for borrow mode */}
-          {mode === 'borrow' && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
-                {isMultiResource 
-                  ? (resourceItems.length > 0 
-                      ? `Selected Resources (${resourceItems.length})` 
-                      : 'Select Resources to Borrow')
-                  : 'Borrow Details'
-                }
-              </ThemedText>
-              
-              {resourceItems.map((item, index) => (
-                <ResourceItemRow
-                  key={item.resource.id}
-                  item={item}
-                  onUpdate={(updatedItem) => updateResourceItem(index, updatedItem)}
-                  onRemove={() => removeResourceItem(index)}
-                  errors={{
-                    quantity: errors[`quantity_${index}`],
-                  }}
-                  showRemoveButton={isMultiResource}
-                />
-              ))}
-
-              {/* Add more resources button - Only in multi-resource mode */}
-              {isMultiResource && (
-                <View style={styles.addResourcesSection}>
-                  <View style={styles.resourcesHeader}>
-                    <ThemedText style={styles.addResourcesTitle}>
-                      {resourceItems.length > 0 ? 'Add More Resources' : 'Available Resources'}
-                    </ThemedText>
-                    <TouchableOpacity
-                      onPress={() => setShowSearchFilters(!showSearchFilters)}
-                      style={[styles.filterButton, { backgroundColor: colors.primary }]}
-                    >
-                      <Ionicons name="filter" size={16} color="#fff" />
-                      <ThemedText style={styles.filterButtonText}>Filter</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Search and Filter Controls */}
-                  {showSearchFilters && (
-                    <View style={[styles.searchFiltersContainer, { backgroundColor: colors.surface }]}>
-                      {/* Search Input */}
-                      <View style={styles.searchInputContainer}>
-                        <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
-                        <TextInput
-                          style={[styles.searchInput, { 
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
-                            color: colors.text 
-                          }]}
-                          value={searchQuery}
-                          onChangeText={setSearchQuery}
-                          placeholder="Search resources..."
-                          placeholderTextColor={colors.text + '80'}
-                        />
-                        {searchQuery.length > 0 && (
-                          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                            <Ionicons name="close-circle" size={20} color={colors.text} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-
-                      {/* Category Filter */}
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                        {availableCategories.map((category) => (
-                          <TouchableOpacity
-                            key={category}
-                            onPress={() => setSelectedCategory(category)}
-                            style={[
-                              styles.categoryChip,
-                              { 
-                                backgroundColor: selectedCategory === category ? colors.primary : colors.background,
-                                borderColor: colors.border 
-                              }
-                            ]}
-                          >
-                            <ThemedText style={[
-                              styles.categoryChipText,
-                              { color: selectedCategory === category ? '#fff' : colors.text }
-                            ]}>
-                              {category === 'all' ? 'All' : category.charAt(0).toUpperCase() + category.slice(1)}
-                            </ThemedText>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-
-                      {/* Sort Options */}
-                      <View style={styles.sortContainer}>
-                        <ThemedText style={styles.sortLabel}>Sort by:</ThemedText>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
-                          {[
-                            { key: 'name', label: 'Name' },
-                            { key: 'category', label: 'Category' },
-                            { key: 'available', label: 'Available' }
-                          ].map((option) => (
-                            <TouchableOpacity
-                              key={option.key}
-                              onPress={() => setSortBy(option.key as any)}
-                              style={[
-                                styles.sortChip,
-                                { 
-                                  backgroundColor: sortBy === option.key ? colors.primary : colors.background,
-                                  borderColor: colors.border 
-                                }
-                              ]}
-                            >
-                              <ThemedText style={[
-                                styles.sortChipText,
-                                { color: sortBy === option.key ? '#fff' : colors.text }
-                              ]}>
-                                {option.label}
-                              </ThemedText>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Resources Grid */}
-                  <ScrollView 
-                    showsVerticalScrollIndicator={false} 
-                    style={styles.resourcesScroll}
-                    contentContainerStyle={styles.resourcesGridContent}
-                  >
-                    {(() => {
-                      const availableResources = getFilteredAvailableResources()
-                        .filter(r => !resourceItems.some((item: ResourceItem) => item.resource.id === r.id));
-                      
-                      if (availableResources.length === 0) {
-                        return (
-                          <View style={styles.noResourcesContainer}>
-                            <Ionicons name="cube-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
-                            <ThemedText style={styles.noResourcesText}>
-                              {searchQuery || selectedCategory !== 'all' 
-                                ? 'No resources match your filters' 
-                                : 'No available resources'
-                              }
-                            </ThemedText>
-                            {(searchQuery || selectedCategory !== 'all') && (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setSearchQuery('');
-                                  setSelectedCategory('all');
-                                }}
-                                style={[styles.clearFiltersButton, { backgroundColor: colors.primary }]}
-                              >
-                                <ThemedText style={styles.clearFiltersText}>Clear Filters</ThemedText>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        );
-                      }
-                      
-                      return (
-                        <View style={styles.resourcesGrid}>
-                          {availableResources.map((availableResource) => (
-                            <TouchableOpacity
-                              key={availableResource.id}
-                              style={[styles.resourceGridCard, { 
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border 
-                              }]}
-                              onPress={() => addResource(availableResource)}
-                            >
-                              <View style={styles.resourceGridImageContainer}>
-                                {availableResource.images && availableResource.images.length > 0 ? (
-                                  <Image 
-                                    source={{ uri: availableResource.images[0] }} 
-                                    style={styles.resourceGridImage}
-                                    resizeMode="cover"
-                                  />
-                                ) : (
-                                  <View style={[styles.resourceGridIconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                                    <Ionicons name={getCategoryIcon(availableResource.category) as any} size={24} color={colors.primary} />
-                                  </View>
-                                )}
-                              </View>
-                              <ThemedText style={styles.resourceCardName} numberOfLines={2}>
-                                {availableResource.name}
-                              </ThemedText>
-                              <ThemedText style={styles.resourceQuantity}>
-                                Available: {availableResource.availableQuantity}
-                              </ThemedText>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      );
-                    })()}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Return Details - Only for return mode */}
-          {mode === 'return' && selectedTransaction && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Return Details</ThemedText>
-              
-              <View style={styles.transactionInfo}>
-                <View style={styles.transactionItem}>
-                  <ThemedText style={styles.transactionLabel}>Borrowed Quantity:</ThemedText>
-                  <ThemedText style={styles.transactionValue}>
-                    {selectedTransaction.quantity}
-                  </ThemedText>
-                </View>
-                <View style={styles.transactionItem}>
-                  <ThemedText style={styles.transactionLabel}>Borrowed Date:</ThemedText>
-                  <ThemedText style={styles.transactionValue}>
-                    {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString() : 'Unknown'}
-                  </ThemedText>
-                </View>
-                {selectedTransaction.dueDate && (
-                  <View style={styles.transactionItem}>
-                    <ThemedText style={styles.transactionLabel}>Due Date:</ThemedText>
-                    <ThemedText style={[
-                      styles.transactionValue,
-                      selectedTransaction.dueDate < new Date() && { color: colors.error }
-                    ]}>
-                      {selectedTransaction.dueDate ? new Date(selectedTransaction.dueDate).toLocaleDateString() : 'Unknown'}
-                    </ThemedText>
-                  </View>
-                )}
-                {selectedTransaction.notes && (
-                  <View style={styles.transactionItem}>
-                    <ThemedText style={styles.transactionLabel}>Original Notes:</ThemedText>
-                    <ThemedText style={styles.transactionValue}>
-                      {selectedTransaction.notes}
-                    </ThemedText>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Terms & Conditions */}
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Terms & Conditions</ThemedText>
-            <View style={[styles.termsContainer, { backgroundColor: colors.surface }]}>
-              <ThemedText style={styles.termsText}>
-                • Resources must be returned in the same condition as borrowed{'\n'}
-                • Report any damage or issues immediately{'\n'}
-                • Late returns may result in restricted access{'\n'}
-                • Follow all safety protocols when using resources
-                {isMultiResource && '\n• Each resource may have different due dates'}
-              </ThemedText>
-            </View>
-          </View>
-        </ScrollView>
+          {renderModalContent()}
         </ThemedView>
       </MobileModalSafeAreaWrapper>
     </Modal>
   );
 }
-
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  overlayCloseButton: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1,
-  },
-  container: {
-    width: '100%',
-    maxWidth: 800,
-    maxHeight: '90%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 2,
-  },
-  modalContent: {
-    flex: 1,
-  },
-  mobileContainer: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    zIndex: 2,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerButton: {
-    minWidth: 80,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  resourceCard: {
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-  },
-  resourceImageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    marginRight: 12,
-    overflow: 'hidden',
-  },
-  resourceImage: {
-    width: '100%',
-    height: '100%',
-  },
-  resourceCategoryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  resourceCategory: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 4,
-    textTransform: 'capitalize',
-  },
-  availabilityInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 16,
-    borderRadius: 8,
-  },
-  availabilityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  availabilityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  availabilityLabel: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginBottom: 2,
-  },
-  availabilityValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-    overflow: 'visible', // Allow suggestions to extend beyond the scroll view
-  },
-  resourceInfo: {
-    marginBottom: 24,
-  },
-  resourceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  resourceDetails: {
-    flex: 1,
-  },
-  resourceName: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  resourceDescription: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  addResourcesSection: {
-    marginTop: 16,
-  },
-  resourcesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addResourcesTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    flex: 1,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
-  },
-  filterButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  searchFiltersContainer: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    position: 'relative',
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: 12,
-    zIndex: 1,
-  },
-  searchInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  clearButton: {
-    position: 'absolute',
-    right: 12,
-    zIndex: 1,
-  },
-  categoryScroll: {
-    marginBottom: 12,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  categoryChipText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  sortContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sortLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 12,
-    opacity: 0.7,
-  },
-  sortScroll: {
-    flex: 1,
-  },
-  sortChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  sortChipText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  resourcesScroll: {
-    marginBottom: 16,
-    maxHeight: 400,
-    ...Platform.select({
-      web: {
-        maxHeight: 320,
-      },
-    }),
-  },
-  resourcesGridContent: {
-    paddingHorizontal: 4,
-    ...Platform.select({
-      default: {
-        paddingBottom: 8,
-      },
-    }),
-  },
-  resourcesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    ...Platform.select({
-      web: {
-        justifyContent: 'space-between',
-        paddingHorizontal: 4,
-      },
-      default: {
-        justifyContent: 'space-between',
-        paddingHorizontal: 2,
-      },
-    }),
-  },
-  resourceGridCard: {
-    ...Platform.select({
-      web: {
-        width: '31%',
-        height: 140,
-        justifyContent: 'center',
-      },
-      default: {
-        width: '48%',
-        minHeight: 130,
-        justifyContent: 'flex-start',
-      },
-    }),
-    padding: 10,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  resourceGridImageContainer: {
-    ...Platform.select({
-      web: {
-        width: 50,
-        height: 50,
-        borderRadius: 10,
-        marginBottom: 8,
-      },
-      default: {
-        width: 44,
-        height: 44,
-        borderRadius: 8,
-        marginBottom: 6,
-      },
-    }),
-    overflow: 'hidden',
-  },
-  resourceGridImage: {
-    width: '100%',
-    height: '100%',
-  },
-  resourceGridIconContainer: {
-    ...Platform.select({
-      web: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-      },
-      default: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-      },
-    }),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resourceCardName: {
-    ...Platform.select({
-      web: {
-        fontSize: 11,
-        lineHeight: 14,
-        marginBottom: 4,
-      },
-      default: {
-        fontSize: 10,
-        lineHeight: 12,
-        marginBottom: 4,
-        minHeight: 24,
-      },
-    }),
-    fontWeight: '600',
-    textAlign: 'center',
-    width: '100%',
-  },
-  resourceQuantity: {
-    ...Platform.select({
-      web: {
-        fontSize: 12,
-      },
-      default: {
-        fontSize: 10,
-      },
-    }),
-    opacity: 0.7,
-    textAlign: 'center',
-    marginTop: 'auto',
-    width: '100%',
-  },
-  noResourcesContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 16,
-  },
-  noResourcesText: {
-    marginTop: 12,
-    fontSize: 14,
-    opacity: 0.6,
-    textAlign: 'center',
-  },
-  clearFiltersButton: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  clearFiltersText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  transactionInfo: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  transactionLabel: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  transactionValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  notesContainer: {
-    borderRadius: 8,
-    padding: 16,
-  },
-  notesLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    opacity: 0.7,
-  },
-  notesInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 60,
-  },
-  notesText: {
-    fontSize: 16,
-    opacity: 0.8,
-  },
-  termsContainer: {
-    borderRadius: 8,
-    padding: 16,
-  },
-  termsText: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
-});

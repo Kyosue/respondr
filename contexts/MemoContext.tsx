@@ -133,10 +133,9 @@ export function MemoProvider({ children }: MemoProviderProps) {
     metadata: {
       title: string;
       description?: string;
-      memoNumber: string;
+      memoNumber?: string;
       issuingAgency: string;
       agencyLevel: 'national' | 'regional' | 'provincial' | 'municipal' | 'barangay';
-      documentType: 'memorandum' | 'circular' | 'advisory' | 'directive' | 'executive-order' | 'ordinance' | 'policy';
       effectiveDate: Date;
       expirationDate?: Date;
       priority: 'urgent' | 'high' | 'normal' | 'low';

@@ -8,7 +8,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { MemoDocument, MemoFilter } from '@/types/MemoDocument';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, RefreshControl, SectionList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { MemoActiveFilterTags } from './MemoActiveFilterTags';
 import { MemoFilterPopover } from './MemoFilterPopover';
@@ -52,6 +52,8 @@ const Reports: React.FC = () => {
   const [documentToDistribute, setDocumentToDistribute] = useState<MemoDocument | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -60,6 +62,21 @@ const Reports: React.FC = () => {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleSearchToggle = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchQuery('');
+    }
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
   };
 
   const handleDocumentPress = (doc: MemoDocument) => {
@@ -202,6 +219,66 @@ const Reports: React.FC = () => {
     return documents.filter((doc, index, self) => index === self.findIndex(d => d.id === doc.id));
   }, [documents]);
 
+  // Filter documents by search query (client-side filtering)
+  const filteredDocuments = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return uniqueDocuments;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    return uniqueDocuments.filter((doc) => {
+      const titleMatch = doc.title.toLowerCase().includes(query);
+      const descriptionMatch = doc.description?.toLowerCase().includes(query);
+      const agencyMatch = doc.issuingAgency?.toLowerCase().includes(query);
+      const memoNumberMatch = doc.memoNumber?.toLowerCase().includes(query);
+      const tagsMatch = doc.tags?.some(tag => tag.toLowerCase().includes(query));
+      
+      return titleMatch || descriptionMatch || agencyMatch || memoNumberMatch || tagsMatch;
+    });
+  }, [uniqueDocuments, searchQuery]);
+
+  // Group documents by date (similar to SitRep)
+  const groupDocumentsByDate = (docs: MemoDocument[]) => {
+    const groups: { [key: string]: MemoDocument[] } = {};
+    
+    docs.forEach(doc => {
+      const date = new Date(doc.uploadedAt);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      let groupKey: string;
+      if (date.toDateString() === today.toDateString()) {
+        groupKey = 'Today';
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        groupKey = 'Yesterday';
+      } else if (date.getFullYear() === today.getFullYear()) {
+        groupKey = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      } else {
+        groupKey = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+      
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(doc);
+    });
+    
+    // Sort groups by date (most recent first)
+    const sortedGroups = Object.entries(groups).sort((a, b) => {
+      const dateA = new Date(a[1][0].uploadedAt);
+      const dateB = new Date(b[1][0].uploadedAt);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    return sortedGroups;
+  };
+
+  // Memoize sections for virtualization
+  const sections = React.useMemo(() => {
+    return groupDocumentsByDate(filteredDocuments).map(([title, data]) => ({ title, data }));
+  }, [filteredDocuments]);
+
   const renderItem = useCallback(({ item: doc }: { item: MemoDocument }) => {
     const isAssigned = isAssignedToMe(doc);
     const hasAck = hasAcknowledged(doc);
@@ -242,9 +319,18 @@ const Reports: React.FC = () => {
         )}
         {isWeb ? (
           <>
-            <View style={styles.cardHeader}>
-              <View style={styles.documentIcon}>
-                <Ionicons name="document-text" size={32} color={colors.tint} />
+            {/* Top Row: Icon and Title */}
+            <View style={styles.cardTopRow}>
+              <View style={[styles.documentIcon, { backgroundColor: `${colors.tint}20` }]}>
+                <Ionicons name="document-text" size={24} color={colors.tint} />
+              </View>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
+                  {doc.title}
+                </Text>
+                <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]} numberOfLines={1}>
+                  {doc.issuingAgency}
+                </Text>
               </View>
               {canAssignDocuments && !isMultiSelectMode && (
                 <TouchableOpacity
@@ -259,20 +345,30 @@ const Reports: React.FC = () => {
                 </TouchableOpacity>
               )}
             </View>
-            <View style={styles.documentInfo}>
-              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
-                {doc.title}
-              </Text>
-              <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]} numberOfLines={1}>
-                {doc.issuingAgency}
-              </Text>
-            </View>
-            <View style={styles.cardActions}>
+            
+            {/* Bottom Row: Badges and Date */}
+            <View style={[styles.cardBottomRow, { borderTopColor: colors.border }]}>
+              <View style={styles.badgeContainer}>
               <View
                 style={[
                   styles.badge,
                   {
                     backgroundColor:
+                        doc.priority === 'urgent'
+                          ? '#FF3B3020'
+                          : doc.priority === 'high'
+                          ? '#FF950020'
+                          : doc.priority === 'normal'
+                          ? '#34C75920'
+                          : '#8E8E9320',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      {
+                        color:
                       doc.priority === 'urgent'
                         ? '#FF3B30'
                         : doc.priority === 'high'
@@ -283,30 +379,33 @@ const Reports: React.FC = () => {
                   },
                 ]}
               >
-                <Text style={styles.badgeText}>{doc.priority}</Text>
+                    {doc.priority}
+                  </Text>
               </View>
               {isAssigned && (
-                <View style={[styles.badge, { backgroundColor: '#34C759' }]}> 
-                  <Ionicons name="checkmark-circle" size={12} color="#fff" />
-                  <Text style={styles.badgeText}>Assigned</Text>
+                  <View style={[styles.badge, { backgroundColor: '#34C75920' }]}> 
+                    <Ionicons name="checkmark-circle" size={11} color="#34C759" />
+                    <Text style={[styles.badgeText, { color: '#34C759' }]}>Assigned</Text>
                 </View>
               )}
               {needsAcknowledgment && (
-                <View style={[styles.badge, { backgroundColor: '#FF9500' }]}> 
-                  <Ionicons name="alert-circle" size={12} color="#fff" />
-                  <Text style={styles.badgeText}>Acknowledge</Text>
+                  <View style={[styles.badge, { backgroundColor: '#FF950020' }]}> 
+                    <Ionicons name="alert-circle" size={11} color="#FF9500" />
+                    <Text style={[styles.badgeText, { color: '#FF9500' }]}>Acknowledge</Text>
                 </View>
               )}
             </View>
-            <View style={styles.cardFooter}>
+              <View style={styles.metaRow}>
+                <Ionicons name="calendar-outline" size={11} color={colors.tabIconDefault} />
               <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}> 
                 {new Date(doc.uploadedAt).toLocaleDateString()}
               </Text>
+              </View>
             </View>
           </>
         ) : (
           <>
-            <View style={styles.documentIcon}>
+            <View style={[styles.documentIcon, { backgroundColor: `${colors.tint}20` }]}>
               <Ionicons name="document-text" size={32} color={colors.tint} />
             </View>
             <View style={styles.documentInfo}>
@@ -323,32 +422,51 @@ const Reports: React.FC = () => {
                     {
                       backgroundColor:
                         doc.priority === 'urgent'
-                          ? '#FF3B30'
+                          ? '#FF3B3020'
                           : doc.priority === 'high'
-                          ? '#FF9500'
+                          ? '#FF950020'
                           : doc.priority === 'normal'
-                          ? '#34C759'
-                          : '#8E8E93',
+                          ? '#34C75920'
+                          : '#8E8E9320',
                     },
                   ]}
                 >
-                  <Text style={styles.badgeText}>{doc.priority}</Text>
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      {
+                        color:
+                          doc.priority === 'urgent'
+                            ? '#FF3B30'
+                            : doc.priority === 'high'
+                            ? '#FF9500'
+                            : doc.priority === 'normal'
+                            ? '#34C759'
+                            : '#8E8E93',
+                      },
+                    ]}
+                  >
+                    {doc.priority}
+                  </Text>
                 </View>
                 {isAssigned && (
-                  <View style={[styles.badge, { backgroundColor: '#34C759' }]}> 
-                    <Ionicons name="checkmark-circle" size={12} color="#fff" />
-                    <Text style={styles.badgeText}>Assigned</Text>
+                  <View style={[styles.badge, { backgroundColor: '#34C75920' }]}> 
+                    <Ionicons name="checkmark-circle" size={11} color="#34C759" />
+                    <Text style={[styles.badgeText, { color: '#34C759' }]}>Assigned</Text>
                   </View>
                 )}
                 {needsAcknowledgment && (
-                  <View style={[styles.badge, { backgroundColor: '#FF9500' }]}> 
-                    <Ionicons name="alert-circle" size={12} color="#fff" />
-                    <Text style={styles.badgeText}>Acknowledge</Text>
+                  <View style={[styles.badge, { backgroundColor: '#FF950020' }]}> 
+                    <Ionicons name="alert-circle" size={11} color="#FF9500" />
+                    <Text style={[styles.badgeText, { color: '#FF9500' }]}>Acknowledge</Text>
                   </View>
                 )}
+                <View style={styles.dateContainer}>
+                  <Ionicons name="calendar-outline" size={11} color={colors.tabIconDefault} />
                 <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
                   {new Date(doc.uploadedAt).toLocaleDateString()}
                 </Text>
+                </View>
               </View>
             </View>
             {canAssignDocuments && !isMultiSelectMode && (
@@ -391,33 +509,51 @@ const Reports: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Reports Library</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Documents</Text>
           <Text style={[styles.subtitle, { color: colors.tabIconDefault }]}>
-            Manage memos and local issuances
+            Manage Documents
           </Text>
         </View>
         <View style={styles.headerButtons}>
           {!isMultiSelectMode && (
-            <MemoFilterPopover
-              filters={filters}
-              onFilterChange={(newFilters) => {
-                setFilters(newFilters);
-                fetchDocuments(newFilters, true);
-              }}
-            />
-          )}
-          {!isMultiSelectMode && (
             <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.tint, borderColor: colors.tint }]}
+              style={[styles.headerButton, { backgroundColor: colors.tint, borderColor: colors.tint }]}
               onPress={() => setUploadModalVisible(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="add" size={20} color="#fff" />
+              <Ionicons name="add" size={16} color="#fff" />
             </TouchableOpacity>
+          )}
+          {!isMultiSelectMode && (
+            <TouchableOpacity
+              style={[styles.headerButton, { 
+                backgroundColor: colors.surface, 
+                borderColor: colors.border,
+              }]}
+              onPress={handleSearchToggle}
+              activeOpacity={0.8}
+            >
+              <Ionicons 
+                name={showSearch ? "close" : "search"} 
+                size={16} 
+                color={colors.text} 
+              />
+            </TouchableOpacity>
+          )}
+          {!isMultiSelectMode && (
+            <View style={styles.filterButtonWrapper}>
+              <MemoFilterPopover
+                filters={filters}
+                onFilterChange={(newFilters) => {
+                  setFilters(newFilters);
+                  fetchDocuments(newFilters, true);
+                }}
+              />
+            </View>
           )}
           {(canDeleteSitRep || isAdminOrSupervisor) && (
             <TouchableOpacity
-              style={[styles.addButton, { 
+              style={[styles.headerButton, { 
                 backgroundColor: isMultiSelectMode ? colors.error : colors.surface, 
                 borderColor: isMultiSelectMode ? colors.error : colors.border,
               }]}
@@ -434,6 +570,41 @@ const Reports: React.FC = () => {
         </View>
       </View>
 
+      {/* Search Section */}
+      {showSearch && (
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputWrapper}>
+              <Ionicons 
+                name="search" 
+                size={20} 
+                color={colors.text + '60'} 
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={[styles.searchInput, { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border,
+                  color: colors.text 
+                }]}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                placeholder="Search documents..."
+                placeholderTextColor={colors.text + '60'}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.clearSearchButton}
+                  onPress={handleClearSearch}
+                >
+                  <Ionicons name="close-circle" size={20} color={colors.text + '60'} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Active Filter Tags */}
       <View style={styles.filtersSection}>
         <MemoActiveFilterTags
@@ -445,46 +616,36 @@ const Reports: React.FC = () => {
         />
       </View>
 
-      {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: colors.tabIconSelected }]}>
-          <Ionicons name="document-text" size={28} color={colors.background} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.statNumber, { color: colors.background }]}>
-              {documents.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.background }]}>
-              Total Documents
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: colors.error }]}>
-          <Ionicons name="alert-circle" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.statNumber, { color: '#fff' }]}>
-              {documents.filter((doc) => doc.priority === 'urgent').length}
-            </Text>
-            <Text style={[styles.statLabel, { color: '#fff' }]}>Urgent</Text>
-          </View>
-        </View>
-      </View>
-
       {/* Content Area */}
-      <FlatList
-        key={`reports-grid-${isWeb ? columns : 1}`}
+      <SectionList
         style={styles.content}
         contentContainerStyle={[styles.documentsList]}
-        data={uniqueDocuments}
+        sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        renderItem={({ item: doc, section }) => {
+          if (isWeb) {
+            // For web, items are rendered in the section header, so return null here
+            return null;
+          }
+          return renderItem({ item: doc });
+        }}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.documentGroup}>
+            <Text style={[styles.groupHeader, { color: colors.text }]}>
+              {section.title}
+            </Text>
+            {isWeb ? (
+              <View style={styles.documentsSectionContainer}>
+                {section.data.map((doc) => (
+                  <View key={doc.id}>
+                    {renderItem({ item: doc })}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        )}
         showsVerticalScrollIndicator={false}
-        numColumns={isWeb ? columns : 1}
-        columnWrapperStyle={isWeb ? { 
-          justifyContent: 'flex-start', 
-          gap: 16, 
-          paddingHorizontal: 20, 
-          marginBottom: 16 
-        } : undefined}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

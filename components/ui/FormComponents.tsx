@@ -108,11 +108,40 @@ export function FormDatePicker({
     }
   };
 
+  // Web-specific date input handler
+  const handleWebDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      const newDate = new Date(e.target.value);
+      onDateChange(newDate);
+    }
+  };
+
   return (
     <View style={styles.inputGroup}>
       <ThemedText style={styles.label}>
         {label} {required && <ThemedText style={[styles.required, { color: colors.error }]}>*</ThemedText>}
       </ThemedText>
+      {Platform.OS === 'web' ? (
+        <input
+          type="date"
+          value={value.toISOString().split('T')[0]}
+          onChange={handleWebDateChange}
+          min={minimumDate ? minimumDate.toISOString().split('T')[0] : undefined}
+          style={{
+            border: `1px solid ${colors.inputBorder}`,
+            borderRadius: 8,
+            padding: '12px',
+            fontSize: 16,
+            backgroundColor: colors.inputBackground,
+            color: colors.inputText || colors.text,
+            width: '100%',
+            boxSizing: 'border-box',
+            fontFamily: 'inherit',
+            outline: 'none',
+          }}
+        />
+      ) : (
+        <>
       <TouchableOpacity
         style={[
           styles.dateButton,
@@ -137,6 +166,8 @@ export function FormDatePicker({
           onChange={handleDateChange}
           minimumDate={minimumDate}
         />
+          )}
+        </>
       )}
     </View>
   );

@@ -168,6 +168,7 @@ export function MemoDetailModal({
               {document.agencyLevel.charAt(0).toUpperCase() + document.agencyLevel.slice(1)}
             </Text>
           </View>
+          {document.documentType && (
           <View style={styles.infoRow}>
             <Ionicons name="document-text" size={16} color={colors.tabIconDefault} />
             <Text style={[styles.infoLabel, { color: colors.tabIconDefault }]}>Type:</Text>
@@ -175,6 +176,7 @@ export function MemoDetailModal({
               {document.documentType.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </Text>
           </View>
+          )}
           <View style={styles.infoRow}>
             <Ionicons name="calendar" size={16} color={colors.tabIconDefault} />
             <Text style={[styles.infoLabel, { color: colors.tabIconDefault }]}>Effective Date:</Text>

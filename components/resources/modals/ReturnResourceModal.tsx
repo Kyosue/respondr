@@ -1,20 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { MobileModalSafeAreaWrapper, getMobileModalConfig } from '@/components/ui/MobileModalWrapper';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { MultiResourceTransaction, MultiResourceTransactionItem, Resource, ResourceTransaction } from '@/types/Resource';
+import { getModalConfig } from '@/utils/modalUtils';
 
 interface ReturnResourceModalProps {
   visible: boolean;
@@ -55,6 +61,12 @@ export function ReturnResourceModal({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Hybrid RAMP hook
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
+    visible,
+    onClose,
+  });
 
   // Get the borrowed quantity from transaction or item (memoized to prevent infinite loops)
   const borrowedQuantity = useMemo(() => {
@@ -153,44 +165,92 @@ export function ReturnResourceModal({
     { value: 'needs_repair', label: 'Needs Repair', description: 'Requires maintenance' },
   ];
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <ThemedView style={styles.container}>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.text} />
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'vehicles': return 'car-outline';
+      case 'medical': return 'medkit-outline';
+      case 'equipment': return 'construct-outline';
+      case 'communication': return 'radio-outline';
+      case 'personnel': return 'people-outline';
+      case 'tools': return 'hammer-outline';
+      case 'supplies': return 'cube-outline';
+      default: return 'cube-outline';
+    }
+  };
+
+  const handleClose = rampHandleClose;
+
+  if (!visible) return null;
+
+  // Render modal content (shared between web and mobile)
+  const renderModalContent = () => (
+    <View style={styles.mobileContentContainer}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+            <Ionicons name="close" size={20} color={colors.text} />
           </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Return Resource</ThemedText>
-          <View style={styles.placeholder} />
+          <View style={styles.headerTitleContainer}>
+            <ThemedText type="subtitle" style={styles.title}>
+              Return Resource
+            </ThemedText>
+          </View>
+          <View style={styles.headerButton} />
+        </View>
+      </View>
+
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Resource Information */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Resource Information</ThemedText>
+          <View style={[styles.resourceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.resourceHeader}>
+              <View style={styles.resourceImageContainer}>
+                {resource.images && resource.images.length > 0 ? (
+                  <Image 
+                    source={{ uri: resource.images[0] }} 
+                    style={styles.resourceImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                    <Ionicons name={getCategoryIcon(resource.category) as any} size={32} color={colors.primary} />
+                  </View>
+                )}
+              </View>
+              <View style={styles.resourceDetails}>
+                <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
+                <View style={styles.resourceCategoryContainer}>
+                  <Ionicons name={getCategoryIcon(resource.category) as any} size={14} color={colors.primary} />
+                  <ThemedText style={[styles.resourceCategory, { color: colors.primary }]}>
+                    {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
+                  </ThemedText>
+                </View>
+                <View style={[styles.availabilityInfo, { backgroundColor: colors.background }]}>
+                  <View style={styles.availabilityItem}>
+                    <View style={[styles.availabilityIcon, { backgroundColor: colors.primary + '20' }]}>
+                      <Ionicons name="cube" size={16} color={colors.primary} />
+                    </View>
+                    <View>
+                      <ThemedText style={styles.availabilityLabel}>Borrowed</ThemedText>
+                      <ThemedText style={[styles.availabilityValue, { color: colors.primary }]}>
+                        {borrowedQuantity} units
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-           {/* Resource Information */}
-           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-             <View style={styles.resourceInfo}>
-               <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                 <Ionicons name="cube-outline" size={20} color={colors.primary} />
-               </View>
-               <View style={styles.resourceDetails}>
-                 <ThemedText style={styles.resourceName}>{resource.name}</ThemedText>
-                 <View style={styles.resourceMeta}>
-                   <ThemedText style={styles.resourceCategory}>{resource.category}</ThemedText>
-                   <ThemedText style={[styles.borrowedQuantity, { color: colors.primary }]}>
-                     {borrowedQuantity} units
-                   </ThemedText>
-                 </View>
-               </View>
-             </View>
-           </View>
-
-           {/* Return Quantity */}
-           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-             <ThemedText style={styles.sectionTitle}>Return Quantity</ThemedText>
+        {/* Return Quantity */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Return Quantity</ThemedText>
              <View style={styles.quantityContainer}>
                <View style={styles.quantityControls}>
                  <TouchableOpacity
@@ -266,11 +326,11 @@ export function ReturnResourceModal({
                 Partial return - {borrowedQuantity - returnData.quantity} units will remain borrowed
               </ThemedText>
             )}
-          </View>
+        </View>
 
-          {/* Condition Assessment */}
-          <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <ThemedText style={styles.sectionTitle}>Condition Assessment</ThemedText>
+        {/* Condition Assessment */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Condition Assessment</ThemedText>
             <ThemedText style={[styles.sectionSubtitle, { color: colors.text + '80' }]}>
               Select the condition of the returned items
             </ThemedText>
@@ -309,11 +369,11 @@ export function ReturnResourceModal({
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+        </View>
 
-          {/* Status Check */}
-          <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <ThemedText style={styles.sectionTitle}>Status Verification</ThemedText>
+        {/* Status Check */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Status Verification</ThemedText>
             <TouchableOpacity 
               style={styles.statusCheckContainer}
               onPress={toggleStatusCheck}
@@ -343,11 +403,11 @@ export function ReturnResourceModal({
                 {errors.statusCheck}
               </ThemedText>
             )}
-          </View>
+        </View>
 
-          {/* Return Notes */}
-          <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <ThemedText style={styles.sectionTitle}>Return Notes (Optional)</ThemedText>
+        {/* Return Notes */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Return Notes (Optional)</ThemedText>
             <TextInput
               style={[
                 styles.notesInput,
@@ -365,116 +425,274 @@ export function ReturnResourceModal({
               numberOfLines={3}
               textAlignVertical="top"
             />
-          </View>
-        </ScrollView>
-
-        {/* Action Buttons */}
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.cancelButton, { borderColor: colors.border }]}
-            onPress={onClose}
-            disabled={loading}
-          >
-            <ThemedText style={[styles.cancelButtonText, { color: colors.text }]}>
-              Cancel
-            </ThemedText>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.confirmButton,
-              { 
-                backgroundColor: loading ? colors.text + '30' : colors.success,
-                opacity: loading ? 0.6 : 1,
-              }
-            ]}
-            onPress={handleConfirm}
-            disabled={loading}
-          >
-            <ThemedText style={styles.confirmButtonText}>
-              {loading ? 'Processing...' : `Return ${returnData.quantity} Unit${returnData.quantity !== 1 ? 's' : ''}`}
-            </ThemedText>
-          </TouchableOpacity>
         </View>
-      </ThemedView>
+      </ScrollView>
+
+      {/* Action Buttons */}
+      <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.cancelButton, { borderColor: colors.border }]}
+          onPress={handleClose}
+          disabled={loading}
+        >
+          <ThemedText style={[styles.cancelButtonText, { color: colors.text }]}>
+            Cancel
+          </ThemedText>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.confirmButton,
+            { 
+              backgroundColor: loading ? colors.text + '30' : colors.success,
+              opacity: loading ? 0.6 : 1,
+            }
+          ]}
+          onPress={handleConfirm}
+          disabled={loading}
+        >
+          <ThemedText style={styles.confirmButtonText}>
+            {loading ? 'Processing...' : `Return ${returnData.quantity} Unit${returnData.quantity !== 1 ? 's' : ''}`}
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // Platform-specific modal rendering
+  if (isWeb) {
+    // Hybrid RAMP implementation for web
+    return (
+      <Modal
+        visible={visible}
+        {...getModalConfig()}
+        onRequestClose={handleClose}
+        transparent={true}
+        animationType="fade"
+      >
+        <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
+          <TouchableOpacity 
+            style={styles.overlayCloseButton} 
+            onPress={handleClose}
+            activeOpacity={0.7}
+          />
+          <Animated.View style={[
+            styles.container,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim }
+              ]
+            }
+          ]}>
+            <ThemedView style={styles.modalContent}>
+              {renderModalContent()}
+            </ThemedView>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+    );
+  }
+
+  // Mobile implementation
+  return (
+    <Modal
+      visible={visible}
+      {...getMobileModalConfig()}
+      onRequestClose={handleClose}
+      statusBarTranslucent={false}
+    >
+      <MobileModalSafeAreaWrapper backgroundColor={colors.background}>
+        <ThemedView style={styles.mobileContainer}>
+          {renderModalContent()}
+        </ThemedView>
+      </MobileModalSafeAreaWrapper>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  overlayCloseButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
   container: {
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 2,
+  },
+  modalContent: {
     flex: 1,
   },
+  mobileContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  mobileContentContainer: {
+    flex: 1,
+    ...Platform.select({
+      default: {
+        flexDirection: 'column',
+      },
+    }),
+  },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    zIndex: 2,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  headerButton: {
+    minWidth: 80,
   },
   closeButton: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
+  title: {
+    fontSize: 20,
     fontWeight: '600',
-  },
-  placeholder: {
-    width: 32,
+    textAlign: 'center',
   },
   content: {
     flex: 1,
+    ...Platform.select({
+      ios: {
+        overflow: 'visible',
+      },
+      default: {
+        overflow: 'hidden',
+      },
+    }),
+  },
+  contentContainer: {
     padding: 16,
+    flexGrow: 1,
   },
   section: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  resourceCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+  },
+  resourceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  resourceImageContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  resourceImage: {
+    width: '100%',
+    height: '100%',
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  resourceDetails: {
+    flex: 1,
+  },
+  resourceName: {
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    marginBottom: 12,
+  resourceCategoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-   resourceInfo: {
-     flexDirection: 'row',
-     alignItems: 'center',
-   },
-   iconContainer: {
-     width: 36,
-     height: 36,
-     borderRadius: 18,
-     justifyContent: 'center',
-     alignItems: 'center',
-     marginRight: 10,
-   },
-   resourceDetails: {
-     flex: 1,
-   },
-   resourceName: {
-     fontSize: 15,
-     fontWeight: '600',
-     marginBottom: 4,
-   },
-   resourceMeta: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     gap: 12,
-   },
-   resourceCategory: {
-     fontSize: 12,
-     opacity: 0.7,
-     textTransform: 'capitalize',
-   },
-   borrowedQuantity: {
-     fontSize: 12,
-     fontWeight: '500',
-   },
+  resourceCategory: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+    textTransform: 'capitalize',
+  },
+  availabilityInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 12,
+    borderRadius: 8,
+  },
+  availabilityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  availabilityIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  availabilityLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  availabilityValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
    quantityContainer: {
      alignItems: 'center',
      marginBottom: 8,
@@ -512,12 +730,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   conditionOptions: {
-    gap: 8,
+    gap: 10,
   },
   conditionOption: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 14,
+    ...Platform.select({
+      web: {
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+      default: {
+        
+
+      },
+    }),
   },
   conditionOptionContent: {
     flexDirection: 'row',
@@ -528,21 +758,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   conditionOptionLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   conditionOptionDescription: {
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
   },
   statusCheckContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
@@ -553,20 +784,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusCheckLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     marginBottom: 4,
   },
   statusCheckDescription: {
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
   },
   notesInput: {
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    minHeight: 80,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    minHeight: 90,
   },
   errorText: {
     fontSize: 12,
@@ -576,8 +808,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     gap: 12,
+    ...Platform.select({
+      web: {
+        paddingBottom: 16,
+      },
+      default: {
+        paddingBottom: 12,
+        minHeight: 75,
+      },
+    }),
   },
   cancelButton: {
     flex: 1,

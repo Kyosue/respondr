@@ -313,7 +313,15 @@ const WeatherStationScreen: React.FC = () => {
         )}
 
         {/* Current Weather Metrics */}
-        <WeatherMetrics data={currentData} onMetricPress={handleMetricPress} />
+        <WeatherMetrics 
+          historicalData={historicalData} 
+          onMetricPress={handleMetricPress}
+          onRefresh={() => {
+            if (selectedStation) {
+              fetchWeatherData(selectedStation.id, true);
+            }
+          }}
+        />
 
         {/* Analytics Dashboard */}
         <WeatherAnalyticsDashboard currentData={currentData} historicalData={historicalData} />
