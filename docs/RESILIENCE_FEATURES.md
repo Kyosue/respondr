@@ -42,16 +42,23 @@ The app has been enhanced with comprehensive offline capabilities, intelligent c
 
 **Location**: `firebase/resilientAuth.ts`
 
-- **Offline-First Auth**: Authentication works even when offline
-- **Retry Logic**: Automatic retries for failed auth operations
+- **Persistent Sessions**: Once authenticated, users can remain logged in offline (Firebase Auth tokens are persisted locally)
+- **Retry Logic**: Automatic retries for failed auth operations when online
 - **Data Synchronization**: Automatic sync when connection is restored
 - **Fallback Mechanisms**: Graceful degradation when services are unavailable
+- **Important Limitation**: Initial login requires internet connection (Firebase Auth requires network for authentication)
 
 **Key Methods**:
-- `signInUser()`: Sign in with offline support
-- `registerUser()`: Registration with offline queuing
+- `signInUser()`: Sign in with retry logic (requires internet for initial authentication)
+- `registerUser()`: Registration with offline queuing (requires internet for account creation)
 - `getCurrentUserData()`: Get user data with offline fallback
 - `updateUserData()`: Update user data with sync queuing
+
+**Authentication Flow**:
+1. **Online Login**: User must authenticate while online (Firebase Auth requirement)
+2. **Offline Access**: Once authenticated, user can access app features offline
+3. **Token Persistence**: Firebase Auth tokens are stored locally, allowing continued offline access
+4. **Session Expiration**: Users will need to re-authenticate online if their session expires
 
 ### 4. Intelligent Caching
 

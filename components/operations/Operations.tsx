@@ -19,6 +19,7 @@ const Operations = React.memo(() => {
   const [selectedMunicipality, setSelectedMunicipality] = useState<Municipality | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showOperationsModal, setShowOperationsModal] = useState(false);
+  const [editingOperation, setEditingOperation] = useState<any | null>(null);
   const [operationsByMunicipality, setOperationsByMunicipality] = useState<Record<string, any[]>>({});
   const [concludedOperationsByMunicipality, setConcludedOperationsByMunicipality] = useState<Record<string, any[]>>({});
   
@@ -58,11 +59,18 @@ const Operations = React.memo(() => {
   }, []);
 
   const handleAddOperation = useCallback(() => {
+    setEditingOperation(null);
+    setShowOperationsModal(true);
+  }, []);
+
+  const handleEditOperation = useCallback((operation: any) => {
+    setEditingOperation(operation);
     setShowOperationsModal(true);
   }, []);
 
   const closeOperationsModal = useCallback(() => {
     setShowOperationsModal(false);
+    setEditingOperation(null);
   }, []);
 
   const handleOperationSubmit = useCallback((_operation: any) => {
@@ -139,6 +147,7 @@ const Operations = React.memo(() => {
         recentOperations={selectedMunicipality ? (operationsByMunicipality[selectedMunicipality.id.toString()] ?? []) : []}
         onConcludeOperation={handleConcludeOperation}
         concludedOperations={selectedMunicipality ? (concludedOperationsByMunicipality[selectedMunicipality.id.toString()] ?? []) : []}
+        onEditOperation={handleEditOperation}
       />
 
       <OperationsModal
@@ -146,6 +155,7 @@ const Operations = React.memo(() => {
         municipality={selectedMunicipality}
         onClose={closeOperationsModal}
         onSubmit={handleOperationSubmit}
+        existingOperation={editingOperation}
       />
     </View>
   );

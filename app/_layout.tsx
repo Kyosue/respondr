@@ -1,20 +1,20 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 // import 'react-native-reanimated';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MemoProvider } from '@/contexts/MemoContext';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import { ResourceProvider } from '@/contexts/ResourceContext';
 import { SitRepProvider } from '@/contexts/SitRepContext';
 import { AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useEffect, useState } from 'react';
 
 // Keep the splash screen visible while we fetch resources
@@ -65,14 +65,15 @@ export default function RootLayout() {
   const isWeb = Platform.OS === 'web';
   const [loaded] = useFonts(
     isWeb
-      ? {}
+      ? {} // For web, we inject the font via @font-face in useEffect
       : {
           Gabarito: require('../assets/fonts/Gabarito-VariableFont_wght.ttf'),
+          Ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
         }
   );
   const [isReady, setIsReady] = useState(false);
 
-  // Set document title and favicon for web
+  // Set document title, favicon, and load Ionicons font for web
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.title = 'Respondr';
@@ -87,6 +88,25 @@ export default function RootLayout() {
         link.type = 'image/png';
         link.href = '/assets/images/logo-1.png';
         document.head.appendChild(link);
+      }
+
+      // Load Ionicons font for web using @font-face
+      // Try local font first, fallback to CDN
+      const fontStyleId = 'ionicons-font-face';
+      if (!document.getElementById(fontStyleId)) {
+        const style = document.createElement('style');
+        style.id = fontStyleId;
+        style.textContent = `
+          @font-face {
+            font-family: 'Ionicons';
+            src: url('/fonts/Ionicons.ttf') format('truetype'),
+                 url('https://cdn.jsdelivr.net/npm/react-native-vector-icons@10.0.3/Fonts/Ionicons.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+          }
+        `;
+        document.head.appendChild(style);
       }
     }
   }, []);
@@ -112,6 +132,8 @@ export default function RootLayout() {
     initializeApp();
   }, []);
 
+  // For web, we use CDN for Ionicons, so fonts are always ready
+  // For native, we wait for fonts to load
   const fontsReady = isWeb ? true : loaded;
   const appReady = fontsReady && isReady;
   const [canHideSplash, setCanHideSplash] = useState(false);

@@ -36,6 +36,7 @@ interface OperationsModalProps {
   municipality: Municipality | null;
   onClose: () => void;
   onSubmit: (operation: OperationData) => void;
+  existingOperation?: OperationData | null;
 }
 
 interface OperationData {
@@ -54,6 +55,7 @@ interface OperationData {
   };
   resources: OperationResource[];
   assignedPersonnel: string[];
+  teamLeader?: string;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -71,26 +73,13 @@ export function OperationsModal({
   visible, 
   municipality, 
   onClose,
-  onSubmit
+  onSubmit,
+  existingOperation
 }: OperationsModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { state: resourceState, getFilteredResources } = useResources();
   const { user } = useAuth();
-
-  // Hybrid RAMP hook
-  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
-    visible,
-    onClose: () => {
-      // Reset form data
-      setOperationData({ ...initialOperationData, startDate: new Date() });
-      setSelectedResources([]);
-      setShowResourceModal(false);
-      setSelectedPersonnel([]);
-      setShowPersonnelModal(false);
-      onClose();
-    }
-  });
 
   const initialOperationData: Partial<OperationData> = {
     operationType: '',
@@ -108,30 +97,80 @@ export function OperationsModal({
     notes: ''
   };
 
+  // Hybrid RAMP hook
+  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
+    visible,
+    onClose: () => {
+      // Reset form data
+      setOperationData({ ...initialOperationData, startDate: new Date() });
+      setSelectedResources([]);
+      setShowResourceModal(false);
+      setSelectedPersonnel([]);
+      setSelectedTeamLeader(undefined);
+      setShowPersonnelModal(false);
+      onClose();
+    }
+  });
+
   const [operationData, setOperationData] = useState<Partial<OperationData>>(initialOperationData);
 
   const [selectedResources, setSelectedResources] = useState<OperationResource[]>([]);
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState<string | undefined>(undefined);
   const [showPersonnelModal, setShowPersonnelModal] = useState(false);
   const [personnelMap, setPersonnelMap] = useState<Map<string, UserData>>(new Map());
+
+  // Populate form when editing
+  useEffect(() => {
+    if (existingOperation && visible) {
+      setOperationData({
+        operationType: existingOperation.operationType,
+        title: existingOperation.title,
+        description: existingOperation.description,
+        status: existingOperation.status,
+        startDate: existingOperation.startDate instanceof Date ? existingOperation.startDate : new Date(existingOperation.startDate),
+        endDate: existingOperation.endDate ? (existingOperation.endDate instanceof Date ? existingOperation.endDate : new Date(existingOperation.endDate)) : undefined,
+        exactLocation: existingOperation.exactLocation,
+        notes: existingOperation.notes
+      });
+      setSelectedResources((existingOperation.resources || []).map(r => ({
+        ...r,
+        category: r.category as ResourceCategory
+      })));
+      setSelectedPersonnel(existingOperation.assignedPersonnel || []);
+      setSelectedTeamLeader(existingOperation.teamLeader);
+    } else if (!existingOperation && visible) {
+      // Reset to initial state when creating new operation
+      setOperationData({ ...initialOperationData, startDate: new Date() });
+      setSelectedResources([]);
+      setSelectedPersonnel([]);
+      setSelectedTeamLeader(undefined);
+    }
+  }, [existingOperation, visible]);
 
   // Get available resources from context
   const allAvailableResources = getFilteredResources().filter(resource => 
     resource.status === 'active' && resource.availableQuantity > 0
   );
 
-  // Fetch personnel data for display
+  // Fetch personnel data for display (operators and supervisors)
   useEffect(() => {
     const fetchPersonnelData = async () => {
       if (selectedPersonnel.length > 0) {
         try {
-          const users = await getUsersWithFilters({
+          const [operators, supervisors] = await Promise.all([
+            getUsersWithFilters({
             userType: 'operator',
             status: 'active'
-          });
+            }),
+            getUsersWithFilters({
+              userType: 'supervisor',
+              status: 'active'
+            })
+          ]);
           const map = new Map<string, UserData>();
-          users.forEach(user => {
+          [...operators, ...supervisors].forEach(user => {
             if (selectedPersonnel.includes(user.id)) {
               map.set(user.id, user);
             }
@@ -159,13 +198,18 @@ export function OperationsModal({
     setShowResourceModal(false);
   };
 
-  const handlePersonnelModalConfirm = (personnel: string[]) => {
-    setSelectedPersonnel(personnel);
+  const handlePersonnelModalConfirm = (result: { personnel: string[]; teamLeader?: string }) => {
+    setSelectedPersonnel(result.personnel);
+    setSelectedTeamLeader(result.teamLeader);
     setShowPersonnelModal(false);
   };
 
   const handlePersonnelRemove = (userId: string) => {
     setSelectedPersonnel(prev => prev.filter(id => id !== userId));
+    // Clear team leader if removed
+    if (selectedTeamLeader === userId) {
+      setSelectedTeamLeader(undefined);
+    }
   };
 
   const handleResourceQuantityChange = (resourceId: string, quantity: number) => {
@@ -202,8 +246,11 @@ export function OperationsModal({
       return;
     }
 
-    const newOperation: OperationData = {
-      id: Date.now().toString(),
+    const isEditing = !!existingOperation;
+    const operationId = existingOperation?.id || Date.now().toString();
+
+    const operationPayload: OperationData = {
+      id: operationId,
       municipalityId: municipality.id.toString(),
       operationType: operationData.operationType,
       title: operationData.title,
@@ -218,35 +265,60 @@ export function OperationsModal({
       },
       resources: selectedResources,
       assignedPersonnel: selectedPersonnel,
+      teamLeader: selectedTeamLeader,
       notes: operationData.notes,
-      createdAt: new Date(),
+      createdAt: existingOperation?.createdAt || new Date(),
       updatedAt: new Date()
     };
 
     try {
+      if (isEditing) {
+        // Update existing operation
+        await operationsService.updateOperation(
+          operationId,
+          {
+            municipalityId: operationPayload.municipalityId,
+            operationType: operationPayload.operationType,
+            title: operationPayload.title,
+            description: operationPayload.description,
+            status: operationPayload.status,
+            startDate: operationPayload.startDate,
+            endDate: operationPayload.endDate,
+            exactLocation: operationPayload.exactLocation,
+            resources: operationPayload.resources,
+            assignedPersonnel: operationPayload.assignedPersonnel,
+            teamLeader: operationPayload.teamLeader,
+            notes: operationPayload.notes,
+          },
+          user?.id
+        );
+        onSubmit(operationPayload);
+      } else {
+        // Create new operation
       const created = await operationsService.createOperation({
-        municipalityId: newOperation.municipalityId,
-        operationType: newOperation.operationType,
-        title: newOperation.title,
-        description: newOperation.description,
-        status: newOperation.status,
-        startDate: newOperation.startDate,
-        endDate: newOperation.endDate,
-        exactLocation: newOperation.exactLocation,
-        resources: newOperation.resources,
-        assignedPersonnel: newOperation.assignedPersonnel,
-        notes: newOperation.notes,
+          municipalityId: operationPayload.municipalityId,
+          operationType: operationPayload.operationType,
+          title: operationPayload.title,
+          description: operationPayload.description,
+          status: operationPayload.status,
+          startDate: operationPayload.startDate,
+          endDate: operationPayload.endDate,
+          exactLocation: operationPayload.exactLocation,
+          resources: operationPayload.resources,
+          assignedPersonnel: operationPayload.assignedPersonnel,
+          teamLeader: operationPayload.teamLeader,
+          notes: operationPayload.notes,
         createdAt: new Date(), // will be replaced by serverTimestamp in service
         updatedAt: new Date(), // will be replaced by serverTimestamp in service
         createdBy: user?.id,
       } as any);
-
       onSubmit(created as any);
+      }
       resetForm();
       onClose();
     } catch (e) {
-      console.error('Failed to create operation:', e);
-      Alert.alert('Error', 'Failed to create operation. Please try again.');
+      console.error(`Failed to ${isEditing ? 'update' : 'create'} operation:`, e);
+      Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'create'} operation. Please try again.`);
     }
   };
 
@@ -286,7 +358,9 @@ export function OperationsModal({
               <Ionicons name="close" size={20} color={colors.text} />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
-              <ThemedText type="subtitle" style={styles.title}>New Operation</ThemedText>
+              <ThemedText type="subtitle" style={styles.title}>
+                {existingOperation ? 'Edit Operation' : 'New Operation'}
+              </ThemedText>
               <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
                 {municipality.name}
               </ThemedText>
@@ -516,6 +590,8 @@ export function OperationsModal({
                   >
                     {selectedPersonnel.map((userId) => {
                       const person = personnelMap.get(userId);
+                      const isTeamLeader = selectedTeamLeader === userId;
+                      const isSupervisor = person?.userType === 'supervisor';
                       const getLastName = (fullName: string): string => {
                         const parts = fullName.trim().split(/\s+/);
                         return parts.length > 1 ? parts[parts.length - 1] : fullName;
@@ -530,9 +606,45 @@ export function OperationsModal({
                             <Ionicons name="person" size={16} color={colors.primary} />
                           </View>
                           <View style={styles.selectedResourceInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                             <ThemedText style={[styles.selectedResourceName, { color: colors.text }]}>
                               {displayName}
                             </ThemedText>
+                              {isTeamLeader && (
+                                <View style={{
+                                  backgroundColor: colors.primary,
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 4
+                                }}>
+                                  <ThemedText style={{
+                                    fontSize: 10,
+                                    fontWeight: '700',
+                                    color: 'white',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    Leader
+                                  </ThemedText>
+                                </View>
+                              )}
+                              {isSupervisor && (
+                                <View style={{
+                                  backgroundColor: '#FF6B35',
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 4
+                                }}>
+                                  <ThemedText style={{
+                                    fontSize: 10,
+                                    fontWeight: '700',
+                                    color: 'white',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    Supervisor
+                                  </ThemedText>
+                                </View>
+                              )}
+                            </View>
                             <ThemedText style={[styles.selectedResourceCategory, { color: colors.text, opacity: 0.7 }]}>
                               {person?.email || 'Loading...'}
                             </ThemedText>
@@ -594,6 +706,7 @@ export function OperationsModal({
           onClose={() => setShowPersonnelModal(false)}
           onConfirm={handlePersonnelModalConfirm}
           selectedPersonnel={selectedPersonnel}
+          selectedTeamLeader={selectedTeamLeader}
           colors={colors}
         />
       </Modal>
@@ -617,7 +730,9 @@ export function OperationsModal({
               <Ionicons name="close" size={20} color={colors.text} />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
-              <ThemedText type="subtitle" style={styles.title}>New Operation</ThemedText>
+              <ThemedText type="subtitle" style={styles.title}>
+                {existingOperation ? 'Edit Operation' : 'New Operation'}
+              </ThemedText>
               <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
                 {municipality.name}
               </ThemedText>
@@ -847,6 +962,8 @@ export function OperationsModal({
                   >
                     {selectedPersonnel.map((userId) => {
                       const person = personnelMap.get(userId);
+                      const isTeamLeader = selectedTeamLeader === userId;
+                      const isSupervisor = person?.userType === 'supervisor';
                       const getLastName = (fullName: string): string => {
                         const parts = fullName.trim().split(/\s+/);
                         return parts.length > 1 ? parts[parts.length - 1] : fullName;
@@ -861,9 +978,45 @@ export function OperationsModal({
                             <Ionicons name="person" size={16} color={colors.primary} />
                           </View>
                           <View style={styles.selectedResourceInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                             <ThemedText style={[styles.selectedResourceName, { color: colors.text }]}>
                               {displayName}
                             </ThemedText>
+                              {isTeamLeader && (
+                                <View style={{
+                                  backgroundColor: colors.primary,
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 4
+                                }}>
+                                  <ThemedText style={{
+                                    fontSize: 10,
+                                    fontWeight: '700',
+                                    color: 'white',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    Leader
+                                  </ThemedText>
+                                </View>
+                              )}
+                              {isSupervisor && (
+                                <View style={{
+                                  backgroundColor: '#FF6B35',
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 4
+                                }}>
+                                  <ThemedText style={{
+                                    fontSize: 10,
+                                    fontWeight: '700',
+                                    color: 'white',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    Supervisor
+                                  </ThemedText>
+                                </View>
+                              )}
+                            </View>
                             <ThemedText style={[styles.selectedResourceCategory, { color: colors.text, opacity: 0.7 }]}>
                               {person?.email || 'Loading...'}
                             </ThemedText>
@@ -923,6 +1076,7 @@ export function OperationsModal({
           onClose={() => setShowPersonnelModal(false)}
           onConfirm={handlePersonnelModalConfirm}
           selectedPersonnel={selectedPersonnel}
+          selectedTeamLeader={selectedTeamLeader}
           colors={colors}
         />
       </SafeAreaView>

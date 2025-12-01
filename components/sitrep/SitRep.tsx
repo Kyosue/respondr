@@ -25,6 +25,7 @@ import { useConfirmationModal } from '@/hooks/useConfirmationModal';
 import { DocumentCard } from './DocumentCard';
 import { SitRepHeader } from './SitRepHeader';
 import { SitRepDetailModal } from './modals/SitRepDetailModal';
+import { SitrepGeneratorModal } from './modals/SitrepGeneratorModal';
 import { UploadDocumentModal } from './modals/UploadDocumentModal';
 import { styles } from './styles/SitRep.styles';
 
@@ -42,6 +43,7 @@ export function SitRep() {
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [selectedDocument, setSelectedDocument] = useState<SitRepDocument | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [generatorModalVisible, setGeneratorModalVisible] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const colorScheme = useColorScheme();
@@ -411,6 +413,7 @@ export function SitRep() {
         onMultiSelectToggle={handleMultiSelectToggle}
         isMultiSelectMode={isMultiSelectMode}
         canDelete={canDeleteSitRep || isAdminOrSupervisor}
+        onOpenGenerator={() => setGeneratorModalVisible(true)}
       />
 
       <SectionList
@@ -539,6 +542,12 @@ export function SitRep() {
           loading={confirmationModal.loading}
         />
       )}
+
+      {/* SITREP Generator Modal */}
+      <SitrepGeneratorModal
+        visible={generatorModalVisible}
+        onClose={() => setGeneratorModalVisible(false)}
+      />
     </ThemedView>
   );
 }

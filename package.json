@@ -8,7 +8,20 @@
     "android": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start --android",
     "ios": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start --ios",
     "web": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:web": "npx expo export --platform web && node scripts/copy-ionicons-font.js",
+    "deploy:firebase": "firebase deploy",
+    "deploy:firebase:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "deploy:firebase:functions": "cd functions && npm run build && cd .. && firebase deploy --only functions",
+    "deploy:firebase:hosting": "npm run build:web && firebase deploy --only hosting",
+    "deploy:web": "npm run build:web && firebase deploy --only hosting",
+    "deploy:all": "npm run build:web && firebase deploy",
+    "build:android": "eas build --profile production --platform android",
+    "build:android:preview": "eas build --profile preview --platform android",
+    "build:android:dev": "eas build --profile development --platform android",
+    "build:ios": "eas build --profile production --platform ios",
+    "submit:android": "eas submit --platform android",
+    "submit:ios": "eas submit --platform ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

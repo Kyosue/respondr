@@ -18,6 +18,7 @@ interface SitRepHeaderProps {
   onMultiSelectToggle?: () => void;
   isMultiSelectMode?: boolean;
   canDelete?: boolean;
+  onOpenGenerator?: () => void;
 }
 
 export function SitRepHeader({
@@ -30,6 +31,7 @@ export function SitRepHeader({
   onMultiSelectToggle,
   isMultiSelectMode = false,
   canDelete = false,
+  onOpenGenerator,
 }: SitRepHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -42,6 +44,18 @@ export function SitRepHeader({
           <ThemedText style={styles.subheader}>Manage and share important documents</ThemedText>
         </View>
         <View style={styles.headerActions}>
+          {!isMultiSelectMode && onOpenGenerator && (
+            <TouchableOpacity 
+              style={[styles.headerButton, { 
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+              }]}
+              onPress={onOpenGenerator}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
           {!isMultiSelectMode && (
             <TouchableOpacity 
               style={[styles.headerButton, { 

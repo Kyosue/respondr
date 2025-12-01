@@ -151,6 +151,83 @@ export const operationsService = {
     });
   },
 
+  async updateOperation(
+    operationId: string,
+    input: Partial<Omit<OperationRecord, 'id' | 'createdAt' | 'updatedAt'>>,
+    updatedBy?: string
+  ) {
+    const ref = doc(db, OPERATIONS_COLLECTION, operationId);
+    
+    // Fetch current operation to handle resource changes
+    const { getDoc } = await import('firebase/firestore');
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error('Operation not found');
+    const current = convertTimestamps({ id: snap.id, ...snap.data() }) as OperationRecord;
+
+    // Handle resource quantity changes
+    if (input.resources && Array.isArray(input.resources)) {
+      try {
+        const batch = writeBatch(db);
+        const currentResourceMap = new Map(
+          (current.resources || []).map(r => [r.resourceId, r.quantity])
+        );
+        const newResourceMap = new Map(
+          input.resources.map(r => [r.resourceId, r.quantity])
+        );
+
+        // Calculate quantity differences
+        const allResourceIds = new Set([
+          ...currentResourceMap.keys(),
+          ...newResourceMap.keys()
+        ]);
+
+        for (const resourceId of allResourceIds) {
+          const currentQty = currentResourceMap.get(resourceId) || 0;
+          const newQty = newResourceMap.get(resourceId) || 0;
+          const diff = newQty - currentQty;
+
+          if (diff !== 0) {
+            const resourceRef = doc(db, 'resources', resourceId);
+            batch.update(resourceRef, {
+              availableQuantity: increment(-diff),
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+
+        await batch.commit();
+      } catch (e) {
+        console.error('Failed to update resource quantities:', e);
+      }
+    }
+
+    // Remove undefined values recursively
+    const stripUndefinedDeep = (obj: any): any => {
+      if (obj === null || obj === undefined) return obj;
+      if (obj instanceof Date || obj instanceof Timestamp) return obj;
+      if (Array.isArray(obj)) return obj.map(stripUndefinedDeep);
+      if (typeof obj === 'object') {
+        const out: any = {};
+        Object.keys(obj).forEach((k) => {
+          const v = obj[k];
+          if (v !== undefined) {
+            out[k] = stripUndefinedDeep(v);
+          }
+        });
+        return out;
+      }
+      return obj;
+    };
+
+    const payload = stripUndefinedDeep({
+      ...input,
+      updatedAt: serverTimestamp(),
+      updatedBy: updatedBy || input.updatedBy,
+    });
+
+    await updateDoc(ref, payload);
+  },
+
   async updateStatus(operationId: string, status: OperationRecord['status'], updatedBy?: string) {
     const ref = doc(db, OPERATIONS_COLLECTION, operationId);
 

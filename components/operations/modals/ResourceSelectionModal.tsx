@@ -113,6 +113,10 @@ export function ResourceSelectionModal({
     }
   };
 
+  const handleResourceDeselect = (resourceId: string) => {
+    setTempSelectedResources(prev => prev.filter(r => r.resourceId !== resourceId));
+  };
+
   const handleQuantityChange = (resourceId: string, quantity: number) => {
     // Find the resource to get its availability
     const resource = availableResources.find(r => r.id === resourceId);
@@ -133,6 +137,63 @@ export function ResourceSelectionModal({
       setTempSelectedResources(prev =>
         prev.map(r =>
           r.resourceId === resourceId ? { ...r, quantity: clampedQuantity } : r
+        )
+      );
+    }
+  };
+
+  const handleQuantityInputChange = (resourceId: string, inputValue: string) => {
+    // Find the resource to get its availability
+    const resource = availableResources.find(r => r.id === resourceId);
+    if (!resource) return;
+
+    // Remove non-numeric characters
+    const numericValue = inputValue.replace(/[^0-9]/g, '');
+    
+    // Allow empty input (don't auto-set to 1)
+    if (numericValue === '') {
+      // Set to empty string temporarily, will be validated on blur
+      setTempSelectedResources(prev =>
+        prev.map(r =>
+          r.resourceId === resourceId ? { ...r, quantity: 0 } : r
+        )
+      );
+      return;
+    }
+
+    const quantity = parseInt(numericValue, 10);
+    const maxQuantity = resource.availableQuantity;
+    const minQuantity = 1;
+    
+    // Clamp to valid range (1 to maxQuantity)
+    let clampedQuantity = quantity;
+    if (quantity < minQuantity) {
+      clampedQuantity = minQuantity;
+    } else if (quantity > maxQuantity) {
+      clampedQuantity = maxQuantity;
+    }
+
+    // Update quantity
+    setTempSelectedResources(prev =>
+      prev.map(r =>
+        r.resourceId === resourceId ? { ...r, quantity: clampedQuantity } : r
+      )
+    );
+  };
+
+  const handleQuantityInputBlur = (resourceId: string) => {
+    // Find the resource to get its availability
+    const resource = availableResources.find(r => r.id === resourceId);
+    if (!resource) return;
+
+    const selectedResource = tempSelectedResources.find(r => r.resourceId === resourceId);
+    if (!selectedResource) return;
+
+    // If quantity is 0 or less, set to minimum (1)
+    if (selectedResource.quantity <= 0) {
+      setTempSelectedResources(prev =>
+        prev.map(r =>
+          r.resourceId === resourceId ? { ...r, quantity: 1 } : r
         )
       );
     }
@@ -254,7 +315,7 @@ export function ResourceSelectionModal({
                     const selectedResource = tempSelectedResources.find(r => r.resourceId === resource.id);
                     
                     return (
-                      <TouchableOpacity
+                      <View
                         key={resource.id}
                         style={{
                           width: `${cardWidth}%`,
@@ -266,7 +327,12 @@ export function ResourceSelectionModal({
                           overflow: 'hidden',
                           minHeight: isWeb ? 200 : 180
                         }}
+                      >
+                        {/* Clickable Top Section - for selection/deselection */}
+                        <TouchableOpacity
                         onPress={() => handleResourceSelect(resource)}
+                          activeOpacity={0.7}
+                          style={{ flex: 1 }}
                       >
                         {/* Selection Indicator */}
                         {isSelected && (
@@ -320,7 +386,7 @@ export function ResourceSelectionModal({
                             marginBottom: 4
                           }}>
                             <ThemedText style={{
-                              fontSize: isWeb ? 13 : 12,
+                                fontSize: isWeb ? 13 : 13,
                               fontWeight: '600',
                               color: colors.text,
                               flex: 1
@@ -335,7 +401,7 @@ export function ResourceSelectionModal({
                               marginLeft: 8
                             }}>
                               <ThemedText style={{
-                                fontSize: isWeb ? 10 : 9,
+                                  fontSize: isWeb ? 10 : 10,
                                 color: colors.primary,
                                 fontWeight: '600',
                                 textTransform: 'uppercase'
@@ -346,24 +412,31 @@ export function ResourceSelectionModal({
                           </View>
 
                           <ThemedText style={{
-                            fontSize: isWeb ? 11 : 10,
+                              fontSize: isWeb ? 11 : 11,
                             color: colors.primary,
                             fontWeight: '600'
                           }}>
                             {resource.availableQuantity}/{resource.totalQuantity} available
                           </ThemedText>
+                          </View>
+                        </TouchableOpacity>
 
-                          {/* Quantity Selector for Selected Resources */}
+                        {/* Separate Quantity Selector Container - doesn't trigger deselection */}
                           {isSelected && selectedResource && (
-                            <View style={{
-                              marginTop: 6,
+                          <View 
+                            style={{
+                              padding: isWeb ? 10 : 8,
                               paddingTop: 6,
                               borderTopWidth: 1,
-                              borderTopColor: colors.border
-                            }}>
+                              borderTopColor: colors.border,
+                              backgroundColor: colors.surface
+                            }}
+                            onStartShouldSetResponder={() => true}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                          >
                               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
                                 <ThemedText style={{
-                                  fontSize: isWeb ? 11 : 10,
+                                fontSize: isWeb ? 11 : 11,
                                   color: colors.text + '80',
                                   textAlign: 'center'
                                 }}>
@@ -371,7 +444,7 @@ export function ResourceSelectionModal({
                                 </ThemedText>
                                 {selectedResource.quantity >= resource.availableQuantity && (
                                   <ThemedText style={{
-                                    fontSize: isWeb ? 10 : 9,
+                                  fontSize: isWeb ? 10 : 10,
                                     color: '#EF4444',
                                     fontWeight: '600'
                                   }}>
@@ -383,53 +456,75 @@ export function ResourceSelectionModal({
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                width: '100%'
+                              width: '100%',
+                              maxWidth: '100%',
+                              gap: 4
                               }}>
                                 <TouchableOpacity
                                   style={{
                                     backgroundColor: selectedResource.quantity <= 1 ? '#9CA3AF' : '#EF4444',
                                     borderRadius: 6,
-                                    flex: 1,
-                                    height: isWeb ? 32 : 28,
+                                  width: isWeb ? 40 : 36,
+                                  height: isWeb ? 40 : 36,
+                                  minHeight: isWeb ? 40 : 36,
                                     justifyContent: 'center',
                                     alignItems: 'center',
-                                    marginRight: 4,
                                     opacity: selectedResource.quantity <= 1 ? 0.6 : 1,
                                   }}
-                                  onPress={() => handleQuantityChange(resource.id, selectedResource.quantity - 1)}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  handleQuantityChange(resource.id, selectedResource.quantity - 1);
+                                }}
                                   disabled={selectedResource.quantity <= 1}
                                 >
                                   <Ionicons name="remove" size={isWeb ? 16 : 14} color="white" />
                                 </TouchableOpacity>
-                                <View style={{
-                                  backgroundColor: colors.primary,
+                              <TextInput
+                                style={{
+                                  backgroundColor: colors.background,
+                                  borderWidth: 1,
+                                  borderColor: colors.border,
                                   borderRadius: 6,
                                   flex: 1,
-                                  height: isWeb ? 32 : 28,
-                                  justifyContent: 'center',
-                                  alignItems: 'center',
-                                  marginHorizontal: 4
-                                }}>
-                                  <ThemedText style={{
-                                    fontSize: isWeb ? 14 : 12,
+                                  minWidth: 0,
+                                  height: isWeb ? 40 : 36,
+                                  minHeight: isWeb ? 40 : 36,
+                                  textAlign: 'center',
+                                  fontSize: isWeb ? 14 : 13,
                                     fontWeight: '700',
-                                    color: 'white'
-                                  }}>
-                                    {selectedResource.quantity}
-                                  </ThemedText>
-                                </View>
+                                  color: colors.text,
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 0,
+                                  includeFontPadding: false,
+                                  textAlignVertical: 'center'
+                                }}
+                                value={selectedResource.quantity > 0 ? selectedResource.quantity.toString() : ''}
+                                onChangeText={(text) => {
+                                  handleQuantityInputChange(resource.id, text);
+                                }}
+                                onBlur={() => {
+                                  handleQuantityInputBlur(resource.id);
+                                }}
+                                keyboardType="numeric"
+                                selectTextOnFocus
+                                onFocus={(e) => e.stopPropagation()}
+                                onPressIn={(e) => e.stopPropagation()}
+                              />
                                 <TouchableOpacity
                                   style={{
                                     backgroundColor: selectedResource.quantity >= resource.availableQuantity ? '#9CA3AF' : '#10B981',
                                     borderRadius: 6,
-                                    flex: 1,
-                                    height: isWeb ? 32 : 28,
+                                  width: isWeb ? 40 : 36,
+                                  height: isWeb ? 40 : 36,
+                                  minHeight: isWeb ? 40 : 36,
                                     justifyContent: 'center',
                                     alignItems: 'center',
-                                    marginLeft: 4,
                                     opacity: selectedResource.quantity >= resource.availableQuantity ? 0.6 : 1,
                                   }}
-                                  onPress={() => handleQuantityChange(resource.id, selectedResource.quantity + 1)}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  handleQuantityChange(resource.id, selectedResource.quantity + 1);
+                                }}
                                   disabled={selectedResource.quantity >= resource.availableQuantity}
                                 >
                                   <Ionicons name="add" size={isWeb ? 16 : 14} color="white" />
@@ -438,7 +533,6 @@ export function ResourceSelectionModal({
                             </View>
                           )}
                         </View>
-                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -587,7 +681,7 @@ export function ResourceSelectionModal({
               const selectedResource = tempSelectedResources.find(r => r.resourceId === resource.id);
               
               return (
-                <TouchableOpacity
+                <View
                   key={resource.id}
                   style={{
                     width: `${cardWidth}%`,
@@ -599,7 +693,12 @@ export function ResourceSelectionModal({
                     overflow: 'hidden',
                     minHeight: isWeb ? 200 : 180
                   }}
+                >
+                  {/* Clickable Top Section - for selection/deselection */}
+                  <TouchableOpacity
                   onPress={() => handleResourceSelect(resource)}
+                    activeOpacity={0.7}
+                    style={{ flex: 1 }}
                 >
                   {/* Selection Indicator */}
                   {isSelected && (
@@ -685,15 +784,22 @@ export function ResourceSelectionModal({
                     }}>
                       {resource.availableQuantity}/{resource.totalQuantity} available
                     </ThemedText>
+                    </View>
+                  </TouchableOpacity>
 
-                    {/* Quantity Selector for Selected Resources */}
+                  {/* Separate Quantity Selector Container - doesn't trigger deselection */}
                     {isSelected && selectedResource && (
-                      <View style={{
-                        marginTop: 6,
+                    <View 
+                      style={{
+                        padding: isWeb ? 10 : 8,
                         paddingTop: 6,
                         borderTopWidth: 1,
-                        borderTopColor: colors.border
-                      }}>
+                        borderTopColor: colors.border,
+                        backgroundColor: colors.surface
+                      }}
+                      onStartShouldSetResponder={() => true}
+                      onTouchEnd={(e) => e.stopPropagation()}
+                    >
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
                           <ThemedText style={{
                             fontSize: isWeb ? 11 : 10,
@@ -716,53 +822,75 @@ export function ResourceSelectionModal({
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          width: '100%'
+                        width: '100%',
+                        maxWidth: '100%',
+                        gap: 4
                         }}>
                           <TouchableOpacity
                             style={{
                               backgroundColor: selectedResource.quantity <= 1 ? '#9CA3AF' : '#EF4444',
                               borderRadius: 6,
-                              flex: 1,
-                              height: isWeb ? 32 : 28,
+                            width: isWeb ? 40 : 36,
+                            height: isWeb ? 40 : 36,
+                            minHeight: isWeb ? 40 : 36,
                               justifyContent: 'center',
                               alignItems: 'center',
-                              marginRight: 4,
                               opacity: selectedResource.quantity <= 1 ? 0.6 : 1,
                             }}
-                            onPress={() => handleQuantityChange(resource.id, selectedResource.quantity - 1)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleQuantityChange(resource.id, selectedResource.quantity - 1);
+                          }}
                             disabled={selectedResource.quantity <= 1}
                           >
                             <Ionicons name="remove" size={isWeb ? 16 : 14} color="white" />
                           </TouchableOpacity>
-                          <View style={{
-                            backgroundColor: colors.primary,
+                        <TextInput
+                          style={{
+                            backgroundColor: colors.background,
+                            borderWidth: 1,
+                            borderColor: colors.border,
                             borderRadius: 6,
                             flex: 1,
-                            height: isWeb ? 32 : 28,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            marginHorizontal: 4
-                          }}>
-                            <ThemedText style={{
+                            minWidth: 0,
+                            height: isWeb ? 40 : 36,
+                            minHeight: isWeb ? 40 : 36,
+                            textAlign: 'center',
                               fontSize: isWeb ? 14 : 12,
                               fontWeight: '700',
-                              color: 'white'
-                            }}>
-                              {selectedResource.quantity}
-                            </ThemedText>
-                          </View>
+                            color: colors.text,
+                            paddingHorizontal: 8,
+                            paddingVertical: 0,
+                            includeFontPadding: false,
+                            textAlignVertical: 'center'
+                          }}
+                          value={selectedResource.quantity > 0 ? selectedResource.quantity.toString() : ''}
+                          onChangeText={(text) => {
+                            handleQuantityInputChange(resource.id, text);
+                          }}
+                          onBlur={() => {
+                            handleQuantityInputBlur(resource.id);
+                          }}
+                          keyboardType="numeric"
+                          selectTextOnFocus
+                          onFocus={(e) => e.stopPropagation()}
+                          onPressIn={(e) => e.stopPropagation()}
+                        />
                           <TouchableOpacity
                             style={{
                               backgroundColor: selectedResource.quantity >= resource.availableQuantity ? '#9CA3AF' : '#10B981',
                               borderRadius: 6,
-                              flex: 1,
-                              height: isWeb ? 32 : 28,
+                            width: isWeb ? 40 : 36,
+                            height: isWeb ? 40 : 36,
+                            minHeight: isWeb ? 40 : 36,
                               justifyContent: 'center',
                               alignItems: 'center',
-                              marginLeft: 4,
                               opacity: selectedResource.quantity >= resource.availableQuantity ? 0.6 : 1,
                             }}
-                            onPress={() => handleQuantityChange(resource.id, selectedResource.quantity + 1)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleQuantityChange(resource.id, selectedResource.quantity + 1);
+                          }}
                             disabled={selectedResource.quantity >= resource.availableQuantity}
                           >
                             <Ionicons name="add" size={isWeb ? 16 : 14} color="white" />
@@ -771,7 +899,6 @@ export function ResourceSelectionModal({
                       </View>
                     )}
                   </View>
-                </TouchableOpacity>
               );
             })}
           </View>

@@ -1,17 +1,19 @@
-    import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
+    Platform,
+    ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 
-    import { ThemedText } from '@/components/ThemedText';
+import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-    interface LocationInputProps {
+interface LocationInputProps {
     value: string;
     onChangeText: (text: string) => void;
     placeholder?: string;
@@ -20,9 +22,9 @@ import { useColorScheme } from '@/hooks/useColorScheme';
     helperText?: string;
     disabled?: boolean;
     style?: any;
-    }
+}
 
-    export function LocationInput({
+export function LocationInput({
     value,
     onChangeText,
     placeholder = "Enter location",
@@ -31,265 +33,275 @@ import { useColorScheme } from '@/hooks/useColorScheme';
     helperText,
     disabled = false,
     style,
-    }: LocationInputProps) {
+}: LocationInputProps) {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
-    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
     const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
-    const [hasUserInteracted, setHasUserInteracted] = useState(false);
     const inputRef = useRef<TextInput>(null);
-    const initialValueRef = useRef<string>(value);
-
-    // Initialize and track external value changes
-    useEffect(() => {
-        // On mount or when value changes externally, update the initial value
-        // This helps us detect when a new resource is loaded
-        if (value !== initialValueRef.current) {
-        // If user hasn't interacted yet, this is an external change - reset state
-        if (!hasUserInteracted) {
-            setHasUserInteracted(false);
-            initialValueRef.current = value;
-        }
-        }
-    }, [value, hasUserInteracted]);
+    const wrapperRef = useRef<View>(null);
 
     // Filter suggestions based on current input
     useEffect(() => {
-        // Only show suggestions if user has interacted (typed or focused and typed)
-        if (hasUserInteracted && value.trim().length >= 1) {
-        const query = value.toLowerCase().trim();
-        
-        // First, find exact matches that start with the query
-        const exactMatches = suggestions.filter(suggestion =>
-            suggestion.toLowerCase().startsWith(query)
-        );
-        
-        // Then, find partial matches that contain the query
-        const partialMatches = suggestions.filter(suggestion =>
-            suggestion.toLowerCase().includes(query) && 
-            !suggestion.toLowerCase().startsWith(query)
-        );
-        
-        // Combine and prioritize exact matches
-        const filtered = [...exactMatches, ...partialMatches].slice(0, 8);
-        
-        setFilteredSuggestions(filtered);
-        setShowSuggestions(filtered.length > 0);
+        if (value.trim().length >= 1) {
+            const query = value.toLowerCase().trim();
+            
+            // First, find exact matches that start with the query
+            const exactMatches = suggestions.filter(suggestion =>
+                suggestion.toLowerCase().startsWith(query)
+            );
+            
+            // Then, find partial matches that contain the query
+            const partialMatches = suggestions.filter(suggestion =>
+                suggestion.toLowerCase().includes(query) && 
+                !suggestion.toLowerCase().startsWith(query)
+            );
+            
+            // Combine and prioritize exact matches
+            const filtered = [...exactMatches, ...partialMatches];
+            
+            setFilteredSuggestions(filtered);
         } else {
-        // Hide suggestions when input is empty or user hasn't interacted
-        setFilteredSuggestions([]);
-        setShowSuggestions(false);
+            // If input is empty, show all suggestions when dropdown is open
+            setFilteredSuggestions(suggestions);
         }
-    }, [value, suggestions, hasUserInteracted]);
+    }, [value, suggestions]);
 
     const handleInputChange = (text: string) => {
-        // Mark that user has interacted when they type
-        if (!hasUserInteracted) {
-        setHasUserInteracted(true);
-        }
         onChangeText(text);
+        // Keep dropdown open when typing
+        if (!showDropdown && text.trim().length >= 1) {
+            setShowDropdown(true);
+        }
     };
 
     const handleSuggestionPress = (suggestion: string) => {
-        // Replace the entire field content with the selected suggestion
         onChangeText(suggestion);
-        setShowSuggestions(false);
-        // Keep focus for a moment to ensure the value is properly set
-        setTimeout(() => {
+        setShowDropdown(false);
         inputRef.current?.blur();
-        }, 100);
     };
 
-    const handleInputFocus = () => {
-        // Don't mark interaction just on focus - wait for user to actually type
-        // This prevents suggestions from showing when focusing on a pre-filled field
-    };
-
-    const handleInputBlur = () => {
-        // Delay hiding suggestions to allow for suggestion selection
-        setTimeout(() => {
-        setShowSuggestions(false);
-        }, 150);
+    const toggleDropdown = () => {
+        setShowDropdown(!showDropdown);
     };
 
 
     return (
-        <View style={[
-            styles.container, 
-            style,
-            showSuggestions && !error && {
-                borderWidth: 2,
-                borderColor: colors.primary,
-                borderRadius: 10,
-                padding: 2,
-            }
-        ]}>
-        <View style={styles.inputContainer}>
-            <TextInput
-            ref={inputRef}
-            style={[
-                styles.input,
-                {
-                borderColor: error ? colors.error : colors.inputBorder,
-                backgroundColor: disabled ? colors.background + '50' : colors.background,
-                color: colors.text,
-                },
-                disabled && styles.disabled,
-            ]}
-            value={value}
-            onChangeText={handleInputChange}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            placeholder={placeholder}
-            placeholderTextColor={colors.text + '50'}
-            editable={!disabled}
-            autoCapitalize="words"
-            autoCorrect={false}
-            />
-            {value.length > 0 && !disabled && (
-            <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => onChangeText('')}
-            >
-                <Ionicons name="close-circle" size={20} color={colors.text + '70'} />
-            </TouchableOpacity>
-            )}
-        </View>
-
-        {showSuggestions && filteredSuggestions.length > 0 && (
-            <View style={[styles.suggestionsContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <View style={styles.suggestionsList}>
-                {filteredSuggestions.map((item, index) => {
-                const isExactMatch = item.toLowerCase().startsWith(value.toLowerCase().trim());
-                return (
-                    <TouchableOpacity
-                    key={`${item}-${index}`}
-                    style={[
-                        styles.suggestionItem, 
-                        { 
-                        borderBottomColor: colors.border,
-                        backgroundColor: isExactMatch ? colors.primary + '10' : 'transparent'
-                        }
-                    ]}
-                    onPress={() => handleSuggestionPress(item)}
-                    activeOpacity={0.7}
-                    >
-                    <Ionicons 
-                        name="location-outline" 
-                        size={16} 
-                        color={isExactMatch ? colors.primary : colors.text + '70'} 
-                        style={styles.suggestionIcon}
-                    />
-                    <ThemedText 
+        <View style={[styles.container, style]} ref={wrapperRef}>
+            <View style={styles.inputWrapper}>
+                <View style={styles.inputContainer}>
+                    <TextInput
+                        ref={inputRef}
                         style={[
-                        styles.suggestionText,
-                        isExactMatch && { color: colors.primary, fontWeight: '500' }
+                            styles.input,
+                            {
+                                borderColor: error ? colors.error : (colors.inputBorder || colors.border),
+                                backgroundColor: disabled ? colors.background + '50' : colors.background,
+                                color: colors.text,
+                            },
+                            disabled && styles.disabled,
                         ]}
+                        value={value}
+                        onChangeText={handleInputChange}
+                        placeholder={placeholder}
+                        placeholderTextColor={colors.text + '50'}
+                        editable={!disabled}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                    />
+                    {value.length > 0 && !disabled && (
+                        <TouchableOpacity
+                            style={styles.clearButton}
+                            onPress={() => {
+                                onChangeText('');
+                                setShowDropdown(false);
+                            }}
+                        >
+                            <Ionicons name="close-circle" size={20} color={colors.text + '70'} />
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                        style={styles.chevronButton}
+                        onPress={toggleDropdown}
+                        disabled={disabled}
+                        activeOpacity={0.7}
                     >
-                        {item}
-                    </ThemedText>
-                    {isExactMatch && (
                         <Ionicons 
-                        name="checkmark-circle" 
-                        size={16} 
-                        color={colors.primary} 
-                        style={styles.checkIcon}
+                            name={showDropdown ? 'chevron-up' : 'chevron-down'} 
+                            size={20} 
+                            color={colors.text} 
+                        />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {showDropdown && (
+                <>
+                    {Platform.OS === 'web' && (
+                        <TouchableOpacity
+                            style={styles.dropdownBackdrop}
+                            activeOpacity={1}
+                            onPress={() => setShowDropdown(false)}
                         />
                     )}
-                    </TouchableOpacity>
-                );
-                })}
-            </View>
-            </View>
-        )}
+                    {(filteredSuggestions.length > 0 || suggestions.length > 0) ? (
+                        <View style={[styles.dropdown, { backgroundColor: colors.surface || colors.background, borderColor: colors.border }]}>
+                            <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                                {(value.trim().length >= 1 ? filteredSuggestions : suggestions).map((item, index) => {
+                                    const isExactMatch = value.trim().length > 0 && item.toLowerCase().startsWith(value.toLowerCase().trim());
+                                    return (
+                                        <TouchableOpacity
+                                            key={`${item}-${index}`}
+                                            style={[
+                                                styles.dropdownItem,
+                                                isExactMatch && { backgroundColor: colors.primary + '20' }
+                                            ]}
+                                            onPress={() => handleSuggestionPress(item)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons 
+                                                name="location-outline" 
+                                                size={16} 
+                                                color={isExactMatch ? colors.primary : colors.text + '70'} 
+                                                style={styles.dropdownIcon}
+                                            />
+                                            <ThemedText 
+                                                style={[
+                                                    styles.dropdownItemText,
+                                                    isExactMatch && { color: colors.primary, fontWeight: '600' }
+                                                ]}
+                                            >
+                                                {item}
+                                            </ThemedText>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    ) : (
+                        <View style={[styles.dropdown, { backgroundColor: colors.surface || colors.background, borderColor: colors.border }]}>
+                            <ThemedText style={[styles.dropdownEmpty, { color: colors.text + '80' }]}>
+                                No locations available
+                            </ThemedText>
+                        </View>
+                    )}
+                </>
+            )}
 
-        {error && (
-            <ThemedText style={[styles.errorText, { color: colors.error }]}>{error}</ThemedText>
-        )}
+            {error && (
+                <ThemedText style={[styles.errorText, { color: colors.error }]}>{error}</ThemedText>
+            )}
 
-        {helperText && !error && (
-            <ThemedText style={[styles.helperText, { color: colors.text + '70' }]}>
-            {helperText}
-            </ThemedText>
-        )}
+            {helperText && !error && (
+                <ThemedText style={[styles.helperText, { color: colors.text + '70' }]}>
+                    {helperText}
+                </ThemedText>
+            )}
         </View>
     );
     }
 
     const styles = StyleSheet.create({
-    container: {
-        marginBottom: 0,
-        position: 'relative',
-        zIndex: 9999, // Very high z-index to ensure suggestions appear above other content
-        elevation: 10, // For Android
-        borderWidth: 0, // Default no border, will be added when suggestions show
-    },
-    inputContainer: {
-        position: 'relative',
-    },
-    input: {
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-        fontSize: 16,
-        minHeight: 48,
-    },
-    disabled: {
-        opacity: 0.5,
-    },
-    clearButton: {
-        position: 'absolute',
-        right: 12,
-        top: '50%',
-        transform: [{ translateY: -10 }],
-        padding: 4,
-    },
-    suggestionsContainer: {
-        position: 'absolute',
-        top: 48, // Position directly below the input field (48px height)
-        left: 0,
-        right: 0,
-        zIndex: 10000, // Very high z-index for the suggestions container
-        borderWidth: 1,
-        borderTopWidth: 0,
-        borderBottomLeftRadius: 8,
-        borderBottomRightRadius: 8,
-        maxHeight: 240,
-        elevation: 20, // Very high elevation for Android to appear above other elements
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        marginTop: -1, // Overlap slightly with input border
-    },
-    suggestionsList: {
-        maxHeight: 240,
-    },
-    suggestionItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    suggestionIcon: {
-        marginRight: 8,
-    },
-    suggestionText: {
-        flex: 1,
-        fontSize: 16,
-    },
-    checkIcon: {
-        marginLeft: 8,
-    },
-    errorText: {
-        fontSize: 12,
-        marginTop: 4,
-    },
-    helperText: {
-        fontSize: 12,
-        marginTop: 4,
-        lineHeight: 16,
-    },
+        container: {
+            marginBottom: 0,
+            position: 'relative',
+            zIndex: 10000,
+            elevation: 10000,
+            ...(Platform.OS === 'web' && {
+                isolation: 'isolate',
+            } as any),
+        },
+        inputWrapper: {
+            position: 'relative',
+            zIndex: 10000,
+            elevation: 10000,
+        },
+        inputContainer: {
+            position: 'relative',
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        input: {
+            flex: 1,
+            borderWidth: 1.5,
+            borderRadius: 10,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            paddingRight: 80, // Space for clear and chevron buttons
+            fontSize: 16,
+            minHeight: 48,
+        },
+        disabled: {
+            opacity: 0.5,
+        },
+        clearButton: {
+            position: 'absolute',
+            right: 40,
+            padding: 4,
+            zIndex: 1,
+        },
+        chevronButton: {
+            position: 'absolute',
+            right: 12,
+            padding: 4,
+            zIndex: 1,
+        },
+        dropdownBackdrop: {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            backgroundColor: 'transparent',
+        },
+        dropdown: {
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: -20,
+            borderWidth: 1.5,
+            borderRadius: 10,
+            maxHeight: 300,
+            zIndex: 10001,
+            elevation: 10001,
+            ...(Platform.OS === 'web' && {
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                position: 'absolute',
+            } as any),
+        },
+        dropdownScroll: {
+            maxHeight: 300,
+        },
+        dropdownItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+        },
+        dropdownIcon: {
+            marginRight: 12,
+        },
+        dropdownItemText: {
+            flex: 1,
+            fontSize: 16,
+            color: '#333',
+        },
+        dropdownEmpty: {
+            padding: 16,
+            textAlign: 'center',
+            fontSize: 14,
+        },
+        errorText: {
+            fontSize: 12,
+            marginTop: 4,
+        },
+        helperText: {
+            fontSize: 12,
+            marginTop: 4,
+            lineHeight: 16,
+        },
     });

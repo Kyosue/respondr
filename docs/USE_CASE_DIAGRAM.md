@@ -403,7 +403,7 @@ graph TB
 - **Admin and Supervisor** have identical permissions in the current system
 - **Operator** has read-only access to most features with limited write capabilities
 - **Borrowers** are external entities that interact through system users
-- The system supports **offline-first** architecture with automatic synchronization
+- The system supports **offline-first** architecture with automatic synchronization (after initial authentication; login requires internet)
 - All use cases support **cross-platform** access (iOS, Android, Web)
 - **Include relationships** are mandatory and always executed
 - **Extend relationships** are optional and executed conditionally

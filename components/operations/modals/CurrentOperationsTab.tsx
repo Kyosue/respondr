@@ -13,12 +13,14 @@ interface CurrentOperationsTabProps {
   operations: any[];
   onConcludeOperation?: (operationId: string) => void;
   onAddOperation?: () => void;
+  onEditOperation?: (operation: any) => void;
 }
 
 export function CurrentOperationsTab({ 
   operations, 
   onConcludeOperation, 
-  onAddOperation 
+  onAddOperation,
+  onEditOperation
 }: CurrentOperationsTabProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -101,6 +103,7 @@ export function CurrentOperationsTab({
                   operation={{ ...operation, status: 'active' }} 
                   onConclude={isAdminOrSupervisor ? onConcludeOperation : undefined}
                   onDelete={isAdminOrSupervisor ? () => handleDeleteClick(operation) : undefined}
+                  onEdit={isAdminOrSupervisor ? onEditOperation : undefined}
                 />
               </View>
             ))}

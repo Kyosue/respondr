@@ -66,3 +66,4 @@ The system provides significant time savings by reducing manual processes from 1
 The economic feasibility analysis demonstrates that the system is financially viable, with a positive ROI of 98.96% and a payback period of just over 6 months. The annual benefits (Php 133,985.4) significantly outweigh the total cost (Php 67,344.00), making this a sound investment for the organization.
 
 
+

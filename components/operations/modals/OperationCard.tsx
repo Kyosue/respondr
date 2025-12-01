@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { OperationCompleteModal } from './OperationCompleteModal';
+import { OperationPreviewModal } from './OperationPreviewModal';
 
 interface OperationCardProps {
   operation: {
@@ -28,6 +29,9 @@ interface OperationCardProps {
       status: string;
     }>;
     assignedPersonnel?: string[];
+    teamLeader?: string;
+    municipalityId?: string;
+    notes?: string;
     createdAt: string | Date | number;
     updatedAt: string | Date | number;
     createdBy?: string;
@@ -35,12 +39,14 @@ interface OperationCardProps {
   };
   onConclude?: (operationId: string) => void;
   onDelete?: (operationId: string) => void;
+  onEdit?: (operation: OperationCardProps['operation']) => void;
 }
 
-export function OperationCard({ operation, onConclude, onDelete }: OperationCardProps) {
+export function OperationCard({ operation, onConclude, onDelete, onEdit }: OperationCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [updaterName, setUpdaterName] = useState<string | null>(null);
   const [personnelMap, setPersonnelMap] = useState<Map<string, { fullName: string; email?: string }>>(new Map());
@@ -197,6 +203,7 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
 
   const canConclude = !!onConclude && operation.status !== 'concluded';
   const canDelete = !!onDelete;
+  const canEdit = !!onEdit && operation.status !== 'concluded';
 
   const handleConcludeOperation = () => {
     if (!canConclude) return;
@@ -304,37 +311,57 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
       </View>
       
       {/* Action Buttons */}
-      {(canDelete || canConclude) && (
-        <View style={styles.actionButtons}>
-          {canDelete && (
-            <TouchableOpacity
-              style={[
-                styles.iconButton,
-                { borderColor: colors.border, backgroundColor: colors.surface }
-              ]}
-              onPress={handleDelete}
-            >
-              <Ionicons name="trash-outline" size={18} color={colors.error || '#EF4444'} />
-            </TouchableOpacity>
-          )}
-          {canConclude && (
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                styles.completeButton,
-                { backgroundColor: colors.success }
-              ]}
-              onPress={handleConcludeOperation}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark-circle-outline" size={16} color="white" />
-              <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
-                Conclude
-              </ThemedText>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+      <View style={styles.actionButtons}>
+        {canDelete && (
+          <TouchableOpacity
+            style={[
+              styles.iconButton,
+              { borderColor: colors.border, backgroundColor: colors.surface }
+            ]}
+            onPress={handleDelete}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error || '#EF4444'} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[
+            styles.iconButton,
+            { borderColor: colors.primary, backgroundColor: colors.primary }
+          ]}
+          onPress={() => setShowPreviewModal(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="eye-outline" size={18} color="white" />
+        </TouchableOpacity>
+        {canEdit && (
+          <TouchableOpacity
+            style={[
+              styles.iconButton,
+              { borderColor: colors.primary, backgroundColor: colors.primary }
+            ]}
+            onPress={() => onEdit?.(operation)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="create-outline" size={18} color="white" />
+          </TouchableOpacity>
+        )}
+        {canConclude && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.completeButton,
+              { backgroundColor: colors.success }
+            ]}
+            onPress={handleConcludeOperation}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="checkmark-circle-outline" size={16} color="white" />
+            <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
+              Conclude
+            </ThemedText>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Footer - compact */}
       <View style={styles.operationFooter}>
@@ -364,6 +391,13 @@ export function OperationCard({ operation, onConclude, onDelete }: OperationCard
         operation={operation}
         onClose={() => setShowCompleteModal(false)}
         onConfirm={handleConfirmConclude}
+      />
+
+      {/* Operation Preview Modal */}
+      <OperationPreviewModal
+        visible={showPreviewModal}
+        operation={operation}
+        onClose={() => setShowPreviewModal(false)}
       />
     </View>
   );
@@ -462,11 +496,14 @@ const styles = StyleSheet.create({
   // Action Buttons
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 6,
     marginBottom: 12,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  previewButton: {
+    borderWidth: 1,
   },
   actionButton: {
     flex: 1,

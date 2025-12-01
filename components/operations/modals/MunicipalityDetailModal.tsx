@@ -21,6 +21,7 @@ interface MunicipalityDetailModalProps {
   recentOperations?: any[];
   onConcludeOperation?: (operationId: string) => void;
   concludedOperations?: any[];
+  onEditOperation?: (operation: any) => void;
 }
 
 type TabType = 'current' | 'history';
@@ -32,7 +33,8 @@ export function MunicipalityDetailModal({
   onAddOperation,
   recentOperations = [],
   onConcludeOperation,
-  concludedOperations = []
+  concludedOperations = [],
+  onEditOperation
 }: MunicipalityDetailModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -380,6 +382,7 @@ export function MunicipalityDetailModal({
                       operations={recentOperations || []}
                       onConcludeOperation={onConcludeOperation}
                       onAddOperation={onAddOperation}
+                      onEditOperation={onEditOperation}
                     />
                   ) : (
                     <HistoryOperationsTab
@@ -608,6 +611,7 @@ export function MunicipalityDetailModal({
                     operations={recentOperations || []}
                     onConcludeOperation={onConcludeOperation}
                     onAddOperation={onAddOperation}
+                    onEditOperation={onEditOperation}
                   />
                 ) : (
                   <HistoryOperationsTab

@@ -13,17 +13,18 @@ A comprehensive disaster response management system built with React Native and 
 
 ### 🔧 Technical Features
 - **Firebase Integration**: Real-time data sync with Firestore and Firebase Storage
-- **Offline Support**: Resilient operation in low-connectivity areas with local caching
+- **Offline Support**: Resilient operation in low-connectivity areas with local caching (after initial login)
 - **Image Management**: Camera integration and Cloudinary optimization
 - **Cross-Platform**: Native iOS, Android, and Web support
 - **TypeScript**: Full type safety throughout the application
 - **Theme Support**: Light and dark mode with responsive design
 
 ### 🛡️ Resilience Features
-- **Offline-First Architecture**: Works without internet connection
+- **Offline-First Architecture**: Works without internet connection after initial authentication
 - **Network State Monitoring**: Automatic retry mechanisms and connection quality detection
 - **Data Synchronization**: Queued operations sync when connectivity is restored
 - **Secure Storage**: Sensitive data stored with Expo SecureStore
+- **Authentication Limitation**: Initial login requires internet connection (Firebase Auth requirement)
 
 ## Project Structure
 
