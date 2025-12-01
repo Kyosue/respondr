@@ -134,7 +134,6 @@ export class DocumentService {
       title: string;
       description?: string;
       uploadedBy: string;
-      category?: SitRepDocument['category'];
       tags?: string[];
       isPublic?: boolean;
     },
@@ -176,7 +175,6 @@ export class DocumentService {
         storagePath: storagePath,
         uploadedBy: metadata.uploadedBy,
         tags: metadata.tags || [],
-        category: metadata.category || 'other',
         isPublic: metadata.isPublic || false,
       };
 
@@ -190,7 +188,6 @@ export class DocumentService {
             title: metadata.title,
             description: metadata.description || '',
             uploadedBy: metadata.uploadedBy,
-            category: metadata.category || 'other',
             tags: metadata.tags?.join(',') || '',
             isPublic: metadata.isPublic?.toString() || 'false',
             ...options?.metadata,
@@ -206,7 +203,6 @@ export class DocumentService {
             title: metadata.title,
             description: metadata.description || '',
             uploadedBy: metadata.uploadedBy,
-            category: metadata.category || 'other',
             tags: metadata.tags?.join(',') || '',
             isPublic: metadata.isPublic?.toString() || 'false',
             ...options?.metadata,
@@ -290,10 +286,6 @@ export class DocumentService {
       const constraints: QueryConstraint[] = [];
       
       // Apply filters
-      if (filters?.category) {
-        constraints.push(where('category', '==', filters.category));
-      }
-      
       if (filters?.fileType) {
         constraints.push(where('fileType', '==', filters.fileType));
       }
@@ -400,7 +392,7 @@ export class DocumentService {
    */
   async updateDocument(
     documentId: string, 
-    updates: Partial<Pick<SitRepDocument, 'title' | 'description' | 'tags' | 'category' | 'isPublic'>>
+    updates: Partial<Pick<SitRepDocument, 'title' | 'description' | 'tags' | 'isPublic'>>
   ): Promise<void> {
     try {
       const docRef = doc(db, this.collectionName, documentId);

@@ -11,7 +11,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MemoProvider } from '@/contexts/MemoContext';
+import { NavigationProvider } from '@/contexts/NavigationContext';
 import { NetworkProvider } from '@/contexts/NetworkContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ResourceProvider } from '@/contexts/ResourceContext';
 import { SitRepProvider } from '@/contexts/SitRepContext';
 import { AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
@@ -68,7 +70,8 @@ export default function RootLayout() {
       ? {} // For web, we inject the font via @font-face in useEffect
       : {
           Gabarito: require('../assets/fonts/Gabarito-VariableFont_wght.ttf'),
-          Ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
+          // Ionicons font is automatically handled by @expo/vector-icons on mobile
+          // No need to manually load it
         }
   );
   const [isReady, setIsReady] = useState(false);
@@ -183,6 +186,8 @@ export default function RootLayout() {
       <AppThemeProvider>
         <NetworkProvider>
           <AuthProvider>
+            <NavigationProvider>
+            <NotificationProvider>
             <ResourceProvider>
               <SitRepProvider>
                 <MemoProvider>
@@ -190,6 +195,8 @@ export default function RootLayout() {
                 </MemoProvider>
               </SitRepProvider>
             </ResourceProvider>
+            </NotificationProvider>
+            </NavigationProvider>
           </AuthProvider>
         </NetworkProvider>
       </AppThemeProvider>

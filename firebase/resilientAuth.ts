@@ -9,7 +9,7 @@ import {
     updateProfile,
     UserCredential
 } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { UserData, UserType } from './auth';
 import { auth, db } from './config';
 
@@ -38,6 +38,7 @@ export class ResilientAuthService {
     password: string,
     fullName: string,
     displayName: string,
+    username: string,
     userType: UserType = 'operator' // Default to operator for self-signup
   ): Promise<UserData> {
     try {
@@ -62,6 +63,7 @@ export class ResilientAuthService {
         id: user.uid,
         fullName,
         displayName,
+        username: username.toLowerCase(),
         email,
         userType,
         status: 'inactive', // New accounts are inactive by default
@@ -79,9 +81,30 @@ export class ResilientAuthService {
     }
   }
 
-  // Sign in user with offline support
-  async signInUser(email: string, password: string): Promise<UserData> {
+  // Sign in user with offline support (accepts username or email)
+  async signInUser(usernameOrEmail: string, password: string): Promise<UserData> {
     try {
+      let email = usernameOrEmail;
+      
+      // Check if input is a username (doesn't contain @) or email
+      const isEmail = usernameOrEmail.includes('@');
+      
+      if (!isEmail) {
+        // It's a username, find the user by username
+        const usersRef = collection(db, 'users');
+        const usernameQuery = query(usersRef, where('username', '==', usernameOrEmail.toLowerCase()));
+        const usernameSnapshot = await getDocs(usernameQuery);
+        
+        if (usernameSnapshot.empty) {
+          throw new Error('No account found with this username');
+        }
+        
+        // Get the email from the user document
+        const userDoc = usernameSnapshot.docs[0];
+        const userData = userDoc.data() as UserData;
+        email = userData.email;
+      }
+      
       // Sign in with Firebase Auth with retry (but not for auth errors)
       const userCredential: UserCredential = await withRetry(
         () => signInWithEmailAndPassword(auth, email, password),

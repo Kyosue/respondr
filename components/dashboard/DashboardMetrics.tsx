@@ -140,6 +140,9 @@ const styles = StyleSheet.create({
     minWidth: '48%',
     flex: 0,
     marginBottom: 0,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   gradientCard: {
     padding: 16,
@@ -148,8 +151,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gradientCardMobile: {
-    padding: 14,
-    minHeight: 100,
+    padding: 12,
+    minHeight: 95,
     justifyContent: 'flex-start',
   },
   metricContent: {
@@ -164,7 +167,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
     width: '100%',
   },
   iconBackground: {
@@ -194,7 +197,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Gabarito',
   },
   metricValueMobile: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
     fontFamily: 'Gabarito',

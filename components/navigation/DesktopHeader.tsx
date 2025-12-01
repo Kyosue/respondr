@@ -9,9 +9,10 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface DesktopHeaderProps {
   title?: string;
+  onTabChange?: (tab: string, params?: any) => void;
 }
 
-export function DesktopHeader({ title }: DesktopHeaderProps) {
+export function DesktopHeader({ title, onTabChange }: DesktopHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
@@ -29,23 +30,17 @@ export function DesktopHeader({ title }: DesktopHeaderProps) {
   // Get first letter of name for avatar placeholder
   const nameInitial = user?.fullName?.charAt(0).toUpperCase() || 'U';
 
-  // Sample notifications data (replace with real data later)
-  const notifications = [
-    { id: '1', title: 'New operation created', message: 'Operation #1234 has been created', time: '2 minutes ago', read: false },
-    { id: '2', title: 'Resource request', message: 'John Doe requested 5 units', time: '15 minutes ago', read: false },
-    { id: '3', title: 'Weather alert', message: 'High humidity detected', time: '1 hour ago', read: true },
-  ];
 
   return (
     <SafeAreaView edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.rightSection}>
           <NotificationButton
-            notifications={notifications}
             buttonSize={40}
             iconSize={20}
             dropdownWidth={360}
             dropdownMaxHeight={500}
+            onNavigate={onTabChange}
           />
           <View style={[styles.avatar, { backgroundColor: getUserTypeColor(user?.userType as any) }]}>
             <ThemedText style={styles.avatarText} darkColor="#000" lightColor="#fff">

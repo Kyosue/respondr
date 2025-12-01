@@ -7,7 +7,7 @@ const ALL_MENU_ITEMS = [
     id: 'user-management',
     title: 'User Management',
     icon: 'people-outline',
-    requiredRole: ['admin', 'supervisor'] as UserType[],
+    requiredRole: ['admin'] as UserType[],
   },
   {
     id: 'weather-station',

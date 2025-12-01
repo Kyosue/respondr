@@ -30,8 +30,29 @@ export const styles = StyleSheet.create({
       },
     }),
   },
-  documentGroup: {
+  sectionContainer: {
     marginBottom: 24,
+  },
+  documentsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  gridItem: {
+    marginBottom: 16,
+  },
+  gridItemMobile: {
+    width: '100%',
+  },
+  gridItemDesktop: {
+    flexShrink: 0,
+    flexGrow: 0,
+    minWidth: 200,
+  },
+  documentGroup: {
+    marginBottom: 8,
   },
   groupHeader: {
     fontSize: 16,

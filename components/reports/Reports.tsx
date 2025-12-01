@@ -5,10 +5,11 @@ import { useMemo } from '@/contexts/MemoContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useConfirmationModal } from '@/hooks/useConfirmationModal';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useScreenSize } from '@/hooks/useScreenSize';
 import { MemoDocument, MemoFilter } from '@/types/MemoDocument';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Platform, RefreshControl, SectionList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { MemoActiveFilterTags } from './MemoActiveFilterTags';
 import { MemoFilterPopover } from './MemoFilterPopover';
@@ -23,6 +24,7 @@ const Reports: React.FC = () => {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const isWeb = Platform.OS === 'web';
+  const { isMobile, isTablet, isDesktop, width: screenWidth } = useScreenSize();
   const { 
     documents, 
     loading, 
@@ -190,29 +192,20 @@ const Reports: React.FC = () => {
     return doc.acknowledgments.some((ack) => ack.userId === user?.id);
   };
 
-  // Responsive columns for web
-  const [columns, setColumns] = useState<number>(isWeb ? 3 : 1);
+  // Calculate grid columns based on screen size
+  const getColumnsPerRow = () => {
+    if (isMobile) return 1;
+    if (isTablet) return 2;
+    if (isDesktop) {
+      // Desktop: 3-5 columns depending on screen width
+      if (screenWidth >= 1600) return 5;
+      if (screenWidth >= 1200) return 4;
+      return 2;
+    }
+    return 2; // Default
+  };
 
-  useEffect(() => {
-    if (!isWeb) return;
-    const CARD_WIDTH_WEB = 260; // match Reports.styles.ts
-    const GAP = 16;             // match grid gap
-    const H_PADDING = 40;       // paddingHorizontal: 20 on both sides
-
-    const computeColumns = () => {
-      const { width } = Dimensions.get('window');
-      const available = Math.max(0, width - H_PADDING);
-      const col = Math.max(1, Math.floor(available / (CARD_WIDTH_WEB + GAP)));
-      setColumns(col);
-    };
-
-    computeColumns();
-    const sub = Dimensions.addEventListener('change', computeColumns);
-    return () => {
-      // @ts-ignore RN web compatibility
-      sub?.remove ? sub.remove() : Dimensions.removeEventListener?.('change', computeColumns);
-    };
-  }, [isWeb]);
+  const columnsPerRow = getColumnsPerRow();
 
   // Memoize unique documents list
   const uniqueDocuments = React.useMemo(() => {
@@ -274,7 +267,7 @@ const Reports: React.FC = () => {
     return sortedGroups;
   };
 
-  // Memoize sections for virtualization
+  // Memoize sections for grid layout
   const sections = React.useMemo(() => {
     return groupDocumentsByDate(filteredDocuments).map(([title, data]) => ({ title, data }));
   }, [filteredDocuments]);
@@ -617,50 +610,34 @@ const Reports: React.FC = () => {
       </View>
 
       {/* Content Area */}
-      <SectionList
+      <ScrollView
         style={styles.content}
         contentContainerStyle={[styles.documentsList]}
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item: doc, section }) => {
-          if (isWeb) {
-            // For web, items are rendered in the section header, so return null here
-            return null;
-          }
-          return renderItem({ item: doc });
-        }}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.documentGroup}>
-            <Text style={[styles.groupHeader, { color: colors.text }]}>
-              {section.title}
-            </Text>
-            {isWeb ? (
-              <View style={styles.documentsSectionContainer}>
-                {section.data.map((doc) => (
-                  <View key={doc.id}>
-                    {renderItem({ item: doc })}
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        )}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.tint]}
-            tintColor={colors.tint}
-          />
+          Platform.OS !== 'web' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.tint]}
+              tintColor={colors.tint}
+            />
+          ) : undefined
         }
-        onEndReachedThreshold={0.2}
-        onEndReached={() => {
-          if (hasMore && !loading) {
-            loadMore();
+        onScroll={(event) => {
+          // Handle infinite scroll for web
+          if (Platform.OS === 'web' && hasMore && !loading) {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 400;
+            if (isCloseToBottom) {
+              loadMore();
+            }
           }
         }}
-        ListHeaderComponent={isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) ? (
+        scrollEventThrottle={400}
+      >
+        {/* Multi-select bar */}
+        {isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) && (
           <View style={styles.multiSelectBar}>
             <View style={styles.multiSelectContent}>
               <Text style={[styles.selectedCount, { color: colors.text }]}>
@@ -684,25 +661,72 @@ const Reports: React.FC = () => {
               </View>
             </View>
           </View>
-        ) : null}
-        ListFooterComponent={loading && documents.length > 0 ? (
+        )}
+
+        {/* Render sections with grid layout */}
+        {sections.length > 0 ? (
+          sections.map((section) => (
+            <View key={section.title} style={styles.sectionContainer}>
+              <View style={styles.documentGroup}>
+                <Text style={[styles.groupHeader, { color: colors.text }]}>
+                  {section.title}
+                </Text>
+              </View>
+              <View style={[
+                styles.documentsGrid,
+                {
+                  paddingHorizontal: isMobile ? 16 : isDesktop ? 20 : 16,
+                }
+              ]}>
+                {section.data.map((doc) => {
+                  // Calculate width percentage accounting for gaps
+                  const widthPercent = isMobile 
+                    ? 100 
+                    : (100 / columnsPerRow) - (columnsPerRow > 1 ? 1.5 : 0);
+                  
+                  return (
+                    <View
+                      key={doc.id}
+                      style={[
+                        styles.gridItem,
+                        isMobile ? styles.gridItemMobile : [
+                          styles.gridItemDesktop,
+                          {
+                            width: `${widthPercent}%`,
+                            minWidth: 200,
+                          }
+                        ]
+                      ]}
+                    >
+                      {renderItem({ item: doc })}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        ) : (
+          !loading && (
+            <View style={styles.centerContent}>
+              <Ionicons name="folder-open" size={64} color={colors.tabIconDefault} />
+              <Text style={[styles.emptyText, { color: colors.text }]}>No documents yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.tabIconDefault }]}>
+                Upload memos and local issuances to get started
+              </Text>
+            </View>
+          )
+        )}
+
+        {/* Loading more indicator */}
+        {loading && documents.length > 0 && (
           <View style={{ padding: 20, alignItems: 'center' }}>
             <ActivityIndicator size="small" color={colors.tint} />
             <Text style={{ marginTop: 8, color: colors.tabIconDefault, fontSize: 12 }}>
               Loading more documents...
             </Text>
           </View>
-        ) : null}
-        ListEmptyComponent={!loading ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="folder-open" size={64} color={colors.tabIconDefault} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>No documents yet</Text>
-            <Text style={[styles.emptySubtext, { color: colors.tabIconDefault }]}>
-              Upload memos and local issuances to get started
-            </Text>
-          </View>
-        ) : null}
-      />
+        )}
+      </ScrollView>
 
       {/* Upload Modal */}
       <MemoUploadModal

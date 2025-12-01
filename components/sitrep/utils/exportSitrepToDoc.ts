@@ -18,17 +18,123 @@ export interface SitrepData {
     individuals: string;
   };
   evacuationCenters: string[];
-  responseActions: {
-    operations: string[];
-    medical: string[];
-    logistics: string[];
-    coordination: string[];
-  };
+  responseActions: Array<{ name: string; items: string[] }>;
   personnel: Array<{ role: string; detail: string }>;
   assets: string[];
 }
 
+// Helper function to resize and compress image
+const resizeImage = (file: Blob, maxWidth: number = 800, maxHeight: number = 600, quality: number = 0.8): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      reject(new Error('Could not get canvas context'));
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      // Calculate new dimensions maintaining aspect ratio
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth || height > maxHeight) {
+        const aspectRatio = width / height;
+        
+        if (width > height) {
+          width = Math.min(width, maxWidth);
+          height = width / aspectRatio;
+        } else {
+          height = Math.min(height, maxHeight);
+          width = height * aspectRatio;
+        }
+      }
+
+      // Set canvas dimensions
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw and compress
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob(
+        (blob) => {
+          // Clean up object URL
+          URL.revokeObjectURL(objectUrl);
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to compress image'));
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = objectUrl;
+  });
+};
+
+// Helper function to convert image URI to base64 data URI with resizing
+const convertImageToBase64 = async (imageUri: string, maxWidth: number = 800, maxHeight: number = 600): Promise<string> => {
+  // If already a data URI, we still need to resize it
+  let blob: Blob;
+  
+  try {
+    if (imageUri.startsWith('data:image/')) {
+      // Convert data URI to blob
+      const response = await fetch(imageUri);
+      blob = await response.blob();
+    } else {
+      // Fetch the image
+      const response = await fetch(imageUri);
+      blob = await response.blob();
+    }
+
+    // Resize and compress the image
+    const resizedBlob = await resizeImage(blob, maxWidth, maxHeight, 0.8);
+    
+    // Convert to base64
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(resizedBlob);
+    });
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    // Return a placeholder or the original URI if conversion fails
+    return imageUri;
+  }
+};
+
+// Helper function to convert all images in an array to base64
+const convertImagesToBase64 = async (images: Array<{ data: string; name: string }>): Promise<Array<{ data: string; name: string }>> => {
+  const convertedImages = await Promise.all(
+    images.map(async (img) => ({
+      ...img,
+      data: await convertImageToBase64(img.data)
+    }))
+  );
+  return convertedImages;
+};
+
 export const exportSitrepToDoc = async (sitrep: SitrepData) => {
+  // Convert all images to base64 before embedding in the document
+  const affectedImages = await convertImagesToBase64(sitrep.affectedImages);
+  const casualtyImages = await convertImagesToBase64(sitrep.casualtyImages);
   // Create HTML content for Word document with robust formatting
   let html = `
 <!DOCTYPE html>
@@ -57,11 +163,12 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     body {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 12pt;
-      line-height: 1.5;
+      font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
       margin: 0;
       padding: 0;
+      color: #333;
     }
     
     .document-wrapper {
@@ -81,35 +188,41 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     .header .republic {
       font-size: 10pt;
       font-style: italic;
-      margin: 0 0 8px 0;
+      margin: 0 0 10px 0;
+      color: #555;
+      letter-spacing: 0.3pt;
     }
     
     .header .province {
-      font-size: 12pt;
-      font-weight: bold;
+      font-size: 14pt;
+      font-weight: 700;
       text-transform: uppercase;
-      margin: 8px 0;
-      letter-spacing: 0.5pt;
+      margin: 10px 0;
+      letter-spacing: 1pt;
+      color: #1a1a1a;
     }
     
     .header .office {
-      font-size: 11pt;
-      font-weight: bold;
+      font-size: 12pt;
+      font-weight: 700;
       text-transform: uppercase;
-      margin: 8px 0;
-      letter-spacing: 0.5pt;
+      margin: 10px 0;
+      letter-spacing: 0.8pt;
+      color: #2c2c2c;
     }
     
     .header .address {
       font-size: 10pt;
       font-style: italic;
       margin: 8px 0;
+      color: #666;
     }
     
     .header .contact {
-      font-size: 9pt;
+      font-size: 9.5pt;
       margin: 8px 0;
-      line-height: 1.4;
+      line-height: 1.5;
+      color: #555;
     }
     
     .header .divider {
@@ -118,23 +231,26 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     .header .emergency {
-      font-size: 9pt;
-      margin: 8px 0;
-      line-height: 1.4;
+      font-size: 9.5pt;
+      margin: 10px 0;
+      line-height: 1.5;
+      color: #555;
     }
     
     .header .operation-name {
-      font-size: 12pt;
-      font-weight: bold;
-      margin: 20px 0 10px 0;
+      font-size: 13pt;
+      font-weight: 700;
+      margin: 20px 0 12px 0;
       color: #c00;
       text-transform: uppercase;
+      letter-spacing: 0.5pt;
     }
     
     .header .meta-info {
-      font-size: 10pt;
-      margin: 5px 0;
-      line-height: 1.3;
+      font-size: 10.5pt;
+      margin: 6px 0;
+      line-height: 1.5;
+      color: #333;
     }
     
     .header .meta-info strong {
@@ -148,34 +264,38 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     .section-title {
-      font-size: 13pt;
-      font-weight: bold;
-      margin: 20px 0 12px 0;
-      padding: 5px 0;
-      border-bottom: 2px solid #000;
+      font-size: 14pt;
+      font-weight: 700;
+      margin: 24px 0 14px 0;
+      padding: 6px 0;
+      border-bottom: 2.5px solid #000;
       text-transform: uppercase;
-      letter-spacing: 0.5pt;
+      letter-spacing: 0.8pt;
+      color: #1a1a1a;
     }
     
     .subsection-title {
-      font-size: 12pt;
-      font-weight: bold;
-      margin: 15px 0 8px 0;
-      padding-left: 10px;
+      font-size: 12.5pt;
+      font-weight: 700;
+      margin: 18px 0 10px 0;
+      padding-left: 12px;
       border-left: 4px solid #c00;
+      color: #2c2c2c;
     }
     
     /* Text Styles */
     p {
-      margin: 8px 0;
+      margin: 10px 0;
       text-align: justify;
       text-indent: 0;
+      color: #333;
     }
     
     .overview-text {
       text-align: justify;
-      line-height: 1.6;
-      margin: 10px 0;
+      line-height: 1.7;
+      margin: 12px 0;
+      color: #333;
     }
     
     /* List Styles */
@@ -192,53 +312,59 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     li {
-      margin: 6px 0;
-      line-height: 1.4;
+      margin: 8px 0;
+      line-height: 1.6;
+      color: #333;
     }
     
     li strong {
-      font-weight: bold;
+      font-weight: 700;
+      color: #1a1a1a;
     }
     
     /* Table Styles for Statistics */
     .stats-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 15px 0;
+      margin: 18px 0;
       font-size: 11pt;
     }
     
     .stats-table td {
-      padding: 8px 12px;
+      padding: 10px 14px;
       border: 1px solid #333;
+      color: #333;
     }
     
     .stats-table td:first-child {
-      font-weight: bold;
+      font-weight: 700;
       width: 40%;
-      background-color: #f5f5f5;
+      background-color: #f8f8f8;
+      color: #1a1a1a;
     }
     
     /* Header Info Table */
     .header-info-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
-      font-size: 10pt;
-      border: 1px solid #000;
+      margin: 22px 0;
+      font-size: 10.5pt;
+      border: 1.5px solid #000;
     }
     
     .header-info-table td {
-      padding: 4px 8px;
+      padding: 6px 10px;
       border: 1px solid #000;
       vertical-align: top;
-      line-height: 1.3;
+      line-height: 1.5;
+      color: #333;
     }
     
     .header-info-table td:first-child {
-      font-weight: bold;
+      font-weight: 700;
       width: 25%;
-      background-color: #ffffff;
+      background-color: #f8f8f8;
+      color: #1a1a1a;
     }
     
     .header-info-table td:last-child {
@@ -255,12 +381,12 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     .image-section-title {
-      font-weight: bold;
-      font-size: 11pt;
-      margin-bottom: 10px;
-      color: #333;
+      font-weight: 700;
+      font-size: 12pt;
+      margin-bottom: 12px;
+      color: #1a1a1a;
       text-transform: uppercase;
-      letter-spacing: 0.5pt;
+      letter-spacing: 0.8pt;
     }
     
     .image-grid {
@@ -279,8 +405,10 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     .image-item img {
-      width: 100%;
-      height: 300px;
+      max-width: 400px;
+      max-height: 300px;
+      width: auto;
+      height: auto;
       object-fit: contain;
       display: block;
       margin: 0 auto 8px auto;
@@ -293,9 +421,10 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
       font-size: 10pt;
       font-style: italic;
       text-align: center;
-      color: #555;
-      margin-top: 5px;
+      color: #666;
+      margin-top: 8px;
       word-wrap: break-word;
+      line-height: 1.4;
     }
     
     /* Response Actions Numbering */
@@ -304,17 +433,21 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     .response-number {
-      font-weight: bold;
-      font-size: 12pt;
-      margin: 12px 0 8px 0;
+      font-weight: 700;
+      font-size: 12.5pt;
+      margin: 14px 0 10px 0;
+      color: #1a1a1a;
+      letter-spacing: 0.3pt;
     }
     
     /* Resources Table */
     .resource-category {
-      font-weight: bold;
-      font-size: 12pt;
-      margin: 15px 0 8px 0;
+      font-weight: 700;
+      font-size: 12.5pt;
+      margin: 18px 0 10px 0;
       text-decoration: underline;
+      color: #1a1a1a;
+      letter-spacing: 0.3pt;
     }
     
     /* Print Optimization */
@@ -334,16 +467,16 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     }
     
     /* Additional utility classes */
-    .bold { font-weight: bold; }
+    .bold { font-weight: 700; color: #1a1a1a; }
     .italic { font-style: italic; }
     .underline { text-decoration: underline; }
     .text-center { text-align: center; }
     .highlight { background-color: #ffff99; }
     
     /* Emergency status indicators */
-    .status-red { color: #c00; font-weight: bold; }
-    .status-yellow { color: #ff9900; font-weight: bold; }
-    .status-green { color: #090; font-weight: bold; }
+    .status-red { color: #c00; font-weight: 700; }
+    .status-yellow { color: #ff9900; font-weight: 700; }
+    .status-green { color: #090; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -357,8 +490,8 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
       <div class="contact">Tel. No. (087) 3883-611: Email Add: pdrrmodavaooriental@gmail.com</div>
       <div class="divider"></div>
       <div class="emergency">Emergency Hotline Nos.: Tel. No. (087) 3884-911/ 09488386060 (TNT)/09535583598(TM) Email Add: opcendavor14@gmail.com</div>
-      <div style="margin-top: 25px; border-top: 3px double #000; padding-top: 15px;">
-        <h1 style="font-size: 14pt; font-weight: bold; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 1pt;">SITUATION REPORT (SITREP)</h1>
+      <div style="margin-top: 25px; border-top: 3px double #000; padding-top: 18px;">
+        <h1 style="font-size: 15pt; font-weight: 700; margin: 0 0 22px 0; text-transform: uppercase; letter-spacing: 1.2pt; color: #1a1a1a; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;">SITUATION REPORT (SITREP)</h1>
         <table class="header-info-table">
           <tr>
             <td>Date of Incident:</td>
@@ -402,11 +535,11 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
         <li class="bold">Total Affected Barangays: ${sitrep.totalBarangays}</li>
       </ul>
       
-      ${sitrep.affectedImages.length > 0 ? `
+      ${affectedImages.length > 0 ? `
       <div class="image-section">
         <div class="image-section-title">📸 Affected Areas - Visual Documentation</div>
         <div class="image-grid">
-          ${sitrep.affectedImages.map((img, idx) => `
+          ${affectedImages.map((img, idx) => `
           <div class="image-item">
             <img src="${img.data}" alt="Affected Area ${idx + 1}" />
             <div class="image-caption">Figure ${idx + 1}: ${img.name}</div>
@@ -448,11 +581,11 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
         ${sitrep.evacuationCenters.map(center => `<li>${center}</li>`).join('')}
       </ul>
       
-      ${sitrep.casualtyImages.length > 0 ? `
+      ${casualtyImages.length > 0 ? `
       <div class="image-section">
         <div class="image-section-title">📸 Casualties & Evacuation - Visual Documentation</div>
         <div class="image-grid">
-          ${sitrep.casualtyImages.map((img, idx) => `
+          ${casualtyImages.map((img, idx) => `
           <div class="image-item">
             <img src="${img.data}" alt="Casualty Documentation ${idx + 1}" />
             <div class="image-caption">Figure ${idx + 1}: ${img.name}</div>
@@ -466,35 +599,16 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     <div class="section">
       <div class="section-title">IV. RESPONSE ACTIONS BY PDRRMO</div>
       
+      ${sitrep.responseActions.map((section, idx) => `
       <div class="response-item">
-        <div class="response-number">1. Operations</div>
+        <div class="response-number">${idx + 1}. ${section.name || 'Untitled Section'}</div>
         <ul>
-          ${sitrep.responseActions.operations.map(action => `<li>${action}</li>`).join('')}
+          ${section.items.map(item => `<li>${item}</li>`).join('')}
         </ul>
       </div>
+      `).join('')}
       
-      <div class="response-item">
-        <div class="response-number">2. Emergency Medical Response</div>
-        <ul>
-          ${sitrep.responseActions.medical.map(action => `<li>${action}</li>`).join('')}
-        </ul>
-      </div>
-      
-      <div class="response-item">
-        <div class="response-number">3. Logistics & Relief</div>
-        <p><strong>Distributed first wave of relief:</strong></p>
-        <ul style="margin-left: 40px;">
-          ${sitrep.responseActions.logistics.map(item => `<li>${item}</li>`).join('')}
-        </ul>
-      </div>
-      
-      <div class="response-item">
-        <div class="response-number">4. Coordination</div>
-        <p><strong>Continuous communication with:</strong></p>
-        <ul style="margin-left: 40px;">
-          ${sitrep.responseActions.coordination.map(org => `<li>${org}</li>`).join('')}
-        </ul>
-      </div>
+      ${sitrep.responseActions.length === 0 ? '<p><em>No response actions documented.</em></p>' : ''}
     </div>
     
     <!-- V. RESOURCES DEPLOYED -->
@@ -513,9 +627,9 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     </div>
     
     <!-- FOOTER -->
-    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #000; text-align: center; font-size: 10pt;">
-      <p><em>End of Situation Report</em></p>
-      <p>Document generated on ${new Date().toLocaleString('en-US', { 
+    <div style="margin-top: 40px; padding-top: 22px; border-top: 2px solid #000; text-align: center; font-size: 10pt; color: #666; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;">
+      <p style="margin: 8px 0; font-style: italic; color: #555;"><em>End of Situation Report</em></p>
+      <p style="margin: 8px 0; color: #666;">Document generated on ${new Date().toLocaleString('en-US', { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric', 
@@ -533,13 +647,19 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     type: 'application/msword' 
   });
   
+  const fileName = `SITREP_${sitrep.operation.replace(/[^a-zA-Z0-9]/g, '_')}_${sitrep.date.replace(/[^a-zA-Z0-9]/g, '_')}.doc`;
+  
+  // Download the file
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `SITREP_${sitrep.operation.replace(/[^a-zA-Z0-9]/g, '_')}_${sitrep.date.replace(/[^a-zA-Z0-9]/g, '_')}.doc`;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  
+  // Return blob and filename for saving to database
+  return { blob, fileName };
 };
 

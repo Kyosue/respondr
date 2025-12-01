@@ -11,18 +11,18 @@ export function useLogin() {
   const authService = ResilientAuthService.getInstance();
   const { isOnline, isSlowConnection } = useNetwork();
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (usernameOrEmail: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
       // Validate inputs
-      if (!email || !password) {
-        throw new Error('Email and password are required');
+      if (!usernameOrEmail || !password) {
+        throw new Error('Username/email and password are required');
       }
 
       // Sign in with resilient authentication service
-      const userData = await authService.signInUser(email, password);
+      const userData = await authService.signInUser(usernameOrEmail, password);
       
       // Update auth context
       authLogin(userData);
@@ -41,7 +41,7 @@ export function useLogin() {
             errorMessage = 'This account has been disabled';
             break;
           case 'auth/user-not-found':
-            errorMessage = 'No account found with this email';
+            errorMessage = 'No account found with this username or email';
             break;
           case 'auth/wrong-password':
             errorMessage = 'Incorrect password';

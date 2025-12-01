@@ -61,27 +61,20 @@ export const styles = StyleSheet.create({
   filterButtonWrapper: {
     marginLeft: -8,
   },
+  sectionContainer: {
+    marginBottom: 24,
+  },
   documentGroup: {
-    marginBottom: 12,
-    ...Platform.select({
-      web: {
-        marginBottom: 32,
-      },
-    }),
+    marginBottom: 8,
+    alignItems: 'flex-start',
   },
   groupHeader: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
+    paddingHorizontal: 16,
     opacity: 0.8,
-    ...Platform.select({
-      web: {
-        paddingHorizontal: 20,
-      },
-      default: {
-        paddingHorizontal: 16,
-      },
-    }),
+    textAlign: 'left',
   },
   documentsSectionContainer: {
     ...Platform.select({
@@ -96,6 +89,24 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 16,
       },
     }),
+  },
+  documentsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  gridItem: {
+    marginBottom: 16,
+  },
+  gridItemMobile: {
+    width: '100%',
+  },
+  gridItemDesktop: {
+    flexShrink: 0,
+    flexGrow: 0,
+    minWidth: 200,
   },
   filtersContainer: {
     borderBottomWidth: 1,
@@ -153,15 +164,6 @@ export const styles = StyleSheet.create({
   documentsList: {
     paddingBottom: 20,
   },
-  documentsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    justifyContent: 'flex-start',
-    alignSelf: 'center',
-  },
   documentItem: {
     flexDirection: 'row',
     padding: 16,
@@ -195,7 +197,7 @@ export const styles = StyleSheet.create({
     }),
   },
   documentCard: {
-    width: 280,
+    width: '100%',
     flexDirection: 'column',
     marginBottom: 0,
     padding: 14,

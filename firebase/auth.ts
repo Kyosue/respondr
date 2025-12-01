@@ -17,6 +17,7 @@ export interface UserData {
   id: string;
   fullName: string;
   displayName: string; // First + last name only
+  username?: string; // Optional username for login
   email: string;
   userType: UserType;
   status?: UserStatus; // Made optional for backward compatibility

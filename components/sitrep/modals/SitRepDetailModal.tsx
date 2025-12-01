@@ -117,18 +117,30 @@ export function SitRepDetailModal({
     return 'document';
   };
 
-  const getCategoryColor = (category?: string): string => {
-    switch (category) {
-      case 'report': return '#E53E3E';
-      case 'image': return '#805AD5';
-      case 'spreadsheet': return '#38A169';
-      case 'presentation': return '#D69E2E';
-      default: return '#4A5568';
-    }
+  const getFileTypeColor = (fileType: string): string => {
+    if (fileType.includes('pdf')) return '#E53E3E';
+    if (fileType.includes('doc')) return '#2563EB';
+    if (fileType.includes('xls')) return '#38A169';
+    if (fileType.includes('ppt')) return '#D69E2E';
+    if (fileType.includes('image') || fileType.includes('jpg') || fileType.includes('jpeg') || fileType.includes('png') || fileType.includes('gif')) return '#805AD5';
+    if (fileType.includes('video')) return '#9F7AEA';
+    if (fileType.includes('audio')) return '#F56565';
+    if (fileType.includes('zip') || fileType.includes('rar')) return '#4A5568';
+    return '#4A5568';
   };
 
-  const getCategoryText = (category?: string): string => {
-    return category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Other';
+  const getFileTypeText = (fileType: string): string => {
+    if (fileType.includes('pdf')) return 'PDF';
+    if (fileType.includes('doc')) return 'DOC';
+    if (fileType.includes('xls')) return 'XLS';
+    if (fileType.includes('ppt')) return 'PPT';
+    if (fileType.includes('image') || fileType.includes('jpg') || fileType.includes('jpeg') || fileType.includes('png') || fileType.includes('gif')) return 'IMAGE';
+    if (fileType.includes('video')) return 'VIDEO';
+    if (fileType.includes('audio')) return 'AUDIO';
+    if (fileType.includes('zip') || fileType.includes('rar')) return 'ZIP';
+    // Extract extension from fileType if it's just an extension
+    const extension = fileType.split('.').pop()?.toUpperCase();
+    return extension || 'FILE';
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -145,14 +157,14 @@ export function SitRepDetailModal({
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerIconContainer}>
-            <Ionicons name={getFileIcon(document.fileType)} size={24} color={getCategoryColor(document.category)} />
+            <Ionicons name={getFileIcon(document.fileType)} size={24} color={getFileTypeColor(document.fileType)} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={2}>
               {document.title}
             </Text>
             <Text style={[styles.headerSubtitle, { color: colors.tabIconDefault }]}>
-              {getCategoryText(document.category)}
+              {getFileTypeText(document.fileType)}
             </Text>
           </View>
         </View>
@@ -162,19 +174,19 @@ export function SitRepDetailModal({
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Category Badge */}
+        {/* File Type Badge */}
         <View style={styles.categoryContainer}>
           <View
             style={[
               styles.categoryBadge,
               {
-                backgroundColor: getCategoryColor(document.category) + '20',
+                backgroundColor: getFileTypeColor(document.fileType) + '20',
               },
             ]}
           >
-            <Ionicons name="pricetag" size={14} color={getCategoryColor(document.category)} />
-            <Text style={[styles.categoryBadgeText, { color: getCategoryColor(document.category) }]}>
-              {getCategoryText(document.category)}
+            <Ionicons name="pricetag" size={14} color={getFileTypeColor(document.fileType)} />
+            <Text style={[styles.categoryBadgeText, { color: getFileTypeColor(document.fileType) }]}>
+              {getFileTypeText(document.fileType)}
             </Text>
           </View>
         </View>
@@ -191,8 +203,8 @@ export function SitRepDetailModal({
 
           <View style={styles.infoRow}>
             <Ionicons name="briefcase" size={16} color={colors.tabIconDefault} />
-            <Text style={[styles.infoLabel, { color: colors.tabIconDefault }]}>Category:</Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>{getCategoryText(document.category)}</Text>
+            <Text style={[styles.infoLabel, { color: colors.tabIconDefault }]}>File Type:</Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>{getFileTypeText(document.fileType)}</Text>
           </View>
 
           <View style={styles.infoRow}>

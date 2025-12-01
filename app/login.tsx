@@ -29,9 +29,9 @@ export default function LoginScreen() {
   
   // No animations - instant rendering
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleLogin = async (usernameOrEmail: string, password: string) => {
     try {
-      const success = await login(email, password);
+      const success = await login(usernameOrEmail, password);
       if (success) {
         // Navigate to the index screen instead of showing an alert
         router.replace('/');

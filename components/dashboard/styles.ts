@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const dashboardStyles = StyleSheet.create({
   container: {
@@ -9,38 +9,36 @@ export const dashboardStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 5,
-    paddingBottom: 80, // Extra padding to prevent content from being cut off by bottom nav
+    paddingBottom: Platform.OS === 'web' ? 100 : 120, // Extra padding to prevent content from being cut off by bottom nav
   },
   header: {
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    marginBottom: Platform.OS === 'web' ? 24 : 20,
+    paddingBottom: Platform.OS === 'web' ? 16 : 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: Platform.OS === 'web' ? 32 : 28,
+    fontWeight: '700',
+    marginBottom: Platform.OS === 'web' ? 8 : 6,
     fontFamily: 'Gabarito',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: Platform.OS === 'web' ? 15 : 13,
     fontFamily: 'Gabarito',
+    opacity: 0.7,
+    lineHeight: Platform.OS === 'web' ? 20 : 18,
   },
   desktopLayout: {
-    flexDirection: 'row',
     flex: 1,
+    width: '100%',
+  },
+  desktopFullWidth: {
+    width: '100%',
     gap: 20,
-  },
-  desktopLeft: {
-    flex: 0.6,
-  },
-  desktopRight: {
-    flex: 0.4,
   },
   mobileLayout: {
     flex: 1,
+    gap: Platform.OS === 'web' ? 20 : 16,
   },
 });
 

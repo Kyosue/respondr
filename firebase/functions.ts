@@ -7,6 +7,7 @@ export interface CreateUserSelfSignupRequest {
   password: string;
   fullName: string;
   displayName: string;
+  username: string;
 }
 
 export interface CreateUserSelfSignupResponse {
@@ -17,6 +18,7 @@ export interface CreateUserSelfSignupResponse {
     id: string;
     fullName: string;
     displayName: string;
+    username: string;
     email: string;
     userType: 'operator';
     status: 'inactive';

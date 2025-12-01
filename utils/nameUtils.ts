@@ -42,10 +42,10 @@ export const validateFullName = (fullName: string): { isValid: boolean; error?: 
     return { isValid: false, error: 'Full name must be less than 100 characters' };
   }
   
-  // Check for valid characters (letters including accented characters, spaces, hyphens, apostrophes)
-  const validNameRegex = /^[\p{L}\s\-']+$/u;
+  // Check for valid characters (letters including accented characters, spaces, hyphens, apostrophes, and dots)
+  const validNameRegex = /^[\p{L}\s\-'.]+$/u;
   if (!validNameRegex.test(trimmed)) {
-    return { isValid: false, error: 'Full name can only contain letters, spaces, hyphens, and apostrophes' };
+    return { isValid: false, error: 'Full name can only contain letters, spaces, hyphens, apostrophes, and dots' };
   }
   
   return { isValid: true };

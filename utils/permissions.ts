@@ -80,12 +80,7 @@ export const ROLE_PERMISSIONS: Record<UserType, string[]> = {
   ],
   
   supervisor: [
-    // Same as admin - full access to everything
-    PERMISSIONS.USER_MANAGEMENT_VIEW,
-    PERMISSIONS.USER_MANAGEMENT_CREATE,
-    PERMISSIONS.USER_MANAGEMENT_EDIT,
-    PERMISSIONS.USER_MANAGEMENT_DELETE,
-    PERMISSIONS.USER_MANAGEMENT_TOGGLE_STATUS,
+    // Full access to operations, resources, SitRep, reports - but NO user management
     PERMISSIONS.RESOURCE_MANAGEMENT_VIEW,
     PERMISSIONS.RESOURCE_MANAGEMENT_CREATE,
     PERMISSIONS.RESOURCE_MANAGEMENT_EDIT,

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
@@ -210,7 +211,7 @@ export default function IndexScreen() {
           {/* Render only the active component */}
           {activeTab === 'dashboard' && (
             <View style={{ flex: 1 }}>
-              <Dashboard />
+              <Dashboard onNavigate={setActiveTab} />
             </View>
           )}
           {activeTab === 'operations' && (

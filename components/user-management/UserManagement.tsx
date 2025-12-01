@@ -433,7 +433,7 @@ const UserManagement: React.FC = () => {
             Access Denied
           </ThemedText>
           <ThemedText style={[styles.accessDeniedMessage, { color: colors.text }]}>
-            You don't have permission to access user management. This feature is only available to administrators and supervisors.
+            You don't have permission to access user management. This feature is only available to administrators.
           </ThemedText>
         </View>
       </ThemedView>

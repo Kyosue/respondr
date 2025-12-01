@@ -5,6 +5,7 @@ import {
   Animated,
   Dimensions,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -431,8 +432,13 @@ export function ResourceSelectionModal({
                               borderTopColor: colors.border,
                               backgroundColor: colors.surface
                             }}
-                            onStartShouldSetResponder={() => true}
-                            onTouchEnd={(e) => e.stopPropagation()}
+                            {...(Platform.OS !== 'web' ? {
+                              onStartShouldSetResponder: () => true,
+                              onTouchEnd: (e: any) => e.stopPropagation()
+                            } : {
+                              onClick: (e: any) => e.stopPropagation(),
+                              onMouseDown: (e: any) => e.stopPropagation()
+                            })}
                           >
                               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
                                 <ThemedText style={{
@@ -797,8 +803,13 @@ export function ResourceSelectionModal({
                         borderTopColor: colors.border,
                         backgroundColor: colors.surface
                       }}
-                      onStartShouldSetResponder={() => true}
-                      onTouchEnd={(e) => e.stopPropagation()}
+                      {...(Platform.OS !== 'web' ? {
+                        onStartShouldSetResponder: () => true,
+                        onTouchEnd: (e: any) => e.stopPropagation()
+                      } : {
+                        onClick: (e: any) => e.stopPropagation(),
+                        onMouseDown: (e: any) => e.stopPropagation()
+                      })}
                     >
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
                           <ThemedText style={{

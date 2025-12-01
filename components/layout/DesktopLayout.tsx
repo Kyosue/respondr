@@ -80,7 +80,7 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
 
         {/* Main Content Area */}
         <View style={styles.mainContent}>
-          <DesktopHeader title={getPageTitle(activeTab)} />
+          <DesktopHeader title={getPageTitle(activeTab)} onTabChange={onTabChange} />
 
           <View style={styles.contentWrapper}>
             <Animated.View
@@ -94,7 +94,7 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
               ]}
             >
               {/* Render only the active component */}
-              {activeTab === 'dashboard' && <Dashboard />}
+              {activeTab === 'dashboard' && <Dashboard onNavigate={onTabChange} />}
               {activeTab === 'operations' && <Operations />}
               {activeTab === 'resources' && <Resources />}
               {activeTab === 'sitrep' && <SitRep />}

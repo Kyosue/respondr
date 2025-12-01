@@ -16,6 +16,7 @@ export function useSignup() {
   const signup = async (
     fullName: string, 
     displayName: string,
+    username: string,
     email: string, 
     password: string,
     userType?: UserType,
@@ -26,7 +27,7 @@ export function useSignup() {
 
     try {
       // Validate inputs
-      if (!fullName || !displayName || !email || !password) {
+      if (!fullName || !displayName || !username || !email || !password) {
         throw new Error('All fields are required');
       }
 
@@ -39,6 +40,7 @@ export function useSignup() {
           password,
           fullName,
           displayName,
+          username,
           userType // Pass userType if provided (for admin-created users)
         );
         
@@ -54,6 +56,7 @@ export function useSignup() {
           password: password,
           fullName: fullName.trim(),
           displayName: displayName.trim(),
+          username: username.trim(),
         });
       }
 

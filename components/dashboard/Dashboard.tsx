@@ -10,11 +10,16 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { ActivityStream } from './ActivityStream';
 import { DashboardMetrics } from './DashboardMetrics';
-import { OperationsTable } from './OperationsTable';
-import { ResourceStatus } from './ResourceStatus';
+import { RecentOperations } from './RecentOperations';
+import { ResourceOverview } from './ResourceOverview';
+import { SystemAlerts } from './SystemAlerts';
 import { dashboardStyles } from './styles';
 
-export function Dashboard() {
+interface DashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export function Dashboard({ onNavigate }: DashboardProps = {}) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
@@ -86,6 +91,12 @@ export function Dashboard() {
     return uploadDate >= sevenDaysAgo;
   }).length;
 
+  const handleNavigate = (tab: string) => {
+    if (onNavigate) {
+      onNavigate(tab);
+    }
+  };
+
   if (isLoading) {
     return (
       <ThemedView style={dashboardStyles.container}>
@@ -125,11 +136,18 @@ export function Dashboard() {
           recentDocuments={recentDocuments}
         />
 
-        {/* Main Content */}
+        {/* System Alerts */}
+        <SystemAlerts />
+
+        {/* Main Content Grid */}
         {isMobile ? (
           <View style={dashboardStyles.mobileLayout}>
-            <OperationsTable operations={operations} />
-            <ResourceStatus />
+            <RecentOperations 
+              operations={operations}
+              onViewAll={() => handleNavigate('operations')}
+              onNavigate={handleNavigate}
+            />
+            <ResourceOverview />
             <ActivityStream
               operations={operations}
               documents={documents}
@@ -138,16 +156,18 @@ export function Dashboard() {
           </View>
         ) : (
           <View style={dashboardStyles.desktopLayout}>
-            <View style={dashboardStyles.desktopLeft}>
-              <OperationsTable operations={operations} />
+            <View style={dashboardStyles.desktopFullWidth}>
+              <RecentOperations 
+                operations={operations}
+                onViewAll={() => handleNavigate('operations')}
+                onNavigate={handleNavigate}
+              />
+              <ResourceOverview />
               <ActivityStream
                 operations={operations}
                 documents={documents}
                 transactions={resourceState.transactions}
               />
-            </View>
-            <View style={dashboardStyles.desktopRight}>
-              <ResourceStatus />
             </View>
           </View>
         )}

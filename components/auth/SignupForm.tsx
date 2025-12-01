@@ -16,24 +16,27 @@ import {
 } from 'react-native';
 
 interface SignupFormProps {
-  onSubmit: (fullName: string, displayName: string, email: string, password: string) => Promise<void>;
+  onSubmit: (fullName: string, displayName: string, username: string, email: string, password: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
 
 export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
   const [fullNameError, setFullNameError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   
   const [isFocused, setIsFocused] = useState({ 
     fullName: false, 
+    username: false,
     email: false, 
     password: false, 
     confirmPassword: false
@@ -49,6 +52,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
   const [buttonScale] = useState(new Animated.Value(1));
   
   // Refs for inputs
+  const usernameInputRef = useRef<TextInput>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
@@ -65,6 +69,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     
     // Clear previous errors
     setFullNameError('');
+    setUsernameError('');
     setEmailError('');
     setPasswordError('');
     setConfirmPasswordError('');
@@ -73,6 +78,16 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     const nameValidation = validateFullName(fullName);
     if (!nameValidation.isValid) {
       setFullNameError(nameValidation.error || 'Invalid full name');
+      isValid = false;
+    }
+
+    // Validate username
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!username.trim()) {
+      setUsernameError('Username is required');
+      isValid = false;
+    } else if (!usernameRegex.test(username.trim())) {
+      setUsernameError('Username must be 3-20 characters and contain only letters, numbers, and underscores');
       isValid = false;
     }
 
@@ -114,7 +129,7 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
       try {
         // Submit the form - validation will be handled in the backend
         const displayName = generateDisplayName(fullName.trim());
-        await onSubmit(fullName.trim(), displayName, email.trim(), password);
+        await onSubmit(fullName.trim(), displayName, username.trim().toLowerCase(), email.trim(), password);
       } catch (err) {
         console.error('Error during signup:', err);
       }
@@ -126,11 +141,27 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
     if (fullNameError) setFullNameError('');
   };
 
+  const handleUsernameChange = (text: string) => {
+    // Convert to lowercase and remove spaces
+    const cleaned = text.toLowerCase().replace(/\s/g, '');
+    setUsername(cleaned);
+    if (usernameError) setUsernameError('');
+  };
+
   const handleEmailChange = (text: string) => {
     setEmail(text);
     if (emailError) setEmailError('');
   };
 
+
+  // Password validation checks
+  const passwordChecks = {
+    minLength: password.length >= 6,
+    hasUpperCase: /[A-Z]/.test(password),
+    hasLowerCase: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecialChar: /[@$!%*?&]/.test(password),
+  };
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
@@ -194,12 +225,53 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               onFocus={() => setIsFocused({...isFocused, fullName: true})}
               onBlur={() => setIsFocused({...isFocused, fullName: false})}
               returnKeyType="next"
-              onSubmitEditing={() => emailInputRef.current?.focus()}
+              onSubmitEditing={() => usernameInputRef.current?.focus()}
             />
           </View>
           {fullNameError ? (
             <ThemedText style={[styles.errorText, { color: colors.error }]}>
               {fullNameError}
+            </ThemedText>
+          ) : null}
+        </View>
+
+        {/* Username Input */}
+        <View style={styles.inputContainer}>
+          <ThemedText style={styles.label}>Username</ThemedText>
+          <View style={styles.inputWrapper}>
+            <Ionicons 
+              name="at-outline" 
+              size={20} 
+              color={isFocused.username ? colors.primary : colors.icon} 
+              style={styles.inputIcon} 
+            />
+            <TextInput
+              ref={usernameInputRef}
+              style={[
+                styles.input,
+                { 
+                  backgroundColor: colors.inputBackground,
+                  borderColor: isFocused.username ? colors.primary : usernameError ? colors.error : colors.inputBorder,
+                  color: colors.inputText,
+                  paddingLeft: 48,
+                }
+              ]}
+              placeholder="Choose a username"
+              placeholderTextColor={colors.disabledText}
+              value={username}
+              onChangeText={handleUsernameChange}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isLoading}
+              onFocus={() => setIsFocused({...isFocused, username: true})}
+              onBlur={() => setIsFocused({...isFocused, username: false})}
+              returnKeyType="next"
+              onSubmitEditing={() => emailInputRef.current?.focus()}
+            />
+          </View>
+          {usernameError ? (
+            <ThemedText style={[styles.errorText, { color: colors.error }]}>
+              {usernameError}
             </ThemedText>
           ) : null}
         </View>
@@ -302,6 +374,100 @@ export function SignupForm({ onSubmit, isLoading, error }: SignupFormProps) {
               {passwordError}
             </ThemedText>
           ) : null}
+          
+          {/* Password Requirements Checker */}
+          {password.length > 0 && (
+            <View style={styles.passwordRequirements}>
+              <ThemedText style={[styles.requirementsTitle, { color: colors.text, opacity: 0.7 }]}>
+                Password must contain:
+              </ThemedText>
+              <View style={styles.requirementItem}>
+                <Ionicons 
+                  name={passwordChecks.minLength ? "checkmark-circle" : "ellipse-outline"} 
+                  size={16} 
+                  color={passwordChecks.minLength ? '#10b981' : colors.text} 
+                  style={{ opacity: passwordChecks.minLength ? 1 : 0.5 }}
+                />
+                <ThemedText style={[
+                  styles.requirementText, 
+                  { 
+                    color: passwordChecks.minLength ? '#10b981' : colors.text,
+                    opacity: passwordChecks.minLength ? 1 : 0.6
+                  }
+                ]}>
+                  At least 6 characters
+                </ThemedText>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons 
+                  name={passwordChecks.hasUpperCase ? "checkmark-circle" : "ellipse-outline"} 
+                  size={16} 
+                  color={passwordChecks.hasUpperCase ? '#10b981' : colors.text} 
+                  style={{ opacity: passwordChecks.hasUpperCase ? 1 : 0.5 }}
+                />
+                <ThemedText style={[
+                  styles.requirementText, 
+                  { 
+                    color: passwordChecks.hasUpperCase ? '#10b981' : colors.text,
+                    opacity: passwordChecks.hasUpperCase ? 1 : 0.6
+                  }
+                ]}>
+                  One uppercase letter
+                </ThemedText>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons 
+                  name={passwordChecks.hasLowerCase ? "checkmark-circle" : "ellipse-outline"} 
+                  size={16} 
+                  color={passwordChecks.hasLowerCase ? '#10b981' : colors.text} 
+                  style={{ opacity: passwordChecks.hasLowerCase ? 1 : 0.5 }}
+                />
+                <ThemedText style={[
+                  styles.requirementText, 
+                  { 
+                    color: passwordChecks.hasLowerCase ? '#10b981' : colors.text,
+                    opacity: passwordChecks.hasLowerCase ? 1 : 0.6
+                  }
+                ]}>
+                  One lowercase letter
+                </ThemedText>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons 
+                  name={passwordChecks.hasNumber ? "checkmark-circle" : "ellipse-outline"} 
+                  size={16} 
+                  color={passwordChecks.hasNumber ? '#10b981' : colors.text} 
+                  style={{ opacity: passwordChecks.hasNumber ? 1 : 0.5 }}
+                />
+                <ThemedText style={[
+                  styles.requirementText, 
+                  { 
+                    color: passwordChecks.hasNumber ? '#10b981' : colors.text,
+                    opacity: passwordChecks.hasNumber ? 1 : 0.6
+                  }
+                ]}>
+                  One number
+                </ThemedText>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons 
+                  name={passwordChecks.hasSpecialChar ? "checkmark-circle" : "ellipse-outline"} 
+                  size={16} 
+                  color={passwordChecks.hasSpecialChar ? '#10b981' : colors.text} 
+                  style={{ opacity: passwordChecks.hasSpecialChar ? 1 : 0.5 }}
+                />
+                <ThemedText style={[
+                  styles.requirementText, 
+                  { 
+                    color: passwordChecks.hasSpecialChar ? '#10b981' : colors.text,
+                    opacity: passwordChecks.hasSpecialChar ? 1 : 0.6
+                  }
+                ]}>
+                  One special character (@$!%*?&)
+                </ThemedText>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Confirm Password Input */}
@@ -517,5 +683,26 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  passwordRequirements: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  requirementsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  requirementText: {
+    fontSize: 12,
+    flex: 1,
   },
 });

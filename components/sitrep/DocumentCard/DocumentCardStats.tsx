@@ -24,6 +24,20 @@ export function DocumentCardStats({ document, fileSize }: DocumentCardStatsProps
     });
   };
 
+  const getFileTypeText = (fileType: string): string => {
+    if (fileType.includes('pdf')) return 'PDF';
+    if (fileType.includes('doc')) return 'DOC';
+    if (fileType.includes('xls')) return 'XLS';
+    if (fileType.includes('ppt')) return 'PPT';
+    if (fileType.includes('image') || fileType.includes('jpg') || fileType.includes('jpeg') || fileType.includes('png') || fileType.includes('gif')) return 'IMAGE';
+    if (fileType.includes('video')) return 'VIDEO';
+    if (fileType.includes('audio')) return 'AUDIO';
+    if (fileType.includes('zip') || fileType.includes('rar')) return 'ZIP';
+    // Extract extension from fileType if it's just an extension
+    const extension = fileType.split('.').pop()?.toUpperCase();
+    return extension || 'FILE';
+  };
+
   return (
     <View style={styles.statsContainer}>
       <View style={styles.statsRow}>
@@ -34,7 +48,7 @@ export function DocumentCardStats({ document, fileSize }: DocumentCardStatsProps
           •
         </ThemedText>
         <ThemedText style={[styles.statText, { color: colors.text + '80' }]}>
-          {document.category}
+          {getFileTypeText(document.fileType)}
         </ThemedText>
       </View>
       

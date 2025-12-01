@@ -8,7 +8,7 @@ import { SitRepDocument } from '@/types/Document';
 import { ResourceTransaction } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 interface ActivityItem {
   id: string;
@@ -310,8 +310,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardMobile: {
-    padding: 12,
+    padding: 14,
     marginBottom: 16,
+    borderRadius: 14,
   },
   container: {
     flex: 1,
@@ -325,6 +326,10 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    ...(Platform.OS !== 'web' && {
+      marginBottom: 10,
+      paddingBottom: 8,
+    }),
   },
   titleContainer: {
     flexDirection: 'row',
@@ -342,6 +347,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     fontFamily: 'Gabarito',
+    ...(Platform.OS !== 'web' && {
+      fontSize: 16,
+    }),
   },
   scrollView: {
     flex: 1,
@@ -381,10 +389,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Gabarito',
     lineHeight: 16,
     fontWeight: '500',
+    ...(Platform.OS !== 'web' && {
+      fontSize: 13,
+      lineHeight: 18,
+    }),
   },
   activityTime: {
     fontSize: 11,
     fontFamily: 'Gabarito',
+    ...(Platform.OS !== 'web' && {
+      fontSize: 10,
+    }),
   },
   emptyText: {
     fontSize: 13,

@@ -13,6 +13,7 @@ This document provides a comprehensive catalog of all data models used in the Re
 |-------|------|-------|--------|----------|
 | `id` | String | Unique user identifier (matches Firebase Auth UID) | UUID | ✓ |
 | `email` | String | User email address | xxxxxx@email.com | ✓ |
+| `username` | String | Optional username for login | XXXXXX | |
 | `fullName` | String | Complete user name | XXXXXX | ✓ |
 | `displayName` | String | First + last name only | XXXXXX | ✓ |
 | `userType` | String | Controls UI/permissions | admin \| supervisor \| operator | ✓ |

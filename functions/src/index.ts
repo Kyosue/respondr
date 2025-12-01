@@ -103,11 +103,42 @@ export const createUserSelfSignup = functions.https.onCall(async (data, context)
     // No authentication required for self-signup
     // But we can add rate limiting or other security measures here if needed
 
-    const { email, password, fullName, displayName } = data;
+    const { email, password, fullName, displayName, username: rawUsername } = data;
+
+    // Log received data for debugging
+    console.log('Received signup data:', {
+      email: email ? 'present' : 'missing',
+      password: password ? 'present' : 'missing',
+      fullName: fullName ? 'present' : 'missing',
+      displayName: displayName ? 'present' : 'missing',
+      username: rawUsername ? `present: "${rawUsername}"` : 'missing'
+    });
 
     // Validate required fields
-    if (!email || !password || !fullName || !displayName) {
+    if (!email || !password || !fullName || !displayName || !rawUsername) {
+      console.error('Missing required fields:', {
+        email: !!email,
+        password: !!password,
+        fullName: !!fullName,
+        displayName: !!displayName,
+        username: !!rawUsername
+      });
       throw new functions.https.HttpsError('invalid-argument', 'All required fields must be provided');
+    }
+
+    // Trim and normalize username
+    const username = rawUsername.trim().toLowerCase();
+
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!usernameRegex.test(username)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Username must be 3-20 characters and contain only letters, numbers, and underscores');
+    }
+
+    // Check if username already exists
+    const usernameQuery = await admin.firestore().collection('users').where('username', '==', username).limit(1).get();
+    if (!usernameQuery.empty) {
+      throw new functions.https.HttpsError('already-exists', 'Username already taken');
     }
 
     // Validate email format
@@ -155,6 +186,7 @@ export const createUserSelfSignup = functions.https.onCall(async (data, context)
       id: userRecord.uid,
       fullName,
       displayName,
+      username: username, // Ensure username is included
       email,
       userType: 'operator' as const, // Default to operator for self-signup
       status: 'inactive' as const, // New accounts are inactive by default
@@ -162,11 +194,44 @@ export const createUserSelfSignup = functions.https.onCall(async (data, context)
       updatedAt: admin.firestore.Timestamp.now(),
     };
 
-    // Save user data to Firestore
-    await admin.firestore().collection('users').doc(userRecord.uid).set(userData);
+    // Log the user data before saving (for debugging)
+    console.log(`Creating user with data:`, {
+      id: userData.id,
+      email: userData.email,
+      username: userData.username,
+      fullName: userData.fullName
+    });
+
+    // Explicitly verify username is present before saving
+    if (!username || username.trim() === '') {
+      console.error('ERROR: Username is empty or undefined before saving!');
+      throw new functions.https.HttpsError('invalid-argument', 'Username cannot be empty');
+    }
+
+    console.log(`About to save user with username: "${username}"`);
+
+    // Save user data to Firestore - use set() to ensure all fields are saved
+    await admin.firestore().collection('users').doc(userRecord.uid).set(userData, { merge: false });
+
+    // Verify the data was saved correctly
+    const savedUser = await admin.firestore().collection('users').doc(userRecord.uid).get();
+    if (!savedUser.exists) {
+      throw new functions.https.HttpsError('internal', 'Failed to save user data');
+    }
+    
+    const savedData = savedUser.data();
+    console.log(`User saved successfully. Full saved data:`, JSON.stringify(savedData, null, 2));
+    console.log(`Username in saved data:`, savedData?.username);
+    
+    if (!savedData?.username) {
+      console.error('ERROR: Username was not saved to Firestore!');
+      // Try to update with username
+      await admin.firestore().collection('users').doc(userRecord.uid).update({ username: username });
+      console.log('Attempted to update username field');
+    }
 
     // Log the user creation
-    console.log(`User self-signup: ${userRecord.uid} (${email})`);
+    console.log(`User self-signup: ${userRecord.uid} (${email}) with username: ${username}`);
 
     return {
       success: true,
@@ -174,7 +239,13 @@ export const createUserSelfSignup = functions.https.onCall(async (data, context)
       userId: userRecord.uid,
       // Return user data with timestamps converted to dates
       userData: {
-        ...userData,
+        id: userData.id,
+        fullName: userData.fullName,
+        displayName: userData.displayName,
+        username: userData.username, // Explicitly include username
+        email: userData.email,
+        userType: userData.userType,
+        status: userData.status,
         createdAt: userData.createdAt.toDate(),
         updatedAt: userData.updatedAt.toDate(),
       },

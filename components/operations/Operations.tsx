@@ -1,5 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigation } from '@/contexts/NavigationContext';
 import { Municipality } from '@/data/davaoOrientalData';
 import { OperationRecord, operationsService } from '@/firebase/operations';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
@@ -12,6 +13,7 @@ import { MunicipalityDetailModal, OperationsModal } from './modals';
 
 const Operations = React.memo(() => {
   const { user } = useAuth();
+  const { municipalityToOpen, setMunicipalityToOpen } = useNavigation();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
@@ -96,6 +98,16 @@ const Operations = React.memo(() => {
     });
     return unsubscribe;
   }, []);
+
+  // Handle municipality to open from navigation context
+  useEffect(() => {
+    if (municipalityToOpen) {
+      setSelectedMunicipality(municipalityToOpen);
+      setShowModal(true);
+      // Clear the navigation state after opening
+      setMunicipalityToOpen(null);
+    }
+  }, [municipalityToOpen, setMunicipalityToOpen]);
 
   const handleConcludeOperation = useCallback(async (operationId: string) => {
     try {

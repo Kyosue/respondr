@@ -9,7 +9,6 @@ interface UseDocumentUploadReturn {
       title: string;
       description?: string;
       uploadedBy: string;
-      category?: SitRepDocument['category'];
       tags?: string[];
       isPublic?: boolean;
     }
@@ -33,7 +32,6 @@ export const useDocumentUpload = (): UseDocumentUploadReturn => {
       title: string;
       description?: string;
       uploadedBy: string;
-      category?: SitRepDocument['category'];
       tags?: string[];
       isPublic?: boolean;
     }

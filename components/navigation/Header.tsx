@@ -39,12 +39,6 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
   // Get menu items based on user role
   const menuItems = user?.userType ? getMenuItems(user.userType) : [];
 
-  // Sample notifications data (replace with real data later)
-  const notifications = [
-    { id: '1', title: 'New operation created', message: 'Operation #1234 has been created', time: '2 minutes ago', read: false },
-    { id: '2', title: 'Resource request', message: 'John Doe requested 5 units', time: '15 minutes ago', read: false },
-    { id: '3', title: 'Weather alert', message: 'High humidity detected', time: '1 hour ago', read: true },
-  ];
 
   // Map user role to color (match UserCard logic)
   const getUserTypeColor = (userType?: 'admin' | 'supervisor' | 'operator') => {
@@ -115,11 +109,11 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
         
         <View style={styles.rightSection}>
           <NotificationButton
-            notifications={notifications}
             buttonSize={36}
             iconSize={18}
             dropdownWidth={320}
             dropdownMaxHeight={400}
+            onNavigate={onTabChange}
           />
           <View style={[styles.avatar, { backgroundColor: getUserTypeColor(user?.userType as any) }]}>
             <ThemedText style={styles.avatarText} darkColor="#000" lightColor="#fff">

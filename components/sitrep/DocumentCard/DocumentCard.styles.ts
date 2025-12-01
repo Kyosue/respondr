@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     borderColor: '#4CAF50',
   },
   documentCard: {
-    width: 280,
+    width: '100%',
     flexDirection: 'column',
     marginBottom: 0,
     padding: 12,

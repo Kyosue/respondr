@@ -596,13 +596,13 @@ export function WeatherAnalyticsDashboard({
                 transform: [{ scale: tooltipScale }],
               },
             ]}
-            onStartShouldSetResponder={() => true}
-            {...(Platform.OS !== 'web' && {
+            {...(Platform.OS !== 'web' ? {
+              onStartShouldSetResponder: () => true,
               // On mobile, prevent tooltip from being dismissed when tapping inside it
               onTouchStart: (e) => {
                 e.stopPropagation();
               },
-            })}
+            } : {})}
             {...(Platform.OS === 'web' && {
               onMouseEnter: () => {
                 // Keep tooltip visible when hovering over it

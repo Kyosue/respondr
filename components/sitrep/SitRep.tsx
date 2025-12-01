@@ -5,16 +5,18 @@ import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 import { useDocumentUpload } from '@/hooks/useDocumentUpload';
 import { usePermissions } from '@/hooks/usePermissions';
 import { usePlatform } from '@/hooks/usePlatform';
+import { useScreenSize } from '@/hooks/useScreenSize';
 import { SitRepDocument } from '@/types/Document';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  SectionList,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Platform,
+  RefreshControl,
+  ScrollView,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -33,7 +35,6 @@ export function SitRep() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadCategory, setUploadCategory] = useState<SitRepDocument['category']>('report');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -50,6 +51,7 @@ export function SitRep() {
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
   const { isWeb } = usePlatform();
+  const { isMobile, isTablet, isDesktop, width: screenWidth } = useScreenSize();
   const { user, firebaseUser, isAuthenticated, isLoading: authLoading } = useAuth();
   const { canDeleteSitRep, isAdminOrSupervisor } = usePermissions();
   
@@ -241,13 +243,28 @@ export function SitRep() {
     return sortedGroups;
   };
 
-  // Memoize sections for virtualization
+  // Memoize sections for grid layout
   const sections = useMemo(() => {
     const uniqueDocs = documents.filter((document, index, self) =>
       index === self.findIndex(d => d.id === document.id)
     );
     return groupDocumentsByDate(uniqueDocs).map(([title, data]) => ({ title, data }));
   }, [documents]);
+
+  // Calculate grid columns based on screen size
+  const getColumnsPerRow = () => {
+    if (isMobile) return 1;
+    if (isTablet) return 2;
+    if (isDesktop) {
+      // Desktop: 3-4 columns depending on screen width
+      if (screenWidth >= 1600) return 5;
+      if (screenWidth >= 1200) return 4;
+      return 2;
+    }
+    return 2; // Default
+  };
+
+  const columnsPerRow = getColumnsPerRow();
 
   const handleFileSelect = async () => {
     try {
@@ -307,7 +324,6 @@ export function SitRep() {
         title: uploadTitle,
         description: uploadDescription,
         uploadedBy: firebaseUser.uid,
-        category: uploadCategory,
         isPublic: true
       });
 
@@ -416,43 +432,32 @@ export function SitRep() {
         onOpenGenerator={() => setGeneratorModalVisible(true)}
       />
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.documentGroup}>
-            <ThemedText style={[styles.groupHeader, { color: colors.text }]}>
-              {section.title}
-            </ThemedText>
-          </View>
-        )}
-        renderItem={({ item }) => (
-          <View style={styles.documentsContainer}>
-            <DocumentCard
-              key={item.id}
-              document={item}
-              onPress={handleDocumentPress}
-              onSelect={handleDocumentSelect}
-              isSelected={selectedDocuments.has(item.id)}
-              isDownloading={downloadingDocumentId === item.id}
-              isMultiSelectMode={isMultiSelectMode}
-            />
-          </View>
-        )}
-        refreshing={isLoading}
-        onRefresh={refresh}
-        onEndReachedThreshold={0.2}
-        onEndReached={() => {
-          if (hasMore && !isLoading) {
-            loadMore();
-          }
-        }}
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[
           styles.contentContainer,
           { paddingBottom: bottomNavHeight + 20 }
         ]}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) ? (
+        refreshControl={
+          Platform.OS !== 'web' ? (
+            <RefreshControl refreshing={isLoading} onRefresh={refresh} />
+          ) : undefined
+        }
+        onScroll={(event) => {
+          // Handle infinite scroll for web
+          if (Platform.OS === 'web' && hasMore && !isLoading) {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 400;
+            if (isCloseToBottom) {
+              loadMore();
+            }
+          }
+        }}
+        scrollEventThrottle={400}
+      >
+        {/* Multi-select bar */}
+        {isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) && (
           <View style={styles.multiSelectBar}>
             <View style={styles.multiSelectContent}>
               <ThemedText style={[styles.selectedCount, { color: colors.text }]}>
@@ -476,22 +481,77 @@ export function SitRep() {
               </View>
             </View>
           </View>
-        ) : null}
-        ListFooterComponent={isLoading && documents.length > 0 ? (
+        )}
+
+        {/* Render sections with grid layout */}
+        {sections.length > 0 ? (
+          sections.map((section, sectionIndex) => (
+            <View key={section.title} style={styles.sectionContainer}>
+              <View style={styles.documentGroup}>
+                <ThemedText style={[styles.groupHeader, { color: colors.text }]}>
+                  {section.title}
+                </ThemedText>
+              </View>
+              <View style={[
+                styles.documentsGrid,
+                {
+                  paddingHorizontal: isMobile ? 16 : isDesktop ? 20 : 16,
+                }
+              ]}>
+                {section.data.map((item) => {
+                  // Calculate width percentage accounting for gaps
+                  // Each item takes (100% / columns) minus a small adjustment for gaps
+                  const widthPercent = isMobile 
+                    ? 100 
+                    : (100 / columnsPerRow) - (columnsPerRow > 1 ? 1.5 : 0);
+                  
+                  return (
+                    <View
+                      key={item.id}
+                      style={[
+                        styles.gridItem,
+                        isMobile ? styles.gridItemMobile : [
+                          styles.gridItemDesktop,
+                          {
+                            width: `${widthPercent}%`,
+                            minWidth: 200,
+                          }
+                        ]
+                      ]}
+                    >
+                      <DocumentCard
+                        document={item}
+                        onPress={handleDocumentPress}
+                        onSelect={handleDocumentSelect}
+                        isSelected={selectedDocuments.has(item.id)}
+                        isDownloading={downloadingDocumentId === item.id}
+                        isMultiSelectMode={isMultiSelectMode}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        ) : (
+          !isLoading && (
+            <View style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyTitle}>No documents found</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>
+                Upload your first document to get started
+              </ThemedText>
+            </View>
+          )
+        )}
+
+        {/* Loading more indicator */}
+        {isLoading && documents.length > 0 && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <ThemedText style={styles.loadingText}>Loading more documents...</ThemedText>
           </View>
-        ) : null}
-        ListEmptyComponent={!isLoading ? (
-          <View style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyTitle}>No documents found</ThemedText>
-            <ThemedText style={styles.emptySubtitle}>
-              Upload your first document to get started
-            </ThemedText>
-          </View>
-        ) : null}
-      />
+        )}
+      </ScrollView>
 
       <UploadDocumentModal
         visible={showUploadModal}
@@ -504,8 +564,6 @@ export function SitRep() {
         onTitleChange={setUploadTitle}
         uploadDescription={uploadDescription}
         onDescriptionChange={setUploadDescription}
-        uploadCategory={uploadCategory}
-        onCategoryChange={setUploadCategory}
         uploadProgress={uploadProgress}
         isUploading={isUploading}
         error={uploadError || downloadError}
@@ -547,6 +605,10 @@ export function SitRep() {
       <SitrepGeneratorModal
         visible={generatorModalVisible}
         onClose={() => setGeneratorModalVisible(false)}
+        onSaveSuccess={() => {
+          // Refresh documents list after saving
+          refresh();
+        }}
       />
     </ThemedView>
   );

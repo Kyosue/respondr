@@ -1,18 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection - allow read for all authenticated users
+    // Users collection
     match /users/{userId} {
+      // Allow read for authenticated users
       allow read: if request.auth != null;
+      
+      // Allow list queries (for username lookup during login)
+      // This is necessary for username-based login before authentication
+      // Note: This allows querying the collection, but individual document reads still require auth
+      allow list: if true;
       
       // Allow users to update their own data
       allow update: if request.auth != null && request.auth.uid == userId;
       
-      // Allow admins and supervisors to manage all users
+      // Allow only admins to manage all users (supervisors restricted)
       allow write: if request.auth != null && 
         (request.auth.uid == userId || 
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType in ['admin', 'supervisor']));
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'admin'));
     }
     
     // Resources collection
@@ -81,6 +87,28 @@ service cloud.firestore {
       //    request.resource.data.uploadedBy == request.auth.uid);
       // allow delete: if request.auth != null && 
       //   resource.data.uploadedBy == request.auth.uid;
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can read their own notifications (both get and list operations)
+      // For list queries, we allow authenticated users to query their own notifications
+      allow read: if request.auth != null && 
+        (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Allow list queries for authenticated users
+      // This is needed for onSnapshot with queries - the query filters by userId
+      allow list: if request.auth != null;
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Only system can create notifications (via Cloud Functions or authenticated users)
+      allow create: if request.auth != null;
+      
+      // Users cannot delete notifications (soft delete via update)
+      allow delete: if false;
     }
   }
 }

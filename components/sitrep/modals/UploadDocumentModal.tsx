@@ -20,8 +20,6 @@ interface UploadDocumentModalProps {
   onTitleChange: (title: string) => void;
   uploadDescription: string;
   onDescriptionChange: (description: string) => void;
-  uploadCategory: SitRepDocument['category'];
-  onCategoryChange: (category: SitRepDocument['category']) => void;
   uploadProgress: any;
   isUploading: boolean;
   error: string | null;
@@ -40,8 +38,6 @@ export function UploadDocumentModal({
   onTitleChange,
   uploadDescription,
   onDescriptionChange,
-  uploadCategory,
-  onCategoryChange,
   uploadProgress,
   isUploading,
   error,
@@ -51,8 +47,6 @@ export function UploadDocumentModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomNavHeight = useBottomNavHeight();
-
-  const categories: SitRepDocument['category'][] = ['report', 'image', 'spreadsheet', 'presentation', 'other'];
 
   return (
     <Modal
@@ -137,33 +131,6 @@ export function UploadDocumentModal({
               multiline
               numberOfLines={3}
             />
-          </View>
-
-          {/* Category Selection */}
-          <View style={styles.inputGroup}>
-            <ThemedText style={styles.inputLabel}>Category</ThemedText>
-            <View style={styles.categoryContainer}>
-              {categories.map((category) => (
-                <TouchableOpacity
-                  key={category}
-                  style={[
-                    styles.categoryButton,
-                    { 
-                      backgroundColor: (uploadCategory ?? 'other') === category ? colors.primary : colors.background,
-                      borderColor: colors.border
-                    }
-                  ]}
-                  onPress={() => onCategoryChange(category)}
-                >
-                  <ThemedText style={[
-                    styles.categoryButtonText,
-                    { color: (uploadCategory ?? 'other') === category ? '#fff' : colors.text }
-                  ]}>
-                    {category ? category.charAt(0).toUpperCase() + category.slice(1) : ''}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
 
           {/* Progress Bar */}

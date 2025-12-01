@@ -4,40 +4,32 @@ import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, Touchabl
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-}
-
 interface NotificationButtonProps {
-  notifications?: Notification[];
   buttonSize?: number;
   iconSize?: number;
   dropdownWidth?: number;
   dropdownMaxHeight?: number;
+  onNavigate?: (tab: string, params?: any) => void;
 }
 
 export function NotificationButton({
-  notifications = [],
   buttonSize = 40,
   iconSize = 20,
   dropdownWidth = 360,
   dropdownMaxHeight = 500,
+  onNavigate,
 }: NotificationButtonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { notifications, unreadCount, markAsRead, markAllAsRead, handleNotificationPress } = useNotifications();
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [buttonLayout, setButtonLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const buttonRef = useRef<View>(null);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
   const isWeb = Platform.OS === 'web';
   const slideAnim = useRef(new Animated.Value(isWeb ? dropdownWidth : 0)).current;
 
@@ -235,68 +227,122 @@ export function NotificationButton({
               </ThemedText>
             </View>
           ) : (
-            notifications.map((notification, index) => (
-              <View key={notification.id}>
+            <>
+              {unreadCount > 0 && (
                 <TouchableOpacity
-                  style={[
-                    styles.notificationItem,
-                    { 
-                      backgroundColor: notification.read ? colors.surface : `${colors.primary}05`,
-                      borderLeftColor: notification.read ? 'transparent' : colors.primary,
-                    }
-                  ]}
+                  style={[styles.markAllReadButton, { backgroundColor: `${colors.primary}10` }]}
+                  onPress={markAllAsRead}
                   activeOpacity={0.7}
                 >
-                <View style={[
-                  styles.notificationIconContainer,
-                  { backgroundColor: notification.read ? `${colors.text}08` : `${colors.primary}15` }
-                ]}>
-                  <Ionicons 
-                    name={
-                      notification.title.toLowerCase().includes('operation') ? 'flash' :
-                      notification.title.toLowerCase().includes('resource') ? 'cube' :
-                      notification.title.toLowerCase().includes('weather') ? 'cloud' :
-                      'notifications'
-                    } 
-                    size={18} 
-                    color={notification.read ? colors.text : colors.primary}
-                    style={{ opacity: notification.read ? 0.6 : 1 }}
-                  />
-                </View>
-                <View style={styles.notificationContent}>
-                  <View style={styles.notificationHeader}>
-                    <ThemedText style={[
-                      styles.notificationTitle, 
-                      { 
-                        color: colors.text,
-                        fontWeight: notification.read ? '500' : '600',
-                      }
-                    ]}>
-                      {notification.title}
-                    </ThemedText>
-                    {!notification.read && (
-                      <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                  <ThemedText style={[styles.markAllReadText, { color: colors.primary }]}>
+                    Mark all as read
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+              {notifications.map((notification, index) => {
+                const formatTime = (date: Date) => {
+                  const now = new Date();
+                  const diff = now.getTime() - date.getTime();
+                  const minutes = Math.floor(diff / 60000);
+                  const hours = Math.floor(diff / 3600000);
+                  const days = Math.floor(diff / 86400000);
+
+                  if (minutes < 1) return 'Just now';
+                  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+                  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+                  if (days < 7) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+                  return date.toLocaleDateString();
+                };
+
+                return (
+                  <View key={notification.id}>
+                    <TouchableOpacity
+                      style={[
+                        styles.notificationItem,
+                        { 
+                          backgroundColor: notification.read ? colors.surface : `${colors.primary}05`,
+                          borderLeftColor: notification.read ? 'transparent' : colors.primary,
+                        }
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        handleNotificationPress(notification);
+                        if (onNavigate && notification.actionData) {
+                          const { type, id, tab } = notification.actionData;
+                          if (tab) {
+                            onNavigate(tab, { id });
+                          } else if (type && id) {
+                            const tabMap: { [key: string]: string } = {
+                              operation: 'operations',
+                              resource: 'resources',
+                              document: 'reports',
+                              sitrep: 'sitrep',
+                              user: 'user-management',
+                              weather: 'weather-station',
+                            };
+                            const targetTab = tabMap[type];
+                            if (targetTab) {
+                              onNavigate(targetTab, { id });
+                            }
+                          }
+                        }
+                        closeNotification();
+                      }}
+                    >
+                      <View style={[
+                        styles.notificationIconContainer,
+                        { backgroundColor: notification.read ? `${colors.text}08` : `${colors.primary}15` }
+                      ]}>
+                        <Ionicons 
+                          name={
+                            notification.type.includes('operation') ? 'flash' :
+                            notification.type.includes('resource') ? 'cube' :
+                            notification.type.includes('weather') ? 'cloud' :
+                            notification.type.includes('document') || notification.type.includes('sitrep') ? 'document-text' :
+                            notification.type.includes('user') ? 'people' :
+                            'notifications'
+                          } 
+                          size={18} 
+                          color={notification.read ? colors.text : colors.primary}
+                          style={{ opacity: notification.read ? 0.6 : 1 }}
+                        />
+                      </View>
+                      <View style={styles.notificationContent}>
+                        <View style={styles.notificationHeader}>
+                          <ThemedText style={[
+                            styles.notificationTitle, 
+                            { 
+                              color: colors.text,
+                              fontWeight: notification.read ? '500' : '600',
+                            }
+                          ]}>
+                            {notification.title}
+                          </ThemedText>
+                          {!notification.read && (
+                            <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                          )}
+                        </View>
+                        <ThemedText 
+                          style={[styles.notificationMessage, { color: colors.text, opacity: notification.read ? 0.6 : 0.8 }]}
+                          numberOfLines={2}
+                        >
+                          {notification.message}
+                        </ThemedText>
+                        <View style={styles.notificationFooter}>
+                          <Ionicons name="time-outline" size={12} color={colors.text} style={{ opacity: 0.4 }} />
+                          <ThemedText style={[styles.notificationTime, { color: colors.text, opacity: 0.5 }]}>
+                            {formatTime(notification.createdAt)}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                    {index < notifications.length - 1 && (
+                      <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
                     )}
                   </View>
-                  <ThemedText 
-                    style={[styles.notificationMessage, { color: colors.text, opacity: notification.read ? 0.6 : 0.8 }]}
-                    numberOfLines={2}
-                  >
-                    {notification.message}
-                  </ThemedText>
-                  <View style={styles.notificationFooter}>
-                    <Ionicons name="time-outline" size={12} color={colors.text} style={{ opacity: 0.4 }} />
-                    <ThemedText style={[styles.notificationTime, { color: colors.text, opacity: 0.5 }]}>
-                      {notification.time}
-                    </ThemedText>
-                  </View>
-                </View>
-                </TouchableOpacity>
-                {index < notifications.length - 1 && (
-                  <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
-                )}
-              </View>
-            ))
+                );
+              })}
+            </>
           )}
         </ScrollView>
       </Animated.View>
@@ -585,6 +631,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
+  },
+  markAllReadButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markAllReadText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 

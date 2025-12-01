@@ -231,6 +231,8 @@ export const createStyles = (colors: Colors) => {
     },
     textInputFlex: {
       flex: 1,
+      width: '100%',
+      minWidth: 0,
       paddingVertical: 12,
       paddingHorizontal: 16,
       borderWidth: 1.5,
@@ -329,9 +331,9 @@ export const createStyles = (colors: Colors) => {
 
     // Item containers
     itemContainer: {
-      flexDirection: 'row',
-      gap: 16,
-      alignItems: 'flex-start',
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      width: '100%',
       borderWidth: 1.5,
       borderColor: colors.border,
       padding: 20,
@@ -346,6 +348,7 @@ export const createStyles = (colors: Colors) => {
       gap: 12,
       marginBottom: 12,
       alignItems: 'center',
+      width: '100%',
     },
     itemRowFlex: {
       flexDirection: 'row',

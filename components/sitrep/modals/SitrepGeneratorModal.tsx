@@ -1,16 +1,18 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { getMunicipalities } from '@/data/davaoOrientalData';
 import { OperationRecord, operationsService } from '@/firebase/operations';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useDocumentUpload } from '@/hooks/useDocumentUpload';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { usePlatform } from '@/hooks/usePlatform';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Animated, Image, Modal, Platform, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, Modal, Platform, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { exportSitrepToDoc } from '../utils/exportSitrepToDoc';
 import { createStyles, getPlaceholderColor, getTabButtonStyle, getTabTextStyle } from './SitrepGeneratorModal.styles';
@@ -18,16 +20,21 @@ import { createStyles, getPlaceholderColor, getTabButtonStyle, getTabTextStyle }
 interface SitrepGeneratorModalProps {
   visible: boolean;
   onClose: () => void;
+  onSaveSuccess?: () => void;
 }
 
 export function SitrepGeneratorModal({
   visible,
   onClose,
+  onSaveSuccess,
 }: SitrepGeneratorModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isWeb } = usePlatform();
   const styles = createStyles(colors);
+  const { firebaseUser } = useAuth();
+  const { uploadDocument, isUploading: isSaving, error: saveError } = useDocumentUpload();
+  const [isExporting, setIsExporting] = useState(false);
   
   const { fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
     visible,
@@ -54,12 +61,7 @@ export function SitrepGeneratorModal({
           individuals: ''
         },
         evacuationCenters: [],
-        responseActions: {
-          operations: [],
-          medical: [],
-          logistics: [],
-          coordination: []
-        },
+        responseActions: [] as Array<{ name: string; items: string[] }>,
         personnel: [],
         assets: []
       });
@@ -87,12 +89,7 @@ export function SitrepGeneratorModal({
       individuals: ''
     },
     evacuationCenters: [] as string[],
-    responseActions: {
-      operations: [] as string[],
-      medical: [] as string[],
-      logistics: [] as string[],
-      coordination: [] as string[]
-    },
+    responseActions: [] as Array<{ name: string; items: string[] }>,
     personnel: [] as Array<{ role: string; detail: string }>,
     assets: [] as string[]
   });
@@ -224,12 +221,9 @@ export function SitrepGeneratorModal({
         assets,
         personnel,
         // Update operation type in response actions if available
-        responseActions: {
-          ...prev.responseActions,
-          operations: selectedOperation.operationType 
-            ? [`Operation Type: ${selectedOperation.operationType}`] 
-            : prev.responseActions.operations
-        }
+        responseActions: selectedOperation.operationType 
+          ? [{ name: 'Operations', items: [`Operation Type: ${selectedOperation.operationType}`] }]
+          : prev.responseActions
       }));
     };
 
@@ -337,10 +331,9 @@ export function SitrepGeneratorModal({
       assets,
       personnel, // Now populated with actual names from Firestore
       // Add operation type to response actions if available
-      responseActions: {
-        ...prev.responseActions,
-        operations: operation.operationType ? [`Operation Type: ${operation.operationType}`] : prev.responseActions.operations
-      }
+      responseActions: operation.operationType 
+        ? [{ name: 'Operations', items: [`Operation Type: ${operation.operationType}`] }]
+        : prev.responseActions
     }));
   };
 
@@ -376,22 +369,92 @@ export function SitrepGeneratorModal({
   };
 
   const exportToDoc = async () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('Error', 'Export is only available on web platform.');
+      return;
+    }
+
     try {
-      await exportSitrepToDoc(sitrep);
+      setIsExporting(true);
+      const { blob, fileName } = await exportSitrepToDoc(sitrep);
+      
+      // Show success message for export
+      Alert.alert('Success', 'Document exported successfully!');
+      
+      setIsExporting(false);
     } catch (error) {
       console.error('Error exporting document:', error);
-      if (Platform.OS !== 'web') {
-        const { Alert } = await import('react-native');
+      setIsExporting(false);
         Alert.alert('Error', 'Failed to export document. Please try again.');
       }
+  };
+
+  const saveToDatabase = async () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('Error', 'Save to database is only available on web platform.');
+      return;
+    }
+
+    if (!firebaseUser) {
+      Alert.alert('Error', 'You must be logged in to save documents.');
+      return;
+    }
+
+    if (!sitrep.operation || !sitrep.date) {
+      Alert.alert('Error', 'Please fill in at least the operation name and date before saving.');
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      
+      // Generate the document
+      const { blob, fileName } = await exportSitrepToDoc(sitrep);
+      
+      // Convert blob to File for upload
+      const file = new File([blob], fileName, { type: 'application/msword' });
+      
+      // Create description from overview
+      const description = sitrep.overview || `SITREP for ${sitrep.operation} on ${sitrep.date}`;
+      
+      // Upload to database
+      await uploadDocument(file, {
+        title: `SITREP - ${sitrep.operation}`,
+        description: description,
+        uploadedBy: firebaseUser.uid,
+        tags: ['sitrep', 'generated', sitrep.operation.toLowerCase().replace(/\s+/g, '-')],
+        isPublic: true
+      });
+      
+      setIsExporting(false);
+      Alert.alert('Success', 'SITREP saved to database successfully!');
+      
+      // Trigger refresh in parent component
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
+      
+      // Optionally close the modal after saving
+      // rampHandleClose();
+    } catch (error) {
+      console.error('Error saving document:', error);
+      setIsExporting(false);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save document. Please try again.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
-  const addItem = (category: string, subcategory: string | null = null) => {
+  const addItem = (category: string, subcategory: string | null = null, sectionIndex: number | null = null) => {
     setSitrep(prev => {
       const newSitrep = { ...prev };
-      if (subcategory) {
-        (newSitrep.responseActions[subcategory as keyof typeof newSitrep.responseActions] as string[]).push('');
+      if (category === 'responseActions' && sectionIndex === null) {
+        // Add a new section
+        newSitrep.responseActions.push({ name: '', items: [] });
+      } else if (category === 'responseActions' && sectionIndex !== null) {
+        // Add an item to a specific section
+        if (newSitrep.responseActions[sectionIndex]) {
+          newSitrep.responseActions[sectionIndex].items.push('');
+        }
       } else if (category === 'affectedAreas') {
         newSitrep.affectedAreas.push({ municipality: '', details: '' });
       } else if (category === 'evacuationCenters') {
@@ -405,11 +468,17 @@ export function SitrepGeneratorModal({
     });
   };
 
-  const removeItem = (category: string, index: number, subcategory: string | null = null) => {
+  const removeItem = (category: string, index: number, subcategory: string | null = null, sectionIndex: number | null = null) => {
     setSitrep(prev => {
       const newSitrep = { ...prev };
-      if (subcategory) {
-        (newSitrep.responseActions[subcategory as keyof typeof newSitrep.responseActions] as string[]).splice(index, 1);
+      if (category === 'responseActions' && sectionIndex === null) {
+        // Remove a section
+        newSitrep.responseActions.splice(index, 1);
+      } else if (category === 'responseActions' && sectionIndex !== null) {
+        // Remove an item from a specific section
+        if (newSitrep.responseActions[sectionIndex]) {
+          newSitrep.responseActions[sectionIndex].items.splice(index, 1);
+        }
       } else if (category === 'affectedAreas') {
         newSitrep.affectedAreas.splice(index, 1);
       } else if (category === 'evacuationCenters') {
@@ -429,9 +498,22 @@ export function SitrepGeneratorModal({
       const keys = path.split('.');
       let current: any = newSitrep;
       for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i]];
+        const key = keys[i];
+        // Handle numeric array indices
+        const numKey = parseInt(key, 10);
+        if (!isNaN(numKey) && Array.isArray(current)) {
+          current = current[numKey];
+        } else {
+          current = current[key];
+        }
       }
-      current[keys[keys.length - 1]] = value;
+      const lastKey = keys[keys.length - 1];
+      const numLastKey = parseInt(lastKey, 10);
+      if (!isNaN(numLastKey) && Array.isArray(current)) {
+        current[numLastKey] = value;
+      } else {
+        current[lastKey] = value;
+      }
       return newSitrep;
     });
   };
@@ -811,32 +893,68 @@ export function SitrepGeneratorModal({
         )}
         {activeTab === 'response' && (
           <View style={styles.sectionLarge}>
-            <ThemedText style={[styles.textTitle, { marginBottom: 8 }]}>Response Actions</ThemedText>
-            
-            {(['operations', 'medical', 'logistics', 'coordination'] as const).map(category => (
-              <View key={category}>
                 <View style={styles.itemHeaderWithMargin}>
-                  <ThemedText style={[styles.sectionSubtitle, { textTransform: 'capitalize' }]}>{category}</ThemedText>
+              <ThemedText style={[styles.textTitle, { marginBottom: 0 }]}>Actions Taken</ThemedText>
                   <TouchableOpacity
-                    onPress={() => addItem('responseActions', category)}
+                onPress={() => addItem('responseActions', null, null)}
                     style={styles.addButton}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="add" size={16} color="#fff" />
-                    <ThemedText style={styles.addButtonText}>Add Item</ThemedText>
+                <ThemedText style={styles.addButtonText}>Add Section</ThemedText>
                   </TouchableOpacity>
                 </View>
-                {sitrep.responseActions[category].map((item, idx) => (
-                  <View key={idx} style={styles.itemRow}>
+            
+            {sitrep.responseActions.map((section, sectionIdx) => (
+              <View key={sectionIdx} style={[styles.itemContainer, { marginBottom: 24, padding: 16, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }]}>
+                {/* Section Name - Label and Delete Button in same row */}
+                <View style={[styles.itemHeader, { marginBottom: 8 }]}>
+                  <ThemedText style={styles.sectionLabel}>Section Name</ThemedText>
+                  <TouchableOpacity
+                    onPress={() => removeItem('responseActions', sectionIdx, null, null)}
+                    style={styles.deleteButton}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Section Name Input - Full Width */}
+                <View style={{ marginBottom: 16 }}>
+                  <TextInput
+                    value={section.name}
+                    onChangeText={(value) => updateField(`responseActions.${sectionIdx}.name`, value)}
+                    style={styles.textInput}
+                    placeholder="e.g., Operations, Medical, Logistics"
+                    placeholderTextColor={getPlaceholderColor(colors.text)}
+                  />
+                </View>
+
+                {/* Action Items */}
+                <View style={{ marginTop: 16 }}>
+                  <View style={[styles.itemHeader, { marginBottom: 12 }]}>
+                    <ThemedText style={styles.sectionLabel}>Action Items</ThemedText>
+                    <TouchableOpacity
+                      onPress={() => addItem('responseActions', null, sectionIdx)}
+                      style={[styles.addButton, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="add" size={14} color="#fff" />
+                      <ThemedText style={[styles.addButtonText, { fontSize: 12 }]}>Add Item</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  {section.items.map((item, itemIdx) => (
+                    <View key={itemIdx} style={[styles.itemRow, { marginBottom: 8 }]}>
                     <TextInput
                       value={item}
-                      onChangeText={(value) => updateField(`responseActions.${category}.${idx}`, value)}
+                        onChangeText={(value) => updateField(`responseActions.${sectionIdx}.items.${itemIdx}`, value)}
                       style={styles.textInputFlex}
-                      placeholder={`Enter ${category} action`}
+                        placeholder="Enter action item"
                       placeholderTextColor={getPlaceholderColor(colors.text)}
+                        multiline
                     />
                     <TouchableOpacity
-                      onPress={() => removeItem('responseActions', idx, category)}
+                        onPress={() => removeItem('responseActions', itemIdx, null, sectionIdx)}
                       style={styles.deleteButton}
                       activeOpacity={0.7}
                     >
@@ -844,8 +962,21 @@ export function SitrepGeneratorModal({
                     </TouchableOpacity>
                   </View>
                 ))}
+                  {section.items.length === 0 && (
+                    <ThemedText style={[styles.sectionLabel, { opacity: 0.5, fontStyle: 'italic', marginBottom: 8 }]}>
+                      No action items yet. Click "Add Item" to add one.
+                    </ThemedText>
+                  )}
+                </View>
               </View>
             ))}
+            {sitrep.responseActions.length === 0 && (
+              <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+                <ThemedText style={[styles.sectionLabel, { opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }]}>
+                  No sections yet. Click "Add Section" to create one.
+                </ThemedText>
+              </View>
+            )}
           </View>
         )}
         {activeTab === 'resources' && (
@@ -979,12 +1110,32 @@ export function SitrepGeneratorModal({
               <View style={styles.modalHeaderActions}>
                 <TouchableOpacity
                   onPress={exportToDoc}
-                  style={styles.exportButton}
+                  style={[styles.exportButton, { marginRight: 8, opacity: isExporting ? 0.6 : 1 }]}
                   activeOpacity={0.8}
+                  disabled={isExporting}
                 >
+                  {isExporting ? (
+                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                  ) : (
                   <Ionicons name="download-outline" size={18} color="#fff" />
+                  )}
                   <ThemedText style={styles.exportButtonText}>
-                    Export to Document
+                    {isExporting ? 'Exporting...' : 'Export'}
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={saveToDatabase}
+                  style={[styles.exportButton, { backgroundColor: colors.primary, marginRight: 8, opacity: (isExporting || isSaving) ? 0.6 : 1 }]}
+                  activeOpacity={0.8}
+                  disabled={isExporting || isSaving}
+                >
+                  {(isExporting || isSaving) ? (
+                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                  ) : (
+                    <Ionicons name="save-outline" size={18} color="#fff" />
+                  )}
+                  <ThemedText style={styles.exportButtonText}>
+                    {isSaving ? 'Saving...' : 'Save'}
                   </ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1026,12 +1177,32 @@ export function SitrepGeneratorModal({
             <View style={styles.modalHeaderActions}>
               <TouchableOpacity
                 onPress={exportToDoc}
-                style={styles.exportButton}
+                style={[styles.exportButton, { marginRight: 8, opacity: isExporting ? 0.6 : 1 }]}
                 activeOpacity={0.8}
+                disabled={isExporting}
               >
+                {isExporting ? (
+                  <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                ) : (
                 <Ionicons name="download-outline" size={18} color="#fff" />
+                )}
                 <ThemedText style={styles.exportButtonText}>
-                  Export
+                  {isExporting ? 'Exporting...' : 'Export'}
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={saveToDatabase}
+                style={[styles.exportButton, { backgroundColor: colors.primary, marginRight: 8, opacity: (isExporting || isSaving) ? 0.6 : 1 }]}
+                activeOpacity={0.8}
+                disabled={isExporting || isSaving}
+              >
+                {(isExporting || isSaving) ? (
+                  <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                ) : (
+                  <Ionicons name="save-outline" size={18} color="#fff" />
+                )}
+                <ThemedText style={styles.exportButtonText}>
+                  {isSaving ? 'Saving...' : 'Save'}
                 </ThemedText>
               </TouchableOpacity>
               <TouchableOpacity

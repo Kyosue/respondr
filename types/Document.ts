@@ -23,7 +23,6 @@ export interface DocumentUploadProgress {
 }
 
 export interface DocumentFilter {
-  category?: string;
   fileType?: string;
   uploadedBy?: string;
   dateRange?: {

@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { resourceService } from './resources';
+import { getUsersWithFilters } from './auth';
+import { notifyOperationCreated, notifyOperationAssigned } from '@/utils/notificationHelpers';
 
 export interface OperationResourceRef {
   resourceId: string;
@@ -123,6 +125,64 @@ export const operationsService = {
             console.warn('Failed to record operation usage in history:', historyErr);
           }
         }
+
+        // Send notifications about the new operation
+        try {
+          console.log('[Operation Notifications] Starting notification process for operation:', ref.id);
+          
+          // Get all admins and supervisors to notify
+          const [admins, supervisors] = await Promise.all([
+            getUsersWithFilters({ userType: 'admin', status: 'active' }),
+            getUsersWithFilters({ userType: 'supervisor', status: 'active' })
+          ]);
+
+          console.log('[Operation Notifications] Found admins:', admins.length, 'supervisors:', supervisors.length);
+
+          // Combine and get user IDs (excluding the creator)
+          const userIdsToNotify = [...admins, ...supervisors]
+            .filter(user => user.id !== input.createdBy)
+            .map(user => user.id);
+
+          console.log('[Operation Notifications] User IDs to notify:', userIdsToNotify.length, userIdsToNotify);
+          console.log('[Operation Notifications] Operation creator:', input.createdBy);
+
+          if (userIdsToNotify.length > 0) {
+            console.log('[Operation Notifications] Sending bulk notifications to', userIdsToNotify.length, 'users');
+            await notifyOperationCreated(
+              userIdsToNotify,
+              ref.id,
+              input.title,
+              input.createdBy || 'system'
+            );
+            console.log('[Operation Notifications] Bulk notifications sent successfully');
+          } else {
+            console.warn('[Operation Notifications] No users to notify (all admins/supervisors are the creator or none exist)');
+          }
+
+          // Notify assigned personnel
+          if (Array.isArray(input.assignedPersonnel) && input.assignedPersonnel.length > 0) {
+            console.log('[Operation Notifications] Notifying', input.assignedPersonnel.length, 'assigned personnel');
+            for (const personnelId of input.assignedPersonnel) {
+              if (personnelId !== input.createdBy) {
+                console.log('[Operation Notifications] Notifying assigned personnel:', personnelId);
+                await notifyOperationAssigned(
+                  personnelId,
+                  ref.id,
+                  input.title
+                );
+              } else {
+                console.log('[Operation Notifications] Skipping notification to creator:', personnelId);
+              }
+            }
+            console.log('[Operation Notifications] Personnel notifications sent');
+          } else {
+            console.log('[Operation Notifications] No assigned personnel to notify');
+          }
+        } catch (notifErr) {
+          console.error('[Operation Notifications] Failed to send operation notifications:', notifErr);
+          console.error('[Operation Notifications] Error details:', JSON.stringify(notifErr, null, 2));
+          // Don't throw - notifications are non-critical
+        }
       } catch (e) {
         console.error('Failed post-processing for operation creation:', e);
       }
@@ -226,6 +286,31 @@ export const operationsService = {
     });
 
     await updateDoc(ref, payload);
+
+    // Send notifications if personnel assignments changed
+    if (input.assignedPersonnel && Array.isArray(input.assignedPersonnel)) {
+      try {
+        const currentPersonnel = new Set(current.assignedPersonnel || []);
+        const newPersonnel = new Set(input.assignedPersonnel);
+        
+        // Find newly assigned personnel
+        const newlyAssigned = input.assignedPersonnel.filter(
+          id => !currentPersonnel.has(id) && id !== updatedBy
+        );
+
+        // Notify newly assigned personnel
+        for (const personnelId of newlyAssigned) {
+          await notifyOperationAssigned(
+            personnelId,
+            operationId,
+            current.title
+          );
+        }
+      } catch (notifErr) {
+        console.warn('Failed to send assignment notifications:', notifErr);
+        // Don't throw - notifications are non-critical
+      }
+    }
   },
 
   async updateStatus(operationId: string, status: OperationRecord['status'], updatedBy?: string) {

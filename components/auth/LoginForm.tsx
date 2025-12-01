@@ -6,29 +6,29 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface LoginFormProps {
-  onSubmit: (email: string, password: string) => Promise<void>;
+  onSubmit: (usernameOrEmail: string, password: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
 
 export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
-  const [email, setEmail] = useState('');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [usernameOrEmailError, setUsernameOrEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [isFocused, setIsFocused] = useState({ email: false, password: false });
+  const [isFocused, setIsFocused] = useState({ usernameOrEmail: false, password: false });
   const [showPassword, setShowPassword] = useState(false);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -44,17 +44,30 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
     let isValid = true;
     
     // Clear previous errors
-    setEmailError('');
+    setUsernameOrEmailError('');
     setPasswordError('');
 
-    // Validate email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      setEmailError('Email is required');
+    // Validate username or email
+    if (!usernameOrEmail.trim()) {
+      setUsernameOrEmailError('Username or email is required');
       isValid = false;
-    } else if (!emailRegex.test(email.trim())) {
-      setEmailError('Please enter a valid email address');
-      isValid = false;
+    } else {
+      // Check if it's an email (contains @) or username
+      const isEmail = usernameOrEmail.includes('@');
+      if (isEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(usernameOrEmail.trim())) {
+          setUsernameOrEmailError('Please enter a valid email address');
+          isValid = false;
+        }
+      } else {
+        // Validate username format
+        const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+        if (!usernameRegex.test(usernameOrEmail.trim())) {
+          setUsernameOrEmailError('Username must be 3-20 characters and contain only letters, numbers, and underscores');
+          isValid = false;
+        }
+      }
     }
 
     // Validate password
@@ -71,13 +84,13 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
 
   const handleSubmit = async () => {
     if (validateForm()) {
-      await onSubmit(email.trim(), password);
+      await onSubmit(usernameOrEmail.trim().toLowerCase(), password);
     }
   };
 
-  const handleEmailChange = (text: string) => {
-    setEmail(text);
-    if (emailError) setEmailError('');
+  const handleUsernameOrEmailChange = (text: string) => {
+    setUsernameOrEmail(text);
+    if (usernameOrEmailError) setUsernameOrEmailError('');
   };
 
   const handlePasswordChange = (text: string) => {
@@ -110,12 +123,12 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
       <NetworkStatusIndicator showDetails={!isOnline || isSlowConnection} />
       <View style={styles.form}>
         <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>Email</ThemedText>
+          <ThemedText style={styles.label}>Username or Email</ThemedText>
           <View style={styles.inputWrapper}>
             <Ionicons 
-              name="mail-outline" 
+              name={usernameOrEmail.includes('@') ? "mail-outline" : "at-outline"} 
               size={20} 
-              color={isFocused.email ? colors.primary : colors.icon} 
+              color={isFocused.usernameOrEmail ? colors.primary : colors.icon} 
               style={styles.inputIcon} 
             />
             <TextInput
@@ -123,28 +136,28 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
                 styles.input,
                 { 
                   backgroundColor: colors.inputBackground,
-                  borderColor: isFocused.email ? colors.primary : emailError ? colors.error : colors.inputBorder,
+                  borderColor: isFocused.usernameOrEmail ? colors.primary : usernameOrEmailError ? colors.error : colors.inputBorder,
                   color: colors.inputText,
                   paddingLeft: 48,
                 }
               ]}
-              placeholder="Enter your email"
+              placeholder="Enter your username or email"
               placeholderTextColor={colors.disabledText}
-              value={email}
-              onChangeText={handleEmailChange}
+              value={usernameOrEmail}
+              onChangeText={handleUsernameOrEmailChange}
               autoCapitalize="none"
-              keyboardType="email-address"
+              keyboardType={usernameOrEmail.includes('@') ? "email-address" : "default"}
               autoCorrect={false}
               editable={!isLoading}
-              onFocus={() => setIsFocused({...isFocused, email: true})}
-              onBlur={() => setIsFocused({...isFocused, email: false})}
+              onFocus={() => setIsFocused({...isFocused, usernameOrEmail: true})}
+              onBlur={() => setIsFocused({...isFocused, usernameOrEmail: false})}
               returnKeyType="next"
               onSubmitEditing={() => passwordInputRef.current?.focus()}
             />
           </View>
-          {emailError ? (
+          {usernameOrEmailError ? (
             <ThemedText style={[styles.errorText, { color: colors.error }]}>
-              {emailError}
+              {usernameOrEmailError}
             </ThemedText>
           ) : null}
         </View>
