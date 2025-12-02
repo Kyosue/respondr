@@ -493,7 +493,7 @@ export function SitRep() {
                 </ThemedText>
               </View>
               <View style={[
-                styles.documentsGrid,
+                isMobile ? styles.documentsGridMobile : styles.documentsGrid,
                 {
                   paddingHorizontal: isMobile ? 16 : isDesktop ? 20 : 16,
                 }

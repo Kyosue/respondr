@@ -149,7 +149,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
           >
             <View style={styles.menuHeader}>
               <Image
-                source={require('@/assets/images/respondr-1.png')}
+                source={require('@/assets/images/respondr_foreground.png')}
                 style={styles.menuLogo}
                 resizeMode="contain"
               />
@@ -301,8 +301,8 @@ const styles = StyleSheet.create({
     paddingTop: 40,
   },
   menuLogo: {
-    width: 80,
-    height: 80,
+    width: 70,
+    height: 70,
     marginBottom: 16,
   },
   appName: {

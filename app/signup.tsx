@@ -114,7 +114,7 @@ export default function SignupScreen() {
           <View style={styles.container}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('@/assets/images/respondr-1.png')}
+                source={require('@/assets/images/respondr_foreground.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />

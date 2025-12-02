@@ -40,16 +40,22 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
   },
+  documentsGridMobile: {
+    flexDirection: 'column',
+    gap: 0,
+  },
   gridItem: {
-    marginBottom: 16,
+    // Base styles - margin handled by specific variants
   },
   gridItemMobile: {
     width: '100%',
+    marginBottom: 12,
   },
   gridItemDesktop: {
     flexShrink: 0,
     flexGrow: 0,
     minWidth: 200,
+    marginBottom: 16,
   },
   documentGroup: {
     marginBottom: 8,
