@@ -84,12 +84,12 @@ export default function RootLayout() {
       // Set favicon dynamically
       const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
       if (favicon) {
-        favicon.href = '/assets/images/logo-1.png';
+        favicon.href = '/assets/images/respondr-1.png';
       } else {
         const link = document.createElement('link');
         link.rel = 'icon';
         link.type = 'image/png';
-        link.href = '/assets/images/logo-1.png';
+        link.href = '/assets/images/respondr-1.png';
         document.head.appendChild(link);
       }
 

@@ -149,7 +149,7 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
           >
             <View style={styles.menuHeader}>
               <Image
-                source={require('@/assets/images/logo-1.png')}
+                source={require('@/assets/images/respondr-1.png')}
                 style={styles.menuLogo}
                 resizeMode="contain"
               />

@@ -8,15 +8,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -72,7 +72,7 @@ export default function LoginScreen() {
             <View style={styles.container}>
               <View style={styles.logoContainer}>
                 <Image
-                  source={require('@/assets/images/logo-1.png')}
+                  source={require('@/assets/images/respondr-1.png')}
                   style={styles.logo}
                   resizeMode="contain"
                 />

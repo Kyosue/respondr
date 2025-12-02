@@ -1,7 +1,25 @@
 import { notificationService } from '@/firebase/notifications';
 import { NotificationType, NotificationPriority } from '@/types/Notification';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+
+// Lazy load expo-notifications only on native platforms when needed
+let Notifications: any = null;
+let notificationsLoaded = false;
+
+function getNotifications() {
+  if (Platform.OS === 'web') return null;
+  if (notificationsLoaded) return Notifications;
+  
+  try {
+    Notifications = require('expo-notifications');
+    notificationsLoaded = true;
+    return Notifications;
+  } catch (error) {
+    // Silently handle - expo-notifications is not available on web (expected)
+    notificationsLoaded = true; // Mark as loaded to prevent retries
+    return null;
+  }
+}
 
 /**
  * Helper functions to create notifications throughout the app
@@ -17,8 +35,11 @@ async function sendPushNotification(
 ): Promise<void> {
   if (Platform.OS === 'web') return;
 
+  const NotifModule = getNotifications();
+  if (!NotifModule) return;
+
   try {
-    await Notifications.scheduleNotificationAsync({
+    await NotifModule.scheduleNotificationAsync({
       content: {
         title,
         body,

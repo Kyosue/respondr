@@ -56,7 +56,7 @@ module.exports = async function (env, argv) {
     const htmlPlugin = config.plugins.find(plugin => plugin instanceof HtmlWebpackPlugin);
     if (htmlPlugin) {
       htmlPlugin.options.title = 'Respondr';
-      htmlPlugin.options.favicon = './assets/images/logo-1.png';
+      htmlPlugin.options.favicon = './assets/images/respondr-1.png';
     }
   }
 

@@ -5,15 +5,22 @@ import { Platform } from 'react-native';
 import { useAuth } from './AuthContext';
 import { useNetwork } from './NetworkContext';
 
-// Conditionally import expo-notifications only on native platforms
+// Lazy load expo-notifications only on native platforms when needed
 let Notifications: any = null;
-if (Platform.OS !== 'web') {
+let notificationsLoaded = false;
+
+function getNotifications() {
+  if (Platform.OS === 'web') return null;
+  if (notificationsLoaded) return Notifications;
+  
   try {
     Notifications = require('expo-notifications');
+    notificationsLoaded = true;
+    return Notifications;
   } catch (error) {
     // Silently handle - expo-notifications is not available on web (expected)
-    // and may not be available during development. All Notifications usage
-    // is guarded with Platform.OS !== 'web' && Notifications checks.
+    notificationsLoaded = true; // Mark as loaded to prevent retries
+    return null;
   }
 }
 
@@ -31,17 +38,20 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-// Configure notification handler (only on native platforms)
-if (Notifications && Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+// Configure notification handler (only on native platforms) - lazy load
+if (Platform.OS !== 'web') {
+  const NotifModule = getNotifications();
+  if (NotifModule) {
+    NotifModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -86,45 +96,51 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Request notification permissions and get push token (only on native platforms)
   useEffect(() => {
-    if (Platform.OS !== 'web' && Notifications) {
-      registerForPushNotificationsAsync().then(token => {
-        if (token) {
-          setExpoPushToken(token);
-          // Store push token in user's Firestore document
-          if (firebaseUser) {
-            // You can add this to user document if needed
-            console.log('Push token:', token);
+    if (Platform.OS !== 'web') {
+      const NotifModule = getNotifications();
+      if (NotifModule) {
+        registerForPushNotificationsAsync().then(token => {
+          if (token) {
+            setExpoPushToken(token);
+            // Store push token in user's Firestore document
+            if (firebaseUser) {
+              // You can add this to user document if needed
+              console.log('Push token:', token);
+            }
           }
-        }
-      });
+        });
+      }
     }
   }, [firebaseUser]);
 
   // Set up notification listeners (only on native platforms)
   useEffect(() => {
-    if (Platform.OS !== 'web' && Notifications) {
-      // Handle notifications received while app is foregrounded
-      const foregroundSubscription = Notifications.addNotificationReceivedListener((notification: any) => {
-        console.log('Notification received:', notification);
-        // Refresh notifications when a push notification is received
-        if (user?.id) {
-          refreshNotifications();
-        }
-      });
+    if (Platform.OS !== 'web') {
+      const NotifModule = getNotifications();
+      if (NotifModule) {
+        // Handle notifications received while app is foregrounded
+        const foregroundSubscription = NotifModule.addNotificationReceivedListener((notification: any) => {
+          console.log('Notification received:', notification);
+          // Refresh notifications when a push notification is received
+          if (user?.id) {
+            refreshNotifications();
+          }
+        });
 
-      // Handle notification taps
-      const responseSubscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
-        const data = response.notification.request.content.data;
-        if (data?.notificationId && user?.id) {
-          markAsRead(data.notificationId);
-          // Navigation will be handled by the app when notification is pressed
-        }
-      });
+        // Handle notification taps
+        const responseSubscription = NotifModule.addNotificationResponseReceivedListener((response: any) => {
+          const data = response.notification.request.content.data;
+          if (data?.notificationId && user?.id) {
+            markAsRead(data.notificationId);
+            // Navigation will be handled by the app when notification is pressed
+          }
+        });
 
-      return () => {
-        foregroundSubscription.remove();
-        responseSubscription.remove();
-      };
+        return () => {
+          foregroundSubscription.remove();
+          responseSubscription.remove();
+        };
+      }
     }
   }, [user?.id, refreshNotifications, markAsRead]);
 
@@ -154,10 +170,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       (count) => {
         setUnreadCount(count);
         // Update app badge (only on native platforms)
-        if (Platform.OS !== 'web' && Notifications) {
-          Notifications.setBadgeCountAsync(count).catch((err: any) => {
-            console.warn('Failed to set badge count:', err);
-          });
+        if (Platform.OS !== 'web') {
+          const NotifModule = getNotifications();
+          if (NotifModule) {
+            NotifModule.setBadgeCountAsync(count).catch((err: any) => {
+              console.warn('Failed to set badge count:', err);
+            });
+          }
         }
       }
     );
@@ -228,16 +247,21 @@ export const useNotifications = () => {
 
 // Register for push notifications (only on native platforms)
 async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (Platform.OS === 'web' || !Notifications) {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
+  const NotifModule = getNotifications();
+  if (!NotifModule) {
     return null;
   }
 
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await NotifModule.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await NotifModule.requestPermissionsAsync();
       finalStatus = status;
     }
 
@@ -246,7 +270,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
       return null;
     }
 
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const token = (await NotifModule.getExpoPushTokenAsync()).data;
     console.log('Expo push token:', token);
     return token;
   } catch (error) {

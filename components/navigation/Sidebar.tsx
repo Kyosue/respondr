@@ -76,7 +76,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           activeOpacity={isCollapsed ? 0.7 : 1}
         >
           <Image
-            source={require('@/assets/images/logo-1.png')}
+            source={require('@/assets/images/respondr-1.png')}
             style={styles.logo}
             resizeMode="contain"
           />

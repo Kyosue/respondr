@@ -141,13 +141,13 @@ export function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
           {
             opacity: fadeAnim,
             transform: [{ scale: scaleAnim }],
-          },
+          },  
         ]}
       >
         {/* Logo */}
         <View style={styles.logoContainer}>
           <Image
-            source={require('@/assets/images/logo-1.png')}
+            source={require('@/assets/images/respondr-1.png')}
             style={styles.logo}
             resizeMode="contain"
           />
