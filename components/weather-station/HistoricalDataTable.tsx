@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
-import { fetchAllHistoricalWeatherFromFirebase } from '@/services/weatherApi';
+import { fetchAllHistoricalWeatherFromFirebase, subscribeToHistoricalWeatherUpdates } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -38,7 +38,7 @@ export function HistoricalDataTable({
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
 
-  // Fetch data from Firebase
+  // Fetch data from Firebase (for manual refresh)
   const fetchDataFromFirebase = useCallback(async (isRefresh: boolean = false) => {
     if (isRefresh) {
       setIsRefreshing(true);
@@ -69,40 +69,54 @@ export function HistoricalDataTable({
     }
   }, [municipalityName]);
 
-  // Fetch data on mount if propData is not provided
+  // Set up real-time listener if propData is not provided
   useEffect(() => {
-    if (!propData) {
+    if (!propData && municipalityName) {
+      // Initial fetch
       fetchDataFromFirebase();
+      
+      // Set up real-time listener for automatic updates
+      const unsubscribe = subscribeToHistoricalWeatherUpdates(
+        municipalityName,
+        (weatherData) => {
+          // Transform to HistoricalDataPoint format
+          const historicalData: HistoricalDataPoint[] = weatherData.map(w => ({
+            timestamp: w.timestamp,
+            temperature: w.temperature,
+            humidity: w.humidity,
+            rainfall: w.rainfall,
+            windSpeed: w.windSpeed,
+            windDirection: w.windDirection || 0,
+          }));
+          
+          setFirebaseData(historicalData);
+          console.log(`[HistoricalDataTable] Real-time update: ${historicalData.length} entries for ${municipalityName}`);
+        },
+        (error) => {
+          console.error('[HistoricalDataTable] Real-time listener error:', error);
+        }
+      );
+      
+      return () => {
+        unsubscribe();
+      };
     }
-  }, [propData, fetchDataFromFirebase, municipalityName]);
+  }, [propData, municipalityName, fetchDataFromFirebase]);
 
-  // Create a combined refresh handler
+  // Create a combined refresh handler (for manual refresh)
   const handleRefresh = useCallback(() => {
     // Call the original onRefresh if provided
     if (onRefreshRef.current) {
       onRefreshRef.current();
     }
-    // Always fetch from Firebase if propData is not provided
+    // Always fetch from Firebase if propData is not provided (manual refresh)
     if (!propData) {
       fetchDataFromFirebase(true);
     }
   }, [propData, fetchDataFromFirebase]);
 
-  // Auto-refresh listener: refresh every 10 minutes
-  // Note: New data arrives in the database every 10 minutes, so each new entry = 10 minutes passed
-  useEffect(() => {
-    if (!propData) {
-      // Set up auto-refresh every 10 minutes to fetch new data entries
-      // The database receives new weather data every 10 minutes
-      const interval = setInterval(() => {
-        handleRefresh();
-      }, 10 * 60 * 1000); // 10 minutes = 600,000 milliseconds
-
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  }, [propData, handleRefresh]);
+  // Note: Real-time updates are handled by the subscription in the useEffect above
+  // No need for polling intervals - the listener automatically detects new data
 
   // Use propData if provided, otherwise use firebaseData
   const data = propData || firebaseData;

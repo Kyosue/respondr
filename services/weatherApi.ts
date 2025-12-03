@@ -85,6 +85,14 @@ const FIREBASE_RTDB_URL = 'https://ws-data-6f163-default-rtdb.firebaseio.com';
 const FIREBASE_RTDB_AUTH = 'ZkkNgbFTLZnvDg6z651x4GiBl5qD41g0CUeoFHrR';
 const FIREBASE_RTDB_PATH = 'sms_data'; // Changed from 'weather-db' to 'sms_data'
 
+// Real-time listener state
+interface WeatherListenerState {
+  lastTimestamp: number;
+  unsubscribe: (() => void) | null;
+}
+
+const listenerStates = new Map<string, WeatherListenerState>();
+
 /**
  * Map municipality name to device_id patterns
  * Example: "Mati", "Mati City", or "City of Mati" -> ["WS-MATI-01", "WS-MATI", "WS-MATI-CITY-01", "WS-MATI-CITY"]
@@ -669,6 +677,20 @@ export async function fetchWeatherFromWeatherAPI(
 }
 
 /**
+ * Check if a municipality name refers to Mati City
+ * Handles variations: "Mati", "Mati City", "City of Mati"
+ */
+export function isMatiCity(municipalityName?: string): boolean {
+  if (!municipalityName) return false;
+  
+  const normalized = municipalityName.toLowerCase().trim();
+  // Remove "City of " prefix and " City" suffix for comparison
+  const cleaned = normalized.replace(/^city\s+of\s+/i, '').replace(/\s+city$/i, '').trim();
+  
+  return cleaned === 'mati';
+}
+
+/**
  * Get coordinates for a municipality in Davao Oriental
  */
 export function getMunicipalityCoordinates(municipalityName: string): { lat: number; lon: number } | null {
@@ -705,17 +727,20 @@ export async function fetchWeatherData(
     if (data) return data;
   }
 
-  /* DISABLED: Open-Meteo API fallback - uncomment to enable
-  // Fallback to external APIs only if Firebase fails
-  if (useApi === 'auto') {
+  // Fallback to Open-Meteo API only if Firebase fails and it's NOT Mati City
+  // Mati City has its own weather station, so we don't use OpenMeteo for it
+  if (useApi === 'auto' && !isMatiCity(municipalityName)) {
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
+      console.log(`[Weather API] Firebase data not available for ${municipalityName}, trying Open-Meteo fallback...`);
       // Try Open-Meteo as fallback
       const data = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
-      if (data) return data;
+      if (data) {
+        console.log(`[Weather API] Successfully fetched data from Open-Meteo for ${municipalityName}`);
+        return data;
+      }
     }
   }
-  */
 
   return null;
 }
@@ -855,19 +880,248 @@ export async function fetchHistoricalWeatherData(
     return allData;
   }
   
-  /* DISABLED: Open-Meteo API fallback - uncomment to enable
-  // Fallback to external API if Firebase fails
-  const coords = getMunicipalityCoordinates(municipalityName || 'mati');
-  if (coords) {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
-    
-    return await fetchHistoricalWeatherFromOpenMeteo(coords.lat, coords.lon, startDate, endDate);
+  // Fallback to Open-Meteo API only if Firebase fails and it's NOT Mati City
+  // Mati City has its own weather station, so we don't use OpenMeteo for it
+  if (!isMatiCity(municipalityName)) {
+    const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+    if (coords) {
+      console.log(`[Weather API] Firebase historical data not available for ${municipalityName}, trying Open-Meteo fallback...`);
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const historicalData = await fetchHistoricalWeatherFromOpenMeteo(coords.lat, coords.lon, startDate, endDate);
+      if (historicalData.length > 0) {
+        console.log(`[Weather API] Successfully fetched ${historicalData.length} historical entries from Open-Meteo for ${municipalityName}`);
+        return historicalData;
+      }
+    }
   }
-  */
   
   return [];
+}
+
+/**
+ * Subscribe to real-time weather data updates from Firebase Realtime Database
+ * Automatically detects and processes new data when it arrives
+ * 
+ * @param municipalityName Optional municipality name to filter by device_id
+ * @param onUpdate Callback function called when new weather data is detected
+ * @param onError Optional error callback
+ * @returns Unsubscribe function to stop listening
+ */
+export function subscribeToWeatherUpdates(
+  municipalityName: string | undefined,
+  onUpdate: (data: WeatherApiResponse) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const listenerKey = municipalityName || 'all';
+  let isActive = true;
+  let lastTimestamp = 0;
+  let checkInterval: ReturnType<typeof setInterval> | null = null;
+  
+  // Initial fetch to get current data and set baseline timestamp
+  const initialFetch = async () => {
+    try {
+      const current = await fetchWeatherFromFirebase(municipalityName);
+      if (current && isActive) {
+        lastTimestamp = current.timestamp.getTime();
+        onUpdate(current);
+        console.log(`[Weather Listener] Initial data loaded for ${municipalityName || 'all stations'}`);
+      }
+    } catch (error) {
+      console.error('[Weather Listener] Initial fetch error:', error);
+      if (onError && isActive) {
+        onError(error instanceof Error ? error : new Error('Initial fetch failed'));
+      }
+    }
+  };
+  
+  // Check for new data
+  const checkForUpdates = async () => {
+    if (!isActive) return;
+    
+    try {
+      const url = `${FIREBASE_RTDB_URL}/${FIREBASE_RTDB_PATH}.json?auth=${FIREBASE_RTDB_AUTH}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch weather data: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Get device ID patterns for the municipality if provided
+      const deviceIdPatterns = municipalityName 
+        ? getDeviceIdPatternsForMunicipality(municipalityName)
+        : null;
+      
+      // Find the most recent entry matching the device_id filter
+      let latestEntry: any = null;
+      let latestTimestamp = 0;
+      
+      for (const key in data) {
+        const entry = data[key];
+        if (entry && entry.key) {
+          const jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+          if (jsonData && jsonData.timestamp) {
+            // Filter by device_id if municipality is specified
+            if (deviceIdPatterns) {
+              if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
+                continue;
+              }
+              
+              const deviceIdUpper = jsonData.deviceId.toUpperCase().trim();
+              const matches = deviceIdPatterns.some(pattern => {
+                const patternUpper = pattern.toUpperCase();
+                return deviceIdUpper === patternUpper || 
+                       deviceIdUpper.startsWith(patternUpper + '-');
+              });
+              if (!matches) {
+                continue;
+              }
+            }
+            
+            const timestamp = jsonData.timestamp.getTime();
+            if (timestamp > latestTimestamp) {
+              latestTimestamp = timestamp;
+              latestEntry = jsonData;
+            }
+          }
+        }
+      }
+      
+      // Only update if we have new data (timestamp is newer than last known)
+      if (latestEntry && latestTimestamp > lastTimestamp && isActive) {
+        lastTimestamp = latestTimestamp;
+        
+        const result: WeatherApiResponse = {
+          temperature: latestEntry.temperature,
+          humidity: latestEntry.humidity,
+          rainfall: latestEntry.rainfallTotal || latestEntry.rainfallPeriod || 0,
+          windSpeed: latestEntry.windSpeedAvg || latestEntry.windSpeedMax || 0,
+          windDirection: latestEntry.windDirection,
+          timestamp: latestEntry.timestamp,
+          location: {
+            lat: 6.9551,
+            lon: 126.2167,
+            name: 'Weather Station',
+          },
+        };
+        
+        console.log(`[Weather Listener] New data detected for ${municipalityName || 'all stations'} at ${latestEntry.timestamp.toISOString()}`);
+        onUpdate(result);
+      }
+    } catch (error) {
+      console.error('[Weather Listener] Error checking for updates:', error);
+      if (onError && isActive) {
+        onError(error instanceof Error ? error : new Error('Update check failed'));
+      }
+    }
+  };
+  
+  // Start initial fetch
+  initialFetch();
+  
+  // Set up polling interval (check every 10 seconds for new data)
+  // This is more efficient than 10-minute polling and detects changes quickly
+  checkInterval = setInterval(checkForUpdates, 30 * 1000); // 10 seconds
+  
+  // Store listener state
+  listenerStates.set(listenerKey, {
+    lastTimestamp,
+    unsubscribe: () => {
+      isActive = false;
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        checkInterval = null;
+      }
+      listenerStates.delete(listenerKey);
+      console.log(`[Weather Listener] Unsubscribed for ${municipalityName || 'all stations'}`);
+    }
+  });
+  
+  // Return unsubscribe function
+  return () => {
+    const state = listenerStates.get(listenerKey);
+    if (state && state.unsubscribe) {
+      state.unsubscribe();
+    }
+  };
+}
+
+/**
+ * Subscribe to real-time historical weather data updates from Firebase Realtime Database
+ * Automatically detects and processes new historical entries
+ * 
+ * @param municipalityName Optional municipality name to filter by device_id
+ * @param onUpdate Callback function called when new historical data is detected
+ * @param onError Optional error callback
+ * @returns Unsubscribe function to stop listening
+ */
+export function subscribeToHistoricalWeatherUpdates(
+  municipalityName: string | undefined,
+  onUpdate: (data: WeatherApiResponse[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const listenerKey = `historical_${municipalityName || 'all'}`;
+  let isActive = true;
+  let lastDataCount = 0;
+  let checkInterval: ReturnType<typeof setInterval> | null = null;
+  
+  // Initial fetch to get current data
+  const initialFetch = async () => {
+    try {
+      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName);
+      if (isActive) {
+        lastDataCount = historical.length;
+        onUpdate(historical);
+        console.log(`[Historical Listener] Initial data loaded: ${historical.length} entries for ${municipalityName || 'all stations'}`);
+      }
+    } catch (error) {
+      console.error('[Historical Listener] Initial fetch error:', error);
+      if (onError && isActive) {
+        onError(error instanceof Error ? error : new Error('Initial fetch failed'));
+      }
+    }
+  };
+  
+  // Check for new data
+  const checkForUpdates = async () => {
+    if (!isActive) return;
+    
+    try {
+      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName);
+      
+      // Only update if we have new entries (count increased)
+      if (historical.length > lastDataCount && isActive) {
+        lastDataCount = historical.length;
+        console.log(`[Historical Listener] New data detected: ${historical.length} entries for ${municipalityName || 'all stations'}`);
+        onUpdate(historical);
+      }
+    } catch (error) {
+      console.error('[Historical Listener] Error checking for updates:', error);
+      if (onError && isActive) {
+        onError(error instanceof Error ? error : new Error('Update check failed'));
+      }
+    }
+  };
+  
+  // Start initial fetch
+  initialFetch();
+  
+  // Set up polling interval (check every 10 seconds for new data)
+  checkInterval = setInterval(checkForUpdates, 30 * 1000); // 10 seconds
+  
+  // Return unsubscribe function
+  return () => {
+    isActive = false;
+    if (checkInterval) {
+      clearInterval(checkInterval);
+      checkInterval = null;
+    }
+    console.log(`[Historical Listener] Unsubscribed for ${municipalityName || 'all stations'}`);
+  };
 }
 

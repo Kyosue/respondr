@@ -367,7 +367,7 @@ export function OperationsModal({
             </View>
             <View style={styles.headerButton}>
               <FormButton
-                title="Create"
+                title={existingOperation ? "Save" : "Create"}
                 onPress={handleSubmit}
                 variant="primary"
                 disabled={!operationData.title || !operationData.operationType || !operationData.exactLocation?.barangay}
@@ -739,7 +739,7 @@ export function OperationsModal({
             </View>
             <View style={styles.headerButton}>
               <FormButton
-                title="Create"
+                title={existingOperation ? "Save" : "Create"}
                 onPress={handleSubmit}
                 variant="primary"
                 disabled={!operationData.title || !operationData.operationType || !operationData.exactLocation?.barangay}

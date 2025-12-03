@@ -255,16 +255,22 @@ export function WeatherAnalyticsDashboard({
   const rangeFilteredData = filterDataByRange(selectedRange);
   // On mobile, always use 10 minute interval. On desktop, use selected interval
   const intervalToUse = isMobile ? '10m' : (selectedRange === '1h' ? '10m' : selectedInterval);
-  const filteredData = sampleDataByInterval(rangeFilteredData, intervalToUse);
+  // If range filtering results in no data, use all historical data (don't filter by range)
+  const filteredData = rangeFilteredData.length > 0 
+    ? sampleDataByInterval(rangeFilteredData, intervalToUse)
+    : sampleDataByInterval(historicalData, intervalToUse);
 
   // Calculate overall statistics
   const overallStats = useMemo(() => {
-    if (!currentData || filteredData.length === 0) return null;
+    // Allow stats calculation even with minimal data (1+ points)
+    // Use all historical data if filtered data is empty (e.g., time range filtered everything out)
+    const dataToUse = filteredData.length > 0 ? filteredData : historicalData;
+    if (!currentData || dataToUse.length === 0) return null;
 
-    const tempValues = filteredData.map(d => d.temperature);
-    const humidityValues = filteredData.map(d => d.humidity);
-    const rainfallValues = filteredData.map(d => d.rainfall);
-    const windValues = filteredData.map(d => d.windSpeed);
+    const tempValues = dataToUse.map(d => d.temperature);
+    const humidityValues = dataToUse.map(d => d.humidity);
+    const rainfallValues = dataToUse.map(d => d.rainfall);
+    const windValues = dataToUse.map(d => d.windSpeed);
 
     const calculateTrend = (values: number[]): { trend: 'up' | 'down' | 'stable'; percent: number } => {
       if (values.length < 2) return { trend: 'stable', percent: 0 };
@@ -312,13 +318,13 @@ export function WeatherAnalyticsDashboard({
         ...calculateTrend(windValues),
       },
     };
-  }, [currentData, filteredData]);
+  }, [currentData, filteredData, historicalData]);
 
   // Generate chart data points with proper margins
-  const generateChartData = (metric: 'temperature' | 'humidity' | 'rainfall' | 'windSpeed') => {
-    if (filteredData.length === 0) return [];
+  const generateChartData = (metric: 'temperature' | 'humidity' | 'rainfall' | 'windSpeed', dataSource: HistoricalDataPoint[]) => {
+    if (dataSource.length === 0) return [];
 
-    const values = filteredData.map(d => d[metric]);
+    const values = dataSource.map(d => d[metric]);
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
@@ -335,19 +341,37 @@ export function WeatherAnalyticsDashboard({
       x: chartMargin.left + (index / (values.length - 1 || 1)) * plotWidth,
       y: chartMargin.top + plotHeight - ((value - paddedMin) / paddedRange) * plotHeight,
       value,
-      timestamp: filteredData[index].timestamp,
+      timestamp: dataSource[index].timestamp,
       index,
     }));
   };
 
-  const tempData = generateChartData('temperature');
-  const humidityData = generateChartData('humidity');
-  const rainfallData = generateChartData('rainfall');
-  const windData = generateChartData('windSpeed');
-
   // Render multi-line chart
   const renderCombinedChart = () => {
-    if (filteredData.length < 2) return null;
+    // Use all historical data if filtered data is insufficient
+    const dataForChart = filteredData.length >= 2 ? filteredData : (historicalData.length >= 2 ? historicalData : []);
+    
+    const tempData = generateChartData('temperature', dataForChart);
+    const humidityData = generateChartData('humidity', dataForChart);
+    const rainfallData = generateChartData('rainfall', dataForChart);
+    const windData = generateChartData('windSpeed', dataForChart);
+    
+    if (dataForChart.length < 2) {
+      return (
+        <View style={[styles.chartContainer, { justifyContent: 'center', alignItems: 'center', minHeight: chartHeight }]}>
+          <Ionicons name="stats-chart-outline" size={48} color={colors.text} style={{ opacity: 0.3, marginBottom: 12 }} />
+          <ThemedText style={[styles.chartTitle, { color: colors.text, opacity: 0.5, textAlign: 'center' }]}>
+            Insufficient data for chart
+          </ThemedText>
+          <ThemedText style={[styles.chartSubtitle, { color: colors.text, opacity: 0.4, textAlign: 'center', marginTop: 4 }]}>
+            Need at least 2 data points to display trends
+          </ThemedText>
+          <ThemedText style={[styles.chartSubtitle, { color: colors.text, opacity: 0.4, textAlign: 'center', marginTop: 8, fontSize: 12 }]}>
+            Current data points: {historicalData.length}
+          </ThemedText>
+        </View>
+      );
+    }
 
     const metrics = metricFilter === 'all'
       ? [

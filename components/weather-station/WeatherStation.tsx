@@ -1,21 +1,21 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { getUsersWithFilters } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
-import { fetchWeatherData as fetchApiWeather, fetchHistoricalWeatherData } from '@/services/weatherApi';
+import { calculateRainfallAnalytics, PAGASAAdvisory as PAGASAAdvisoryType, RainfallAnalytics } from '@/services/pagasaAdvisoryService';
+import { fetchWeatherData as fetchApiWeather, fetchHistoricalWeatherData, subscribeToHistoricalWeatherUpdates, subscribeToWeatherUpdates } from '@/services/weatherApi';
+import { generateStations, WeatherStation } from '@/types/WeatherStation';
+import { notifyAdvisoryLevelChange } from '@/utils/notificationHelpers';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { HistoricalDataPoint, HistoricalDataView } from './HistoricalDataView';
+import { PAGASAAdvisory } from './PAGASAAdvisory';
 import { AlertThreshold, WeatherAlert } from './WeatherAlert';
 import { WeatherAnalyticsDashboard } from './WeatherAnalyticsDashboard';
 import { WeatherData, WeatherMetrics } from './WeatherMetrics';
-import { WeatherStation, generateStations } from '@/types/WeatherStation';
 import { WeatherStationSwitcher } from './WeatherStationSwitcher';
-import { PAGASAAdvisory } from './PAGASAAdvisory';
-import { calculateRainfallAnalytics, RainfallAnalytics, PAGASAAdvisory as PAGASAAdvisoryType } from '@/services/pagasaAdvisoryService';
-import { notifyAdvisoryLevelChange } from '@/utils/notificationHelpers';
-import { getUsersWithFilters } from '@/firebase/auth';
 
 // Default alert thresholds (can be configured later)
 const DEFAULT_THRESHOLDS: AlertThreshold = {
@@ -34,8 +34,17 @@ const WeatherStationScreen: React.FC = () => {
   // Initialize stations
   const [stations, setStations] = useState<WeatherStation[]>(generateStations());
   
-  // Auto-select first active station, or first station if none are active
+  // Auto-select City of Mati as default, or first active station, or first station if none are active
   const defaultStation = useMemo(() => {
+    // First, try to find City of Mati
+    const matiStation = stations.find(s => 
+      s.municipality.name === 'City of Mati' || 
+      s.municipality.name === 'Mati City' ||
+      s.municipality.name === 'Mati'
+    );
+    if (matiStation) return matiStation;
+    
+    // Fallback to first active station, or first station
     return stations.find(s => s.isActive) || stations[0];
   }, [stations]);
   
@@ -289,7 +298,7 @@ const WeatherStationScreen: React.FC = () => {
     }
   }, [rainfallAnalytics, selectedStation]);
 
-  // Fetch data when station is selected and set up auto-refresh
+  // Set up real-time listeners when station is selected
   useEffect(() => {
     if (!selectedStation) return;
 
@@ -297,21 +306,86 @@ const WeatherStationScreen: React.FC = () => {
     previousCurrentAdvisory.current = null;
     previousPredictedAdvisory.current = null;
 
-    // Initial fetch
+    const municipalityName = selectedStation.municipality.name;
+    
+    // Initial fetch to load current data
     fetchWeatherData(selectedStation.id);
 
-    // Set up auto-refresh every 10 minutes (matching database update frequency)
-    // Note: New data arrives in Firebase every 10 minutes, so each new entry = 10 minutes passed
-    const interval = setInterval(() => {
-      // Use ref to get the latest selectedStation to avoid stale closures
-      const currentStation = selectedStationRef.current;
-      if (currentStation) {
-        fetchWeatherData(currentStation.id, true);
+    // Set up real-time listener for current weather data
+    // This will automatically update when new data arrives in the database
+    const unsubscribeCurrent = subscribeToWeatherUpdates(
+      municipalityName,
+      (data) => {
+        // Update current weather data when new data is detected
+        setCurrentData({
+          temperature: data.temperature,
+          humidity: data.humidity,
+          rainfall: data.rainfall,
+          windSpeed: data.windSpeed,
+          windDirection: data.windDirection || 0,
+          lastUpdated: data.timestamp,
+        });
+        setIsConnected(true);
+        
+        // Update station status
+        const currentStation = selectedStationRef.current;
+        if (currentStation) {
+          setStations(prevStations => 
+            prevStations.map(station => 
+              station.id === currentStation.id
+                ? {
+                    ...station,
+                    isActive: true,
+                    lastSeen: data.timestamp,
+                    apiAvailable: true,
+                  }
+                : station
+            )
+          );
+        }
+        
+        console.log(`[Weather Station] Real-time update received for ${municipalityName}`);
+      },
+      (error) => {
+        console.error('[Weather Station] Real-time listener error:', error);
+        setIsConnected(false);
       }
-    }, 10 * 60 * 1000); // 10 minutes = 600,000 milliseconds
+    );
 
+    // Set up real-time listener for historical data
+    // This will automatically update when new historical entries are added
+    const unsubscribeHistorical = subscribeToHistoricalWeatherUpdates(
+      municipalityName,
+      (historicalData) => {
+        if (historicalData.length > 0) {
+          // Transform historical data to match expected format
+          const transformedHistorical = historicalData.map(h => ({
+            timestamp: h.timestamp,
+            temperature: h.temperature,
+            humidity: h.humidity,
+            rainfall: h.rainfall,
+            windSpeed: h.windSpeed,
+            windDirection: h.windDirection || 0,
+          }));
+          setHistoricalData(transformedHistorical);
+          
+          // Calculate PAGASA rainfall analytics
+          const analytics = calculateRainfallAnalytics(transformedHistorical);
+          setRainfallAnalytics(analytics);
+          
+          console.log(`[Weather Station] Historical data updated: ${historicalData.length} entries for ${municipalityName}`);
+        }
+      },
+      (error) => {
+        console.error('[Weather Station] Historical listener error:', error);
+      }
+    );
+
+    // Cleanup: unsubscribe when station changes or component unmounts
     return () => {
-      clearInterval(interval);
+      unsubscribeCurrent();
+      unsubscribeHistorical();
+      console.log(`[Weather Station] Unsubscribed from real-time updates for ${municipalityName}`);
     };
   }, [selectedStation, fetchWeatherData]);
 

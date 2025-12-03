@@ -1,5 +1,6 @@
 import { notificationService } from '@/firebase/notifications';
 import { Notification } from '@/types/Notification';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from './AuthContext';
@@ -29,6 +30,8 @@ interface NotificationContextType {
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
+  pushNotificationsEnabled: boolean;
+  setPushNotificationsEnabled: (enabled: boolean) => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
@@ -36,22 +39,52 @@ interface NotificationContextType {
   handleNotificationPress: (notification: Notification) => void;
 }
 
+const NOTIFICATION_PREFERENCE_KEY = '@push_notifications_enabled';
+
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 // Configure notification handler (only on native platforms) - lazy load
+// The handler checks the user's preference before showing notifications
 if (Platform.OS !== 'web') {
   const NotifModule = getNotifications();
   if (NotifModule) {
     NotifModule.setNotificationHandler({
       handleNotification: async (notification: any) => {
-        console.log('[NotificationHandler] Handling notification:', notification.request.content.title);
-        return {
-          shouldShowAlert: true,
-          shouldPlaySound: true, // Enable sound
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        };
+        // Check if push notifications are enabled
+        try {
+          const savedPreference = await AsyncStorage.getItem(NOTIFICATION_PREFERENCE_KEY);
+          const notificationsEnabled = savedPreference === null || savedPreference === 'true';
+          
+          if (!notificationsEnabled) {
+            console.log('[NotificationHandler] Push notifications disabled - suppressing notification');
+            return {
+              shouldShowAlert: false,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+              shouldShowBanner: false,
+              shouldShowList: false,
+            };
+          }
+          
+          console.log('[NotificationHandler] Handling notification:', notification.request.content.title);
+          return {
+            shouldShowAlert: true,
+            shouldPlaySound: true, // Enable sound
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          };
+        } catch (error) {
+          console.error('[NotificationHandler] Error checking notification preference:', error);
+          // Default to showing notifications on error
+          return {
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          };
+        }
       },
     });
   }
@@ -65,6 +98,39 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [pushNotificationsEnabled, setPushNotificationsEnabledState] = useState<boolean>(true);
+
+  // Load notification preference on mount
+  useEffect(() => {
+    const loadNotificationPreference = async () => {
+      try {
+        const savedPreference = await AsyncStorage.getItem(NOTIFICATION_PREFERENCE_KEY);
+        if (savedPreference !== null) {
+          setPushNotificationsEnabledState(savedPreference === 'true');
+        } else {
+          // Default to enabled if no preference is saved
+          setPushNotificationsEnabledState(true);
+        }
+      } catch (error) {
+        console.error('Failed to load notification preference:', error);
+        // Default to enabled on error
+        setPushNotificationsEnabledState(true);
+      }
+    };
+
+    loadNotificationPreference();
+  }, []);
+
+  // Save notification preference
+  const setPushNotificationsEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      setPushNotificationsEnabledState(enabled);
+      await AsyncStorage.setItem(NOTIFICATION_PREFERENCE_KEY, enabled.toString());
+      console.log(`[NotificationContext] Push notifications ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Failed to save notification preference:', error);
+    }
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!user?.id) return;
@@ -97,9 +163,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Request notification permissions, set up channels, and get push token (only on native platforms)
+  // Request notification permissions, set up channels, and get push token (only on native platforms and when enabled)
   useEffect(() => {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS !== 'web' && pushNotificationsEnabled) {
       const NotifModule = getNotifications();
       if (NotifModule) {
         // Set up Android notification channel with sound
@@ -126,8 +192,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           }
         });
       }
+    } else if (Platform.OS !== 'web' && !pushNotificationsEnabled) {
+      // Clear push token when notifications are disabled
+      setExpoPushToken(null);
+      console.log('[NotificationContext] Push notifications disabled - not registering for push tokens');
     }
-  }, [firebaseUser]);
+  }, [firebaseUser, pushNotificationsEnabled]);
 
   // Set up notification listeners (only on native platforms)
   useEffect(() => {
@@ -184,8 +254,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const currentNotificationIds = new Set(notifs.map(n => n.id));
         const newNotifications = notifs.filter(n => !previousNotificationIds.has(n.id) && !n.read);
         
-        // Play sound for new unread notifications
-        if (newNotifications.length > 0 && Platform.OS !== 'web') {
+        // Play sound for new unread notifications (only if push notifications are enabled)
+        if (newNotifications.length > 0 && Platform.OS !== 'web' && pushNotificationsEnabled) {
           const NotifModule = getNotifications();
           if (NotifModule) {
             newNotifications.forEach((notification) => {
@@ -212,6 +282,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               });
             });
           }
+        } else if (newNotifications.length > 0 && !pushNotificationsEnabled) {
+          console.log('[NotificationContext] Push notifications disabled - skipping notification display');
         }
         
         previousNotificationIds = currentNotificationIds;
@@ -226,12 +298,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       user.id,
       (count) => {
         setUnreadCount(count);
-        // Update app badge (only on native platforms)
-        if (Platform.OS !== 'web') {
+        // Update app badge (only on native platforms and if notifications are enabled)
+        if (Platform.OS !== 'web' && pushNotificationsEnabled) {
           const NotifModule = getNotifications();
           if (NotifModule) {
             NotifModule.setBadgeCountAsync(count).catch((err: any) => {
               console.warn('Failed to set badge count:', err);
+            });
+          }
+        } else if (Platform.OS !== 'web' && !pushNotificationsEnabled) {
+          // Clear badge when notifications are disabled
+          const NotifModule = getNotifications();
+          if (NotifModule) {
+            NotifModule.setBadgeCountAsync(0).catch((err: any) => {
+              console.warn('Failed to clear badge count:', err);
             });
           }
         }
@@ -242,7 +322,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       unsubscribeNotifications();
       unsubscribeUnreadCount();
     };
-  }, [user?.id, firebaseUser, isOnline]);
+  }, [user?.id, firebaseUser, isOnline, pushNotificationsEnabled]);
 
   const markAllAsRead = useCallback(async () => {
     if (!user?.id) return;
@@ -282,6 +362,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         unreadCount,
         isLoading,
         error,
+        pushNotificationsEnabled,
+        setPushNotificationsEnabled,
         markAsRead,
         markAllAsRead,
         deleteNotification,

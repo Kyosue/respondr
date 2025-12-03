@@ -12,15 +12,16 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { HelpSupportModal } from './modals/HelpSupportModal';
 import { TermsModal } from './modals/TermsModal';
 
 const Settings: React.FC = () => {
   const { isDark, setColorScheme } = useTheme();
+  const { pushNotificationsEnabled, setPushNotificationsEnabled } = useNotifications();
   const colors = Colors[isDark ? 'dark' : 'light'];
   
   // Settings state
-  const [notifications, setNotifications] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -99,13 +100,13 @@ const Settings: React.FC = () => {
             <SettingItem
               icon="notifications-outline"
               title="Push Notifications"
-              subtitle="Receive alerts and updates"
+              subtitle={pushNotificationsEnabled ? "Receive alerts and updates" : "Notifications are disabled"}
               rightComponent={
                 <Switch
-                  value={notifications}
-                  onValueChange={setNotifications}
+                  value={pushNotificationsEnabled}
+                  onValueChange={setPushNotificationsEnabled}
                   trackColor={{ false: colors.border, true: colors.primary + '40' }}
-                  thumbColor={notifications ? colors.primary : colors.icon}
+                  thumbColor={pushNotificationsEnabled ? colors.primary : colors.icon}
                 />
               }
               showArrow={false}
