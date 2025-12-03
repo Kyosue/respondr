@@ -56,7 +56,6 @@ if (Platform.OS !== 'web') {
           const notificationsEnabled = savedPreference === null || savedPreference === 'true';
           
           if (!notificationsEnabled) {
-            console.log('[NotificationHandler] Push notifications disabled - suppressing notification');
             return {
               shouldShowAlert: false,
               shouldPlaySound: false,
@@ -66,7 +65,6 @@ if (Platform.OS !== 'web') {
             };
           }
           
-          console.log('[NotificationHandler] Handling notification:', notification.request.content.title);
           return {
             shouldShowAlert: true,
             shouldPlaySound: true, // Enable sound
@@ -126,7 +124,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       setPushNotificationsEnabledState(enabled);
       await AsyncStorage.setItem(NOTIFICATION_PREFERENCE_KEY, enabled.toString());
-      console.log(`[NotificationContext] Push notifications ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Failed to save notification preference:', error);
     }
@@ -187,7 +184,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             // Store push token in user's Firestore document
             if (firebaseUser) {
               // You can add this to user document if needed
-              console.log('Push token:', token);
             }
           }
         });
@@ -195,7 +191,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } else if (Platform.OS !== 'web' && !pushNotificationsEnabled) {
       // Clear push token when notifications are disabled
       setExpoPushToken(null);
-      console.log('[NotificationContext] Push notifications disabled - not registering for push tokens');
     }
   }, [firebaseUser, pushNotificationsEnabled]);
 
@@ -206,10 +201,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (NotifModule) {
         // Handle notifications received while app is foregrounded
         const foregroundSubscription = NotifModule.addNotificationReceivedListener((notification: any) => {
-          console.log('[NotificationContext] Push notification received:', notification);
           // Refresh notifications when a push notification is received
           if (user?.id) {
-            console.log('[NotificationContext] Refreshing notifications after push notification');
             refreshNotifications();
           }
         });
@@ -247,9 +240,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const unsubscribeNotifications = notificationService.subscribeToNotifications(
       user.id,
       (notifs) => {
-        console.log('[NotificationContext] Received notifications from real-time subscription:', notifs.length);
-        console.log('[NotificationContext] Notification types:', notifs.map(n => ({ id: n.id, type: n.type, title: n.title, read: n.read })));
-        
         // Find new notifications (not in previous set)
         const currentNotificationIds = new Set(notifs.map(n => n.id));
         const newNotifications = notifs.filter(n => !previousNotificationIds.has(n.id) && !n.read);
@@ -259,7 +249,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           const NotifModule = getNotifications();
           if (NotifModule) {
             newNotifications.forEach((notification) => {
-              console.log('[NotificationContext] Playing sound for new notification:', notification.title);
               // Trigger a local notification with sound for new notifications
               const notificationConfig: any = {
                 content: {
@@ -282,8 +271,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               });
             });
           }
-        } else if (newNotifications.length > 0 && !pushNotificationsEnabled) {
-          console.log('[NotificationContext] Push notifications disabled - skipping notification display');
         }
         
         previousNotificationIds = currentNotificationIds;
@@ -419,12 +406,10 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
       return null;
     }
 
     const token = (await NotifModule.getExpoPushTokenAsync()).data;
-    console.log('Expo push token:', token);
     return token;
   } catch (error) {
     console.error('Error registering for push notifications:', error);
