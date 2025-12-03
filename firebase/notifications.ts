@@ -145,8 +145,16 @@ export class NotificationService {
       });
 
       console.log('[NotificationService] Committing batch of', notificationIds.length, 'notifications');
+      console.log('[NotificationService] Notification details:', {
+        userIds: userIds.length,
+        type,
+        title,
+        message,
+        priority
+      });
       await batch.commit();
       console.log('[NotificationService] Successfully created', notificationIds.length, 'notifications');
+      console.log('[NotificationService] Notification IDs:', notificationIds);
       return notificationIds;
     } catch (error) {
       console.error('[NotificationService] Error creating bulk notifications:', error);
@@ -314,6 +322,12 @@ export class NotificationService {
         }
 
         unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
+          console.log('[NotificationService] Real-time notification update:', {
+            userId,
+            notificationCount: querySnapshot.docs.length,
+            docs: querySnapshot.docs.map(d => ({ id: d.id, type: d.data().type, title: d.data().title }))
+          });
+          
           let notifications = querySnapshot.docs.map(doc => 
             this.convertTimestamps({ id: doc.id, ...doc.data() })
           );
@@ -328,6 +342,7 @@ export class NotificationService {
             notifications = notifications.slice(0, 50);
           }
           
+          console.log('[NotificationService] Calling callback with', notifications.length, 'notifications');
           callback(notifications);
         }, (error: any) => {
           // Check if index is building and we haven't already switched to fallback

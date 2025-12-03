@@ -79,7 +79,7 @@ export async function notifyOperationCreated(
       'operation_created',
       title,
       message,
-      'normal',
+      'high', // Higher priority for operation notifications
       {
         type: 'operation',
         id: operationId,
@@ -87,23 +87,11 @@ export async function notifyOperationCreated(
       }
     );
     console.log('[notifyOperationCreated] Created', notificationIds.length, 'notifications:', notificationIds);
+    console.log('[notifyOperationCreated] Notification IDs:', notificationIds);
 
-    // Send push notification
-    if (Platform.OS !== 'web') {
-      console.log('[notifyOperationCreated] Sending push notifications');
-      for (const userId of userIds) {
-        try {
-          await sendPushNotification(title, message, {
-            notificationId: 'temp',
-            type: 'operation',
-            id: operationId,
-            tab: 'operations',
-          });
-        } catch (pushErr) {
-          console.warn('[notifyOperationCreated] Failed to send push notification to', userId, ':', pushErr);
-        }
-      }
-    }
+    // Firestore notifications will be picked up by the real-time listener in NotificationContext
+    // Push notifications for mobile devices would require FCM/expo push tokens (device-specific)
+    // The real-time subscription will automatically update the UI when notifications are created
   } catch (error) {
     console.error('[notifyOperationCreated] Error creating notifications:', error);
     throw error;
@@ -278,6 +266,72 @@ export async function notifyLowStock(
       tab: 'resources',
     }
   );
+}
+
+/**
+ * Notify all users about PAGASA advisory level change
+ */
+export async function notifyAdvisoryLevelChange(
+  userIds: string[],
+  previousLevel: string,
+  previousColor: string,
+  currentLevel: string,
+  currentColor: string,
+  municipalityName?: string,
+  isPredicted: boolean = false
+): Promise<void> {
+  if (!userIds || userIds.length === 0) {
+    console.warn('[notifyAdvisoryLevelChange] No user IDs provided, skipping notification');
+    return;
+  }
+
+  const location = municipalityName ? ` in ${municipalityName}` : '';
+  const advisoryType = isPredicted ? 'Predicted' : 'Current';
+  
+  // Determine if it's an escalation (more severe) or de-escalation (less severe)
+  const severityOrder = ['GREY', 'YELLOW', 'ORANGE', 'RED'];
+  const previousSeverity = severityOrder.indexOf(previousColor);
+  const currentSeverity = severityOrder.indexOf(currentColor);
+  const isEscalation = currentSeverity > previousSeverity;
+  const isDeEscalation = currentSeverity < previousSeverity;
+
+  let title: string;
+  let message: string;
+  let priority: NotificationPriority = 'normal';
+
+  if (isEscalation) {
+    title = `⚠️ ${advisoryType} Rainfall Advisory Escalated${location}`;
+    message = `Rainfall advisory has escalated from ${previousColor} (${previousLevel}) to ${currentColor} (${currentLevel})${location}. Please monitor the situation closely.`;
+    priority = currentColor === 'RED' ? 'high' : 'normal';
+  } else if (isDeEscalation) {
+    title = `✅ ${advisoryType} Rainfall Advisory De-escalated${location}`;
+    message = `Rainfall advisory has de-escalated from ${previousColor} (${previousLevel}) to ${currentColor} (${currentLevel})${location}.`;
+    priority = 'normal';
+  } else {
+    // Same severity but different level (e.g., LIGHT to MODERATE, both GREY)
+    title = `${advisoryType} Rainfall Advisory Changed${location}`;
+    message = `Rainfall advisory has changed from ${previousColor} (${previousLevel}) to ${currentColor} (${currentLevel})${location}.`;
+    priority = 'normal';
+  }
+
+  try {
+    console.log('[notifyAdvisoryLevelChange] Creating bulk notifications for', userIds.length, 'users');
+    const notificationIds = await notificationService.createBulkNotifications(
+      userIds,
+      'weather_advisory_change',
+      title,
+      message,
+      priority,
+      {
+        type: 'weather',
+        tab: 'weather-station',
+      }
+    );
+    console.log('[notifyAdvisoryLevelChange] Created', notificationIds.length, 'notifications');
+  } catch (error) {
+    console.error('[notifyAdvisoryLevelChange] Error creating notifications:', error);
+    throw error;
+  }
 }
 
 /**

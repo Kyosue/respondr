@@ -1108,9 +1108,11 @@ export function SitrepGeneratorModal({
                 SITREP Generator
               </ThemedText>
               <View style={styles.modalHeaderActions}>
+                {/* Action Buttons Group */}
+                <View style={styles.actionButtonsGroup}>
                 <TouchableOpacity
                   onPress={exportToDoc}
-                  style={[styles.exportButton, { marginRight: 8, opacity: isExporting ? 0.6 : 1 }]}
+                    style={[styles.exportButton, { opacity: isExporting ? 0.6 : 1 }]}
                   activeOpacity={0.8}
                   disabled={isExporting}
                 >
@@ -1125,7 +1127,7 @@ export function SitrepGeneratorModal({
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={saveToDatabase}
-                  style={[styles.exportButton, { backgroundColor: colors.primary, marginRight: 8, opacity: (isExporting || isSaving) ? 0.6 : 1 }]}
+                    style={[styles.exportButton, { backgroundColor: colors.primary, opacity: (isExporting || isSaving) ? 0.6 : 1 }]}
                   activeOpacity={0.8}
                   disabled={isExporting || isSaving}
                 >
@@ -1138,6 +1140,9 @@ export function SitrepGeneratorModal({
                     {isSaving ? 'Saving...' : 'Save'}
                   </ThemedText>
                 </TouchableOpacity>
+                </View>
+                {/* Close Button Separator */}
+                <View style={[styles.buttonSeparator, { backgroundColor: colors.border }]} />
                 <TouchableOpacity
                   onPress={rampHandleClose}
                   style={styles.closeButton}
@@ -1175,16 +1180,18 @@ export function SitrepGeneratorModal({
               SITREP Generator
             </ThemedText>
             <View style={styles.modalHeaderActions}>
+              {/* Action Buttons Group */}
+              <View style={styles.actionButtonsGroup}>
               <TouchableOpacity
                 onPress={exportToDoc}
-                style={[styles.exportButton, { marginRight: 8, opacity: isExporting ? 0.6 : 1 }]}
+                  style={[styles.exportButton, { opacity: isExporting ? 0.6 : 1 }]}
                 activeOpacity={0.8}
                 disabled={isExporting}
               >
                 {isExporting ? (
-                  <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: Platform.OS === 'web' ? 8 : 4 }} />
                 ) : (
-                <Ionicons name="download-outline" size={18} color="#fff" />
+                    <Ionicons name="download-outline" size={Platform.OS === 'web' ? 18 : 16} color="#fff" />
                 )}
                 <ThemedText style={styles.exportButtonText}>
                   {isExporting ? 'Exporting...' : 'Export'}
@@ -1192,25 +1199,28 @@ export function SitrepGeneratorModal({
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={saveToDatabase}
-                style={[styles.exportButton, { backgroundColor: colors.primary, marginRight: 8, opacity: (isExporting || isSaving) ? 0.6 : 1 }]}
+                  style={[styles.exportButton, { backgroundColor: colors.primary, opacity: (isExporting || isSaving) ? 0.6 : 1 }]}
                 activeOpacity={0.8}
                 disabled={isExporting || isSaving}
               >
                 {(isExporting || isSaving) ? (
-                  <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: Platform.OS === 'web' ? 8 : 4 }} />
                 ) : (
-                  <Ionicons name="save-outline" size={18} color="#fff" />
+                    <Ionicons name="save-outline" size={Platform.OS === 'web' ? 18 : 16} color="#fff" />
                 )}
                 <ThemedText style={styles.exportButtonText}>
                   {isSaving ? 'Saving...' : 'Save'}
                 </ThemedText>
               </TouchableOpacity>
+              </View>
+              {/* Close Button Separator */}
+              <View style={[styles.buttonSeparator, { backgroundColor: colors.border }]} />
               <TouchableOpacity
                 onPress={rampHandleClose}
                 style={styles.closeButton}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={24} color={colors.text} />
+                <Ionicons name="close" size={Platform.OS === 'web' ? 24 : 22} color={colors.text} />
               </TouchableOpacity>
             </View>
           </View>

@@ -130,21 +130,23 @@ export const operationsService = {
         try {
           console.log('[Operation Notifications] Starting notification process for operation:', ref.id);
           
-          // Get all admins and supervisors to notify
-          const [admins, supervisors] = await Promise.all([
-            getUsersWithFilters({ userType: 'admin', status: 'active' }),
-            getUsersWithFilters({ userType: 'supervisor', status: 'active' })
-          ]);
+          // Get all active users to notify (including the creator)
+          const allActiveUsers = await getUsersWithFilters({ status: 'active' });
 
-          console.log('[Operation Notifications] Found admins:', admins.length, 'supervisors:', supervisors.length);
+          console.log('[Operation Notifications] Found active users:', allActiveUsers.length);
+          console.log('[Operation Notifications] All active user IDs:', allActiveUsers.map(u => u.id));
+          console.log('[Operation Notifications] Operation creator ID:', input.createdBy);
 
-          // Combine and get user IDs (excluding the creator)
-          const userIdsToNotify = [...admins, ...supervisors]
-            .filter(user => user.id !== input.createdBy)
-            .map(user => user.id);
+          // Get user IDs for ALL active users (including the creator)
+          // All users should be notified about new operations
+          const userIdsToNotify = allActiveUsers.map(user => user.id);
 
-          console.log('[Operation Notifications] User IDs to notify:', userIdsToNotify.length, userIdsToNotify);
-          console.log('[Operation Notifications] Operation creator:', input.createdBy);
+          console.log('[Operation Notifications] User IDs to notify (all active users):', userIdsToNotify.length, userIdsToNotify);
+          
+          // If no users to notify, log a warning
+          if (userIdsToNotify.length === 0) {
+            console.warn('[Operation Notifications] No active users found in the system');
+          }
 
           if (userIdsToNotify.length > 0) {
             console.log('[Operation Notifications] Sending bulk notifications to', userIdsToNotify.length, 'users');
@@ -156,7 +158,7 @@ export const operationsService = {
             );
             console.log('[Operation Notifications] Bulk notifications sent successfully');
           } else {
-            console.warn('[Operation Notifications] No users to notify (all admins/supervisors are the creator or none exist)');
+            console.warn('[Operation Notifications] No users to notify (all users are the creator or none exist)');
           }
 
           // Notify assigned personnel

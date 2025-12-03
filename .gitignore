@@ -127,6 +127,9 @@ temp/
 .firebase/
 firebase-debug.log
 firestore-debug.log
+# Firebase Service Account credentials (NEVER commit these!)
+**/*firebase-adminsdk*.json
+firebase/*-firebase-adminsdk-*.json
 
 # Cloudinary
 cloudinary-debug.log

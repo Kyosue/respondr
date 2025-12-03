@@ -25,6 +25,77 @@ export function NotificationButton({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { notifications, unreadCount, markAsRead, markAllAsRead, handleNotificationPress } = useNotifications();
+
+  // Get notification type styling
+  const getNotificationTypeStyle = (type: string, priority: string, read: boolean) => {
+    const isOperation = type.includes('operation');
+    const isResource = type.includes('resource');
+    const isWeather = type.includes('weather');
+    const isDocument = type.includes('document') || type.includes('sitrep');
+    const isUser = type.includes('user');
+    const isSystem = type.includes('system');
+
+    // Type-specific colors
+    const typeColors = {
+      operation: { primary: '#FF6B35', light: '#FF6B3515', border: '#FF6B35' },
+      resource: { primary: '#4ECDC4', light: '#4ECDC415', border: '#4ECDC4' },
+      weather: { primary: '#45B7D1', light: '#45B7D115', border: '#45B7D1' },
+      document: { primary: '#96CEB4', light: '#96CEB415', border: '#96CEB4' },
+      user: { primary: '#FFEAA7', light: '#FFEAA715', border: '#FFEAA7' },
+      system: { primary: '#DDA15E', light: '#DDA15E15', border: '#DDA15E' },
+    };
+
+    let selectedType = 'system';
+    if (isOperation) selectedType = 'operation';
+    else if (isResource) selectedType = 'resource';
+    else if (isWeather) selectedType = 'weather';
+    else if (isDocument) selectedType = 'document';
+    else if (isUser) selectedType = 'user';
+
+    const typeColor = typeColors[selectedType as keyof typeof typeColors];
+
+    // Priority-based intensity
+    const priorityMultipliers: Record<string, number> = {
+      urgent: 1.0,
+      high: 0.8,
+      normal: 0.6,
+      low: 0.4,
+    };
+    const priorityMultiplier = priorityMultipliers[priority] || 0.6;
+
+    return {
+      backgroundColor: read 
+        ? colors.surface 
+        : `${typeColor.primary}${Math.round(priorityMultiplier * 20).toString(16).padStart(2, '0')}`,
+      borderLeftColor: read ? 'transparent' : typeColor.border,
+      iconColor: read ? colors.text : typeColor.primary,
+      iconBackground: read 
+        ? `${colors.text}08` 
+        : `${typeColor.primary}${Math.round(priorityMultiplier * 20).toString(16).padStart(2, '0')}`,
+      typeLabel: selectedType.charAt(0).toUpperCase() + selectedType.slice(1),
+    };
+  };
+
+  // Get notification icon
+  const getNotificationIcon = (type: string) => {
+    if (type.includes('operation')) return 'flash';
+    if (type.includes('resource')) return 'cube';
+    if (type.includes('weather')) return 'cloud';
+    if (type.includes('document') || type.includes('sitrep')) return 'document-text';
+    if (type.includes('user')) return 'people';
+    return 'notifications';
+  };
+
+  // Get priority badge color
+  const getPriorityColor = (priority: string) => {
+    const priorityColors = {
+      urgent: '#FF3B30',
+      high: '#FF9500',
+      normal: '#34C759',
+      low: '#8E8E93',
+    };
+    return priorityColors[priority as keyof typeof priorityColors] || priorityColors.normal;
+  };
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [buttonLayout, setButtonLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -176,12 +247,12 @@ export function NotificationButton({
               maxHeight: Dimensions.get('window').height - 32,
             } : {
               maxHeight: dropdownMaxHeight,
-              // Mobile: center the dropdown
+              // Mobile: center the dropdown with increased width
               position: 'absolute' as const,
               top: (Dimensions.get('window').height - Math.min(dropdownMaxHeight, Dimensions.get('window').height - 100)) / 2,
-              left: (Dimensions.get('window').width - Math.min(dropdownWidth, Dimensions.get('window').width - 32)) / 2,
-              maxWidth: Dimensions.get('window').width - 32,
-              width: Math.min(dropdownWidth, Dimensions.get('window').width - 32),
+              left: (Dimensions.get('window').width - Math.min(dropdownWidth + 40, Dimensions.get('window').width - 24)) / 2,
+              maxWidth: Dimensions.get('window').width - 24,
+              width: Math.min(dropdownWidth + 40, Dimensions.get('window').width - 24),
             }),
           },
         ]}
@@ -254,14 +325,19 @@ export function NotificationButton({
                   return date.toLocaleDateString();
                 };
 
+                const typeStyle = getNotificationTypeStyle(notification.type, notification.priority, notification.read);
+                const iconName = getNotificationIcon(notification.type);
+                const priorityColor = getPriorityColor(notification.priority);
+
                 return (
                   <View key={notification.id}>
                     <TouchableOpacity
                       style={[
                         styles.notificationItem,
                         { 
-                          backgroundColor: notification.read ? colors.surface : `${colors.primary}05`,
-                          borderLeftColor: notification.read ? 'transparent' : colors.primary,
+                          backgroundColor: typeStyle.backgroundColor,
+                          borderLeftColor: typeStyle.borderLeftColor,
+                          borderLeftWidth: notification.read ? 0 : 4,
                         }
                       ]}
                       activeOpacity={0.7}
@@ -291,39 +367,48 @@ export function NotificationButton({
                     >
                       <View style={[
                         styles.notificationIconContainer,
-                        { backgroundColor: notification.read ? `${colors.text}08` : `${colors.primary}15` }
+                        { backgroundColor: typeStyle.iconBackground }
                       ]}>
                         <Ionicons 
-                          name={
-                            notification.type.includes('operation') ? 'flash' :
-                            notification.type.includes('resource') ? 'cube' :
-                            notification.type.includes('weather') ? 'cloud' :
-                            notification.type.includes('document') || notification.type.includes('sitrep') ? 'document-text' :
-                            notification.type.includes('user') ? 'people' :
-                            'notifications'
-                          } 
-                          size={18} 
-                          color={notification.read ? colors.text : colors.primary}
-                          style={{ opacity: notification.read ? 0.6 : 1 }}
+                          name={iconName as any}
+                          size={Platform.OS === 'web' ? 20 : 18} 
+                          color={typeStyle.iconColor}
+                          style={{ opacity: notification.read ? 0.7 : 1 }}
                         />
                       </View>
                       <View style={styles.notificationContent}>
                         <View style={styles.notificationHeader}>
-                          <ThemedText style={[
-                            styles.notificationTitle, 
-                            { 
-                              color: colors.text,
-                              fontWeight: notification.read ? '500' : '600',
-                            }
-                          ]}>
-                            {notification.title}
-                          </ThemedText>
-                          {!notification.read && (
-                            <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
-                          )}
+                          <View style={styles.titleContainer}>
+                            <ThemedText style={[
+                              styles.notificationTitle, 
+                              { 
+                                color: colors.text,
+                                fontWeight: notification.read ? '500' : '600',
+                              }
+                            ]} numberOfLines={1}>
+                              {notification.title}
+                            </ThemedText>
+                            {!notification.read && (
+                              <View style={[styles.unreadDot, { backgroundColor: typeStyle.iconColor }]} />
+                            )}
+                          </View>
+                          <View style={styles.badgeContainer}>
+                            {(notification.priority === 'urgent' || notification.priority === 'high') && (
+                              <View style={[styles.priorityBadge, { backgroundColor: priorityColor }]}>
+                                <ThemedText style={styles.priorityBadgeText}>
+                                  {notification.priority === 'urgent' ? '!' : 'H'}
+                                </ThemedText>
+                              </View>
+                            )}
+                            <View style={[styles.typeBadge, { backgroundColor: `${typeStyle.iconColor}20` }]}>
+                              <ThemedText style={[styles.typeBadgeText, { color: typeStyle.iconColor }]}>
+                                {typeStyle.typeLabel}
+                              </ThemedText>
+                            </View>
+                          </View>
                         </View>
                         <ThemedText 
-                          style={[styles.notificationMessage, { color: colors.text, opacity: notification.read ? 0.6 : 0.8 }]}
+                          style={[styles.notificationMessage, { color: colors.text, opacity: notification.read ? 0.6 : 0.85 }]}
                           numberOfLines={2}
                         >
                           {notification.message}
@@ -496,9 +581,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
     position: 'relative',
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 20,
+        paddingVertical: 18,
+      },
+      default: {
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+      },
+    }),
   },
   headerDivider: {
     position: 'absolute',
@@ -553,47 +646,163 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     flexDirection: 'row',
-    padding: 18,
-    paddingHorizontal: 20,
-    borderLeftWidth: 3,
-    minHeight: 84,
+    borderLeftWidth: 4,
+    ...Platform.select({
+      web: {
+        padding: 18,
+        paddingHorizontal: 20,
+        minHeight: 90,
+      },
+      default: {
+        padding: 14,
+        paddingHorizontal: 16,
+        minHeight: 110,
+      },
+    }),
   },
   itemDivider: {
     height: 1,
-    marginLeft: 20,
-    marginRight: 20,
     opacity: 0.2,
+    ...Platform.select({
+      web: {
+        marginLeft: 20,
+        marginRight: 20,
+      },
+      default: {
+        marginLeft: 16,
+        marginRight: 16,
+      },
+    }),
   },
   notificationIconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
     alignSelf: 'flex-start',
-    marginTop: 2,
+    ...Platform.select({
+      web: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        marginRight: 14,
+        marginTop: 2,
+      },
+      default: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 12,
+        marginTop: 0,
+      },
+    }),
   },
   notificationContent: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingRight: 4,
+    ...Platform.select({
+      web: {
+        paddingRight: 4,
+      },
+      default: {
+        paddingRight: 2,
+      },
+    }),
   },
   notificationHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 8,
+    ...Platform.select({
+      web: {
+        marginBottom: 8,
+      },
+      default: {
+        marginBottom: 6,
+      },
+    }),
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   notificationTitle: {
     fontSize: 15,
     flex: 1,
-    marginRight: 8,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  priorityBadge: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+      },
+      default: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+      },
+    }),
+  },
+  priorityBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    ...Platform.select({
+      web: {
+        fontSize: 10,
+      },
+      default: {
+        fontSize: 9,
+      },
+    }),
+  },
+  typeBadge: {
+    borderRadius: 10,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+      },
+      default: {
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+      },
+    }),
+  },
+  typeBadgeText: {
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    ...Platform.select({
+      web: {
+        fontSize: 10,
+      },
+      default: {
+        fontSize: 9,
+      },
+    }),
   },
   notificationMessage: {
     fontSize: 13,
     lineHeight: 19,
-    marginBottom: 10,
+    ...Platform.select({
+      web: {
+        marginBottom: 10,
+      },
+      default: {
+        marginBottom: 6,
+        lineHeight: 18,
+      },
+    }),
   },
   notificationFooter: {
     flexDirection: 'row',

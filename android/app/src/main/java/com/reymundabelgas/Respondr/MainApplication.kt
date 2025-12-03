@@ -16,6 +16,9 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
+// Firebase imports for push notifications
+import com.google.firebase.FirebaseApp
+
 class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
@@ -40,6 +43,21 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    
+    // Initialize Firebase FIRST, before anything else
+    // This is required for expo-notifications with FCM
+    try {
+      if (FirebaseApp.getApps(this).isEmpty()) {
+        FirebaseApp.initializeApp(this)
+        android.util.Log.d("MainApplication", "Firebase initialized successfully")
+      } else {
+        android.util.Log.d("MainApplication", "Firebase already initialized")
+      }
+    } catch (e: Exception) {
+      android.util.Log.e("MainApplication", "Firebase initialization error: ${e.message}", e)
+      // Continue with app initialization even if Firebase fails
+    }
+    
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

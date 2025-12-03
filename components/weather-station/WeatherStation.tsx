@@ -13,7 +13,9 @@ import { WeatherData, WeatherMetrics } from './WeatherMetrics';
 import { WeatherStation, generateStations } from '@/types/WeatherStation';
 import { WeatherStationSwitcher } from './WeatherStationSwitcher';
 import { PAGASAAdvisory } from './PAGASAAdvisory';
-import { calculateRainfallAnalytics, RainfallAnalytics } from '@/services/pagasaAdvisoryService';
+import { calculateRainfallAnalytics, RainfallAnalytics, PAGASAAdvisory as PAGASAAdvisoryType } from '@/services/pagasaAdvisoryService';
+import { notifyAdvisoryLevelChange } from '@/utils/notificationHelpers';
+import { getUsersWithFilters } from '@/firebase/auth';
 
 // Default alert thresholds (can be configured later)
 const DEFAULT_THRESHOLDS: AlertThreshold = {
@@ -32,21 +34,8 @@ const WeatherStationScreen: React.FC = () => {
   // Initialize stations
   const [stations, setStations] = useState<WeatherStation[]>(generateStations());
   
-  // Auto-select Mati City as default (prefer active Mati, otherwise any Mati, then first active)
+  // Auto-select first active station, or first station if none are active
   const defaultStation = useMemo(() => {
-    // First, try to find an active Mati City station
-    const matiStation = stations.find(s => 
-      s.municipality.name.toLowerCase().includes('mati') && s.isActive
-    );
-    if (matiStation) return matiStation;
-    
-    // If no active Mati, try to find any Mati station
-    const anyMatiStation = stations.find(s => 
-      s.municipality.name.toLowerCase().includes('mati')
-    );
-    if (anyMatiStation) return anyMatiStation;
-    
-    // Fallback to first active station, or first station if none are active
     return stations.find(s => s.isActive) || stations[0];
   }, [stations]);
   
@@ -58,6 +47,10 @@ const WeatherStationScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+  
+  // Track previous advisory levels to detect changes
+  const previousCurrentAdvisory = useRef<PAGASAAdvisoryType | null>(null);
+  const previousPredictedAdvisory = useRef<PAGASAAdvisoryType | null>(null);
   
   // Use ref to store the latest selectedStation to avoid stale closures in interval
   const selectedStationRef = useRef(selectedStation);
@@ -76,9 +69,10 @@ const WeatherStationScreen: React.FC = () => {
     try {
       // Use ref to get the latest selectedStation to avoid stale closures
       const currentStation = selectedStationRef.current;
-      const municipalityName = currentStation?.municipality.name || 'Mati';
+      const municipalityName = currentStation?.municipality.name;
       
-      // Fetch current weather data
+      // Fetch current weather data from Firebase Realtime Database
+      // Filter by municipality name to get data for the selected station's device_id
       const current = await fetchApiWeather(municipalityName);
       
       if (current) {
@@ -109,7 +103,7 @@ const WeatherStationScreen: React.FC = () => {
           );
         }
 
-        // Fetch historical data (last 7 days)
+        // Fetch historical data (last 7 days) from Firebase, filtered by municipality/device_id
         const historical = await fetchHistoricalWeatherData(municipalityName, 7);
         
         if (historical.length > 0) {
@@ -143,8 +137,13 @@ const WeatherStationScreen: React.FC = () => {
           const analytics = calculateRainfallAnalytics(singlePoint);
           setRainfallAnalytics(analytics);
         }
+        
+        // Note: Advisory level change detection and notification will be handled in useEffect below
       } else {
-        // If API call failed, set connection status
+        // If API call failed or no data found for this municipality, clear all data
+        setCurrentData(null);
+        setHistoricalData([]);
+        setRainfallAnalytics(null);
         setIsConnected(false);
         
         // Update station status to reflect API unavailability
@@ -162,10 +161,18 @@ const WeatherStationScreen: React.FC = () => {
           );
         }
         
-        console.warn('Failed to fetch weather data from API');
+        if (municipalityName) {
+          console.warn(`No weather data found for ${municipalityName} - no matching device_id in database`);
+        } else {
+          console.warn('Failed to fetch weather data from API');
+        }
       }
     } catch (error) {
       console.error('Error fetching weather data:', error);
+      // Clear data on error to prevent showing stale data
+      setCurrentData(null);
+      setHistoricalData([]);
+      setRainfallAnalytics(null);
       setIsConnected(false);
       
       // Update station status on error
@@ -189,21 +196,119 @@ const WeatherStationScreen: React.FC = () => {
     }
   }, [selectedStation]);
 
+  // Detect advisory level changes and notify all users
+  useEffect(() => {
+    if (!rainfallAnalytics) return;
+
+    const checkAndNotifyAdvisoryChange = async () => {
+      try {
+        const currentAdvisory = rainfallAnalytics.currentAdvisory;
+        const predictedAdvisory = rainfallAnalytics.predictedAdvisory;
+        const municipalityName = selectedStation?.municipality.name;
+
+        // Check current advisory level change
+        if (previousCurrentAdvisory.current) {
+          const prev = previousCurrentAdvisory.current;
+          const curr = currentAdvisory;
+          
+          // Only notify if level or color changed
+          if (prev.level !== curr.level || prev.color !== curr.color) {
+            console.log(`[Advisory Change] Current advisory changed: ${prev.color} (${prev.level}) → ${curr.color} (${curr.level})`);
+            
+            // Get all active users
+            const allActiveUsers = await getUsersWithFilters({ status: 'active' });
+            const userIds = allActiveUsers.map(user => user.id);
+            
+            if (userIds.length > 0) {
+              await notifyAdvisoryLevelChange(
+                userIds,
+                prev.level,
+                prev.color,
+                curr.level,
+                curr.color,
+                municipalityName,
+                false // isPredicted = false for current advisory
+              );
+              console.log(`[Advisory Change] Notified ${userIds.length} users about current advisory change`);
+            }
+          }
+        }
+        
+        // Check predicted advisory level change (if available)
+        if (predictedAdvisory && rainfallAnalytics.continuationPrediction.willContinue) {
+          if (previousPredictedAdvisory.current) {
+            const prev = previousPredictedAdvisory.current;
+            const curr = predictedAdvisory;
+            
+            // Only notify if level or color changed
+            if (prev.level !== curr.level || prev.color !== curr.color) {
+              console.log(`[Advisory Change] Predicted advisory changed: ${prev.color} (${prev.level}) → ${curr.color} (${curr.level})`);
+              
+              // Get all active users
+              const allActiveUsers = await getUsersWithFilters({ status: 'active' });
+              const userIds = allActiveUsers.map(user => user.id);
+              
+              if (userIds.length > 0) {
+                await notifyAdvisoryLevelChange(
+                  userIds,
+                  prev.level,
+                  prev.color,
+                  curr.level,
+                  curr.color,
+                  municipalityName,
+                  true // isPredicted = true for predicted advisory
+                );
+                console.log(`[Advisory Change] Notified ${userIds.length} users about predicted advisory change`);
+              }
+            }
+          }
+        }
+        
+        // Update previous advisory levels
+        previousCurrentAdvisory.current = { ...currentAdvisory };
+        if (predictedAdvisory && rainfallAnalytics.continuationPrediction.willContinue) {
+          previousPredictedAdvisory.current = { ...predictedAdvisory };
+        } else {
+          previousPredictedAdvisory.current = null;
+        }
+      } catch (error) {
+        console.error('[Advisory Change] Error checking and notifying advisory change:', error);
+        // Don't throw - this is a background notification process
+      }
+    };
+
+    // Only check for changes after initial load (skip first render)
+    if (previousCurrentAdvisory.current !== null || previousPredictedAdvisory.current !== null) {
+      checkAndNotifyAdvisoryChange();
+    } else {
+      // Initialize previous values on first load (don't notify)
+      previousCurrentAdvisory.current = { ...rainfallAnalytics.currentAdvisory };
+      if (rainfallAnalytics.predictedAdvisory && rainfallAnalytics.continuationPrediction.willContinue) {
+        previousPredictedAdvisory.current = { ...rainfallAnalytics.predictedAdvisory };
+      }
+    }
+  }, [rainfallAnalytics, selectedStation]);
+
   // Fetch data when station is selected and set up auto-refresh
   useEffect(() => {
     if (!selectedStation) return;
 
+    // Reset previous advisory levels when switching stations
+    previousCurrentAdvisory.current = null;
+    previousPredictedAdvisory.current = null;
+
     // Initial fetch
     fetchWeatherData(selectedStation.id);
 
-    // Set up auto-refresh every 10 minutes (matching transmission frequency)
+    // Set up auto-refresh every 10 minutes (matching database update frequency)
+    // Note: New data arrives in Firebase every 10 minutes, so each new entry = 10 minutes passed
     const interval = setInterval(() => {
       // Use ref to get the latest selectedStation to avoid stale closures
       const currentStation = selectedStationRef.current;
       if (currentStation) {
         fetchWeatherData(currentStation.id, true);
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 10 * 60 * 1000); // 10 minutes = 600,000 milliseconds
 
     return () => {
       clearInterval(interval);
@@ -217,6 +322,11 @@ const WeatherStationScreen: React.FC = () => {
   };
 
   const handleSelectStation = (station: WeatherStation) => {
+    // Clear existing data immediately when switching stations to prevent showing stale data
+    setCurrentData(null);
+    setHistoricalData([]);
+    setRainfallAnalytics(null);
+    
     // Update selected station reference to match current stations state
     const updatedStation = stations.find(s => s.id === station.id);
     if (updatedStation) {
@@ -330,6 +440,7 @@ const WeatherStationScreen: React.FC = () => {
         <HistoricalDataView
           data={historicalData}
           loading={isLoading}
+          municipalityName={selectedStation?.municipality.name}
           onRefresh={() => {
             if (selectedStation) {
               fetchWeatherData(selectedStation.id, true);

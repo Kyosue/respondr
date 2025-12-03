@@ -43,13 +43,16 @@ if (Platform.OS !== 'web') {
   const NotifModule = getNotifications();
   if (NotifModule) {
     NotifModule.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
+      handleNotification: async (notification: any) => {
+        console.log('[NotificationHandler] Handling notification:', notification.request.content.title);
+        return {
+          shouldShowAlert: true,
+          shouldPlaySound: true, // Enable sound
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        };
+      },
     });
   }
 }
@@ -94,11 +97,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Request notification permissions and get push token (only on native platforms)
+  // Request notification permissions, set up channels, and get push token (only on native platforms)
   useEffect(() => {
     if (Platform.OS !== 'web') {
       const NotifModule = getNotifications();
       if (NotifModule) {
+        // Set up Android notification channel with sound
+        if (Platform.OS === 'android') {
+          NotifModule.setNotificationChannelAsync('default', {
+            name: 'Default Notifications',
+            importance: NotifModule.AndroidImportance.MAX,
+            sound: 'default',
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+          }).catch((err: any) => {
+            console.warn('Failed to set up notification channel:', err);
+          });
+        }
+
         registerForPushNotificationsAsync().then(token => {
           if (token) {
             setExpoPushToken(token);
@@ -120,9 +136,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (NotifModule) {
         // Handle notifications received while app is foregrounded
         const foregroundSubscription = NotifModule.addNotificationReceivedListener((notification: any) => {
-          console.log('Notification received:', notification);
+          console.log('[NotificationContext] Push notification received:', notification);
           // Refresh notifications when a push notification is received
           if (user?.id) {
+            console.log('[NotificationContext] Refreshing notifications after push notification');
             refreshNotifications();
           }
         });
@@ -154,14 +171,54 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
 
-    // Subscribe to notifications
+    let previousNotificationIds = new Set<string>();
+
+    // Subscribe to notifications (get all notifications, both read and unread)
     const unsubscribeNotifications = notificationService.subscribeToNotifications(
       user.id,
       (notifs) => {
+        console.log('[NotificationContext] Received notifications from real-time subscription:', notifs.length);
+        console.log('[NotificationContext] Notification types:', notifs.map(n => ({ id: n.id, type: n.type, title: n.title, read: n.read })));
+        
+        // Find new notifications (not in previous set)
+        const currentNotificationIds = new Set(notifs.map(n => n.id));
+        const newNotifications = notifs.filter(n => !previousNotificationIds.has(n.id) && !n.read);
+        
+        // Play sound for new unread notifications
+        if (newNotifications.length > 0 && Platform.OS !== 'web') {
+          const NotifModule = getNotifications();
+          if (NotifModule) {
+            newNotifications.forEach((notification) => {
+              console.log('[NotificationContext] Playing sound for new notification:', notification.title);
+              // Trigger a local notification with sound for new notifications
+              const notificationConfig: any = {
+                content: {
+                  title: notification.title,
+                  body: notification.message,
+                  data: notification.actionData || {},
+                  sound: 'default', // Use default notification sound
+                  priority: NotifModule.AndroidNotificationPriority.HIGH,
+                },
+                trigger: null, // Show immediately
+              };
+              
+              // Set Android channel if on Android
+              if (Platform.OS === 'android') {
+                notificationConfig.channelId = 'default';
+              }
+              
+              NotifModule.scheduleNotificationAsync(notificationConfig).catch((err: any) => {
+                console.warn('[NotificationContext] Failed to play notification sound:', err);
+              });
+            });
+          }
+        }
+        
+        previousNotificationIds = currentNotificationIds;
         setNotifications(notifs);
         setIsLoading(false);
       },
-      { read: undefined } // Get all notifications
+      { read: undefined } // Get all notifications (read and unread)
     );
 
     // Subscribe to unread count
@@ -257,11 +314,25 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   }
 
   try {
+    // Request permissions including sound
     const { status: existingStatus } = await NotifModule.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      const { status } = await NotifModule.requestPermissionsAsync();
+      // Request permissions with sound enabled
+      const { status } = await NotifModule.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: false,
+        },
+        android: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       finalStatus = status;
     }
 

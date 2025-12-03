@@ -13,6 +13,7 @@ export type NotificationType =
   | 'user_registered'
   | 'user_status_changed'
   | 'weather_alert'
+  | 'weather_advisory_change'
   | 'system_alert';
 
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';

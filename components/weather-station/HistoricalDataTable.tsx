@@ -3,39 +3,33 @@ import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
+import { fetchAllHistoricalWeatherFromFirebase } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HistoricalDataPoint } from './HistoricalDataView';
 import { degreesToCardinal } from './WeatherMetrics';
 
 interface HistoricalDataTableProps {
-  data: HistoricalDataPoint[];
+  data?: HistoricalDataPoint[]; // Optional now, will fetch from Firebase if not provided
   loading?: boolean;
-  selectedRange?: '10m' | '1h' | '6h' | '24h' | '3d';
-  onRangeChange?: (range: '10m' | '1h' | '6h' | '24h' | '3d') => void;
-  timeRanges?: { value: '10m' | '1h' | '6h' | '24h' | '3d'; label: string }[];
+  municipalityName?: string; // Municipality name for device_id filtering when fetching from Firebase
   onRefresh?: () => void;
 }
 
 export function HistoricalDataTable({ 
-  data, 
-  loading,
-  selectedRange = '10m',
-  onRangeChange,
-  timeRanges = [
-    { value: '10m', label: '10 Minutes' },
-    { value: '1h', label: '1 Hour' },
-    { value: '6h', label: '6 Hours' },
-    { value: '24h', label: '24 Hours' },
-    { value: '3d', label: '3 Days' },
-  ],
+  data: propData, 
+  loading: propLoading,
+  municipalityName,
   onRefresh,
 }: HistoricalDataTableProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
   const [currentPage, setCurrentPage] = useState(1);
+  const [firebaseData, setFirebaseData] = useState<HistoricalDataPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(!propData);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const itemsPerPage = isMobile ? 10 : 15;
 
   // Use ref to store the latest onRefresh callback to avoid stale closures
@@ -44,24 +38,77 @@ export function HistoricalDataTable({
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
 
-  // Auto-refresh listener: refresh every 10 minutes
+  // Fetch data from Firebase
+  const fetchDataFromFirebase = useCallback(async (isRefresh: boolean = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      // Fetch data filtered by municipality/device_id if provided
+      const weatherData = await fetchAllHistoricalWeatherFromFirebase(municipalityName);
+      
+      // Transform to HistoricalDataPoint format
+      const historicalData: HistoricalDataPoint[] = weatherData.map(w => ({
+        timestamp: w.timestamp,
+        temperature: w.temperature,
+        humidity: w.humidity,
+        rainfall: w.rainfall,
+        windSpeed: w.windSpeed,
+        windDirection: w.windDirection || 0,
+      }));
+
+      setFirebaseData(historicalData);
+    } catch (error) {
+      console.error('Error fetching historical data from Firebase:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [municipalityName]);
+
+  // Fetch data on mount if propData is not provided
   useEffect(() => {
-    if (!onRefreshRef.current) return;
+    if (!propData) {
+      fetchDataFromFirebase();
+    }
+  }, [propData, fetchDataFromFirebase, municipalityName]);
 
-    // Set up auto-refresh every 10 minutes (matching transmission frequency)
-    const interval = setInterval(() => {
-      // Use ref to get the latest onRefresh callback to avoid stale closures
-      if (onRefreshRef.current) {
-        onRefreshRef.current();
-      }
-    }, 10 * 60 * 1000); // 10 minutes
+  // Create a combined refresh handler
+  const handleRefresh = useCallback(() => {
+    // Call the original onRefresh if provided
+    if (onRefreshRef.current) {
+      onRefreshRef.current();
+    }
+    // Always fetch from Firebase if propData is not provided
+    if (!propData) {
+      fetchDataFromFirebase(true);
+    }
+  }, [propData, fetchDataFromFirebase]);
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, []); // Empty dependency array - interval is set up once and uses ref for callback
+  // Auto-refresh listener: refresh every 10 minutes
+  // Note: New data arrives in the database every 10 minutes, so each new entry = 10 minutes passed
+  useEffect(() => {
+    if (!propData) {
+      // Set up auto-refresh every 10 minutes to fetch new data entries
+      // The database receives new weather data every 10 minutes
+      const interval = setInterval(() => {
+        handleRefresh();
+      }, 10 * 60 * 1000); // 10 minutes = 600,000 milliseconds
 
-  // Sort by newest first (default)
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [propData, handleRefresh]);
+
+  // Use propData if provided, otherwise use firebaseData
+  const data = propData || firebaseData;
+  const loading = propLoading !== undefined ? propLoading : isLoading;
+
+  // Sort data by newest first (no filtering, just display all data)
   const sortedData = [...data].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   // Calculate pagination
@@ -144,20 +191,23 @@ export function HistoricalDataTable({
     });
   };
 
-  if (loading) {
+  if (loading && !isRefreshing) {
     return (
       <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.loadingContainer}>
           <Ionicons name="bar-chart-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
           <ThemedText style={[styles.loadingText, { color: colors.text, opacity: 0.7 }]}>
-            Loading historical data...
+            Loading historical data from Firebase...
           </ThemedText>
         </View>
       </ThemedView>
     );
   }
 
-  if (data.length === 0) {
+  // Check if we have no data
+  const hasNoData = data.length === 0 && !loading;
+
+  if (hasNoData) {
     return (
       <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.emptyContainer}>
@@ -189,43 +239,6 @@ export function HistoricalDataTable({
             </ThemedText>
           </View>
             </View>
-          </View>
-          
-          {/* Time Range Selector */}
-          <View style={styles.controlsContainerMobile}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.rangeSelectorMobile}
-              contentContainerStyle={styles.rangeSelectorContentMobile}
-            >
-              {timeRanges.map((range) => (
-                <TouchableOpacity
-                  key={range.value}
-                  onPress={() => onRangeChange?.(range.value)}
-                  style={[
-                    styles.rangeButtonMobile,
-                    {
-                      backgroundColor: selectedRange === range.value
-                          ? colors.primary
-                        : `${colors.primary}15`,
-                      borderColor: colors.border,
-                    }
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.rangeButtonTextMobile,
-                      {
-                        color: selectedRange === range.value ? '#FFFFFF' : colors.primary,
-                      }
-                    ]}
-                  >
-                    {range.label}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
         </View>
 
@@ -381,46 +394,6 @@ export function HistoricalDataTable({
             {totalItems} records
           </ThemedText>
           </View>
-        </View>
-      </View>
-
-      {/* Time Range Selector */}
-      <View style={[styles.controlsContainer, { borderBottomColor: colors.border }]}>
-        <View style={styles.rangeSelectorContainer}>
-          <Ionicons name="time-outline" size={16} color={colors.text} style={{ opacity: 0.7, marginRight: 8 }} />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.rangeSelector}
-            contentContainerStyle={styles.rangeSelectorContent}
-          >
-            {timeRanges.map((range) => (
-            <TouchableOpacity
-                key={range.value}
-                onPress={() => onRangeChange?.(range.value)}
-              style={[
-                  styles.rangeButton,
-                {
-                    backgroundColor: selectedRange === range.value
-                      ? colors.primary
-                      : `${colors.primary}15`,
-                  borderColor: colors.border,
-                  }
-              ]}
-            >
-              <ThemedText
-                style={[
-                    styles.rangeButtonText,
-                  {
-                      color: selectedRange === range.value ? '#FFFFFF' : colors.primary,
-                    }
-                ]}
-              >
-                  {range.label}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-          </ScrollView>
         </View>
       </View>
 
@@ -671,28 +644,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 2,
   },
-  controlsContainerMobile: {
-    gap: 10,
-  },
-  rangeSelectorMobile: {
-    marginBottom: 0,
-  },
-  rangeSelectorContentMobile: {
-    gap: 6,
-    paddingRight: 4,
-  },
-  rangeButtonMobile: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  rangeButtonTextMobile: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    lineHeight: 16,
-  },
   sectionTitleMobile: {
     fontSize: 18, // H3
     fontWeight: '700',
@@ -707,34 +658,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Gabarito',
     lineHeight: 20,
     marginTop: 2,
-  },
-  controlsContainer: {
-    paddingBottom: 12,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-  },
-  rangeSelectorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rangeSelector: {
-    flex: 1,
-  },
-  rangeSelectorContent: {
-    gap: 8,
-    paddingRight: 4,
-  },
-  rangeButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  rangeButtonText: {
-    fontSize: 14, // Body
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    lineHeight: 20,
   },
   scrollViewMobile: {
     maxHeight: 400,

@@ -233,6 +233,56 @@ export const createUserSelfSignup = functions.https.onCall(async (data, context)
     // Log the user creation
     console.log(`User self-signup: ${userRecord.uid} (${email}) with username: ${username}`);
 
+    // Notify all active admins about the new user signup
+    try {
+      console.log('[New User Signup] Notifying admins about new user signup');
+      
+      // Get all active admins
+      const adminsQuery = await admin.firestore()
+        .collection('users')
+        .where('userType', '==', 'admin')
+        .where('status', '==', 'active')
+        .get();
+
+      const adminIds = adminsQuery.docs.map(doc => doc.id);
+      console.log(`[New User Signup] Found ${adminIds.length} active admins to notify`);
+
+      if (adminIds.length > 0) {
+        // Create notifications for all admins
+        const batch = admin.firestore().batch();
+        const notificationIds: string[] = [];
+
+        adminIds.forEach((adminId) => {
+          const notificationRef = admin.firestore().collection('notifications').doc();
+          notificationIds.push(notificationRef.id);
+          
+          batch.set(notificationRef, {
+            userId: adminId,
+            type: 'user_registered',
+            title: 'New User Signup',
+            message: `${fullName} (${displayName}) has signed up and is waiting for activation`,
+            priority: 'normal',
+            read: false,
+            actionData: {
+              type: 'user',
+              id: userRecord.uid,
+              tab: 'user-management',
+            },
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now(),
+          });
+        });
+
+        await batch.commit();
+        console.log(`[New User Signup] Successfully created ${notificationIds.length} notifications for admins`);
+      } else {
+        console.warn('[New User Signup] No active admins found to notify');
+      }
+    } catch (notificationError) {
+      // Log error but don't fail the signup process
+      console.error('[New User Signup] Error creating notifications:', notificationError);
+    }
+
     return {
       success: true,
       message: 'Account created successfully. Please wait for admin activation before signing in.',

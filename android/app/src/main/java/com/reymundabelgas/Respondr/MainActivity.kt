@@ -11,8 +11,22 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 import expo.modules.ReactActivityDelegateWrapper
 
+// Firebase imports for push notifications
+import com.google.firebase.FirebaseApp
+
 class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
+    // Firebase is initialized in MainApplication.onCreate() which runs before this
+    // This is just a safety check in case MainApplication didn't initialize it
+    try {
+      if (FirebaseApp.getApps(this).isEmpty()) {
+        android.util.Log.w("MainActivity", "Firebase not initialized in MainApplication, initializing here as fallback")
+        FirebaseApp.initializeApp(this)
+      }
+    } catch (e: Exception) {
+      android.util.Log.w("MainActivity", "Firebase initialization note: ${e.message}")
+    }
+    
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
     // This is required for expo-splash-screen.

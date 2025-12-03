@@ -276,12 +276,21 @@ export const createStyles = (colors: Colors) => {
         boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
         transition: 'all 0.2s ease',
       } as any),
+      ...(Platform.OS !== 'web' && {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+      } as any),
     },
     exportButtonText: {
       color: '#fff',
       fontWeight: '600',
       fontSize: 16,
       marginLeft: 6,
+      ...(Platform.OS !== 'web' && {
+        fontSize: 14,
+        marginLeft: 4,
+      } as any),
     },
     closeButton: {
       padding: 10,
@@ -289,6 +298,10 @@ export const createStyles = (colors: Colors) => {
       backgroundColor: colors.surface,
       ...(Platform.OS === 'web' && {
         transition: 'all 0.2s ease',
+      } as any),
+      ...(Platform.OS !== 'web' && {
+        padding: 8,
+        borderRadius: 8,
       } as any),
     },
     deleteButton: {
@@ -515,15 +528,46 @@ export const createStyles = (colors: Colors) => {
       ...(Platform.OS === 'web' && {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
       } as any),
+      ...(Platform.OS !== 'web' && {
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+      } as any),
     },
     modalHeaderTitle: {
       fontSize: 24,
       fontWeight: 'bold',
+      ...(Platform.OS !== 'web' && {
+        fontSize: 20,
+        flex: 1,
+        marginRight: 12,
+      } as any),
     },
     modalHeaderActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
+      ...(Platform.OS !== 'web' && {
+        gap: 8,
+        flexShrink: 0,
+      } as any),
+    },
+    actionButtonsGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      ...(Platform.OS !== 'web' && {
+        gap: 6,
+      } as any),
+    },
+    buttonSeparator: {
+      width: 1,
+      height: 32,
+      opacity: 0.3,
+      marginHorizontal: 4,
+      ...(Platform.OS !== 'web' && {
+        height: 28,
+        marginHorizontal: 2,
+      } as any),
     },
     modalTitle: {
       fontSize: 20,
