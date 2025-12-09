@@ -3,7 +3,7 @@ import { davaoOrientalData, getMunicipalities, Municipality } from '@/data/davao
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import SvgPanZoom from 'react-native-svg-pan-zoom';
+import { styles } from './DavaoOrientalMap.styles';
 
 // Suppress componentWillMount warning for react-native-svg-pan-zoom
 if (__DEV__) {
@@ -63,74 +64,74 @@ const PRIORITY_HIERARCHY = {
   'low': 1
 } as const;
 
-// LGU-specific color variants based on #273c47 with consistent stroke
+// Modern LGU-specific color variants - sophisticated blue-teal gradient palette
 const LGU_COLORS = {
   'Baganga': {
-    fill: '#273c47', // Base color
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#1e3a5f', // Deep ocean blue
+    stroke: '#4a90e2' // Modern blue accent
   },
   'Banaybanay': {
-    fill: '#2a4049', // Slightly lighter
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#2d4a6b', // Ocean blue
+    stroke: '#5ba3f5' // Bright blue accent
   },
   'Boston': {
-    fill: '#31434b', // Lighter variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#3c5a7a', // Medium blue
+    stroke: '#6bb6ff' // Light blue accent
   },
   'Caraga': {
-    fill: '#2d3e46', // Medium variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#25648a', // Teal-blue
+    stroke: '#4db8d9' // Cyan accent
   },
   'Cateel': {
-    fill: '#2f4048', // Medium-light variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#2a6b8f', // Bright teal-blue
+    stroke: '#5cc4e8' // Light cyan accent
   },
   'Governor Generoso': {
-    fill: '#33454d', // Lighter variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#1f4d6e', // Deep teal
+    stroke: '#4a9bc8' // Teal accent
   },
   'Lupon': {
-    fill: '#2b3d45', // Medium-dark variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#2e5d7d', // Medium teal-blue
+    stroke: '#5ba8d1' // Soft teal accent
   },
   'Manay': {
-    fill: '#2e3f47', // Medium variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#235a7a', // Rich teal
+    stroke: '#4fb0d4' // Bright teal accent
   },
   'City of Mati': {
-    fill: '#32444c', // Lighter variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#1b4a6b', // Deep blue-teal
+    stroke: '#4a9bc8' // Teal accent
   },
   'San Isidro': {
-    fill: '#30424a', // Medium-light variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#2a5d7f', // Medium blue-teal
+    stroke: '#5ba8d1' // Soft teal accent
   },
   'Tarragona': {
-    fill: '#2c3e46', // Medium-dark variant
-    stroke: '#aa6f38' // Consistent stroke for all LGUs
+    fill: '#245a7c', // Rich blue-teal
+    stroke: '#4fb0d4' // Bright teal accent
   }
 } as const;
 
 const PRIORITY_COLORS = {
   'critical': {
-    fill: '#DC2626', // Red-600
-    stroke: '#EF4444' // Red-500
+    fill: '#EF4444', // Modern red
+    stroke: '#F87171' // Light red accent
   },
   'high': {
-    fill: '#EA580C', // Orange-600
-    stroke: '#F97316' // Orange-500
+    fill: '#F97316', // Modern orange
+    stroke: '#FB923C' // Light orange accent
   },
   'medium': {
-    fill: '#D97706', // Amber-600
-    stroke: '#F59E0B' // Amber-500
+    fill: '#F59E0B', // Modern amber
+    stroke: '#FBBF24' // Light amber accent
   },
   'low': {
-    fill: '#059669', // Emerald-600
-    stroke: '#10B981' // Emerald-500
+    fill: '#10B981', // Modern emerald
+    stroke: '#34D399' // Light emerald accent
   },
   'none': {
-    fill: '#273c47', // Base color for no operations
-    stroke: '#aa6f38' // Darker variant
+    fill: '#1e3a5f', // Modern base color
+    stroke: '#4a90e2' // Modern accent
   }
 } as const;
 
@@ -333,10 +334,10 @@ const MunicipalityPath = memo<{
     <G>
       <Path
         d={pathData}
-        fill={isSelected ? 'white' : priorityColors.fill}
-        fillOpacity={isSelected ? 0.5 : 1}
-        stroke={isSelected ? colors.primary : priorityColors.stroke}
-        strokeWidth={isSelected ? 2 : 1}
+        fill={isSelected ? '#60A5FA' : priorityColors.fill}
+        fillOpacity={isSelected ? 0.7 : 0.95}
+        stroke={isSelected ? '#3B82F6' : priorityColors.stroke}
+        strokeWidth={isSelected ? 3 : 1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         onPress={onPress}
@@ -360,18 +361,34 @@ const MunicipalityLabel = memo<{
   onPress: () => void;
 }>(({ labelPosition, labelText, onPress }) => {
   return (
+    <G>
+      {/* Text shadow for better readability */}
       <SvgText
-      x={labelPosition.x}
-      y={labelPosition.y}
-        fontSize="10"
-        fill={'white'}
+        x={labelPosition.x + 0.5}
+        y={labelPosition.y + 0.5}
+        fontSize="11"
+        fill="rgba(0, 0, 0, 0.4)"
         textAnchor="middle"
-        fontWeight="800"
+        fontWeight="700"
         fontFamily="Gabarito"
         onPress={onPress}
       >
-      {labelText}
+        {labelText}
       </SvgText>
+      {/* Main text */}
+      <SvgText
+        x={labelPosition.x}
+        y={labelPosition.y}
+        fontSize="11"
+        fill="#FFFFFF"
+        textAnchor="middle"
+        fontWeight="700"
+        fontFamily="Gabarito"
+        onPress={onPress}
+      >
+        {labelText}
+      </SvgText>
+    </G>
   );
 });
 
@@ -637,7 +654,7 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#cec9bd' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0f172a' }}>
       <View 
         style={Platform.OS === 'web' 
           ? [styles.container, { userSelect: 'none' }]
@@ -670,18 +687,22 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
           </GestureDetector>
         )}
         
-        {/* Zoom Controls - Show on both web and mobile */}
+        {/* Zoom Controls - Modern glassmorphism design */}
         <View style={styles.zoomControls}>
-          <View style={[styles.zoomButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-            <Text style={[styles.zoomButtonText, { color: 'white' }]}>
+          <View style={styles.zoomButton}>
+            <Text style={styles.zoomButtonText}>
               {Platform.OS === 'web' 
                 ? (isReset ? `${Math.round(initialZoom * 100)}%` : `${Math.round(currentZoom * 100)}%`)
                 : (isReset ? '100%' : `${Math.round(currentZoom * 100)}%`)
               }
             </Text>
           </View>
-          <TouchableOpacity style={[styles.resetButton, { backgroundColor: colors.primary }]} onPress={resetZoom}>
-            <Ionicons name="refresh" size={16} color="white" />
+          <TouchableOpacity 
+            style={styles.resetButton} 
+            onPress={resetZoom}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -690,46 +711,5 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
 });
 
 export { DavaoOrientalMap };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#cec9bd',
-    borderRadius: 12,
-    position: 'relative',
-    flex: 1,
-  },
-  canvas: {
-    backgroundColor: 'transparent',
-    width: '100%',
-    height: '100%',
-  },
-  zoomControls: {
-    position: 'absolute',
-    top: 10,
-    right: 40,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  zoomButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    minWidth: 50,
-    alignItems: 'center',
-  },
-  zoomButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  resetButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 32,
-    minHeight: 32,
-  },
-});
 
 

@@ -272,171 +272,167 @@ export function OperationPreviewModal({
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                {/* Title */}
-                <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="document" size={18} color={colors.primary} />
-                    <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                      Title
-                    </ThemedText>
-                  </View>
-                  <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
+                {/* Hero Section - Title, Status, Type */}
+                <View style={styles.heroSection}>
+                  <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
                     {operation.title}
                   </ThemedText>
+                  <View style={styles.heroBadges}>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: operation.status === 'active' ? '#10B981' : '#6B7280' }
+                    ]}>
+                      <Ionicons 
+                        name={operation.status === 'active' ? 'play-circle' : 'checkmark-circle'} 
+                        size={14} 
+                        color="#FFFFFF" 
+                        style={{ marginRight: 4 }}
+                      />
+                      <ThemedText style={styles.statusText}>
+                        {operation.status === 'active' ? 'Active' : 'Concluded'}
+                      </ThemedText>
+                    </View>
+                    <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
+                      <Ionicons name="construct" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+                      <ThemedText style={[styles.typeBadgeText, { color: colors.primary }]}>
+                        {operation.operationType}
+                      </ThemedText>
+                    </View>
+                  </View>
                 </View>
 
                 {/* Description */}
                 {operation.description && (
-                  <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons name="text" size={18} color={colors.primary} />
-                      <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                        Description
+                  <>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    <View style={styles.infoRow}>
+                      <View style={styles.infoLabel}>
+                        <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                        <ThemedText style={[styles.labelText, { color: colors.text + 'CC' }]}>
+                          Description
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.valueText, { color: colors.text }]}>
+                        {operation.description}
                       </ThemedText>
                     </View>
-                    <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                      {operation.description}
-                    </ThemedText>
-                  </View>
+                  </>
                 )}
 
-                {/* Operation Type */}
-                <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="construct" size={18} color={colors.primary} />
-                    <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                      Operation Type
-                    </ThemedText>
-                  </View>
-                  <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                    {operation.operationType}
-                  </ThemedText>
-                </View>
-
-                {/* Status */}
-                <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="flag" size={18} color={colors.primary} />
-                    <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                      Status
-                    </ThemedText>
-                  </View>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: operation.status === 'active' ? colors.success : colors.tabIconDefault }
-                  ]}>
-                    <ThemedText style={styles.statusText}>
-                      {operation.status === 'active' ? 'Active' : 'Concluded'}
-                    </ThemedText>
-                  </View>
-                </View>
-
-                {/* Location */}
-                {operation.municipalityId && (
-                  <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons name="location" size={18} color={colors.primary} />
-                      <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                        Municipality
-                      </ThemedText>
+                {/* Location Information */}
+                {(operation.municipalityId || operation.exactLocation) && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    <View style={styles.infoRow}>
+                      <View style={styles.infoLabel}>
+                        <Ionicons name="location-outline" size={18} color={colors.primary} />
+                        <ThemedText style={[styles.labelText, { color: colors.text + 'CC' }]}>
+                          Location
+                        </ThemedText>
+                      </View>
+                      <View style={styles.locationDetails}>
+                        {operation.municipalityId && (
+                          <ThemedText style={[styles.valueText, { color: colors.text }]}>
+                            {getMunicipalityName(operation.municipalityId)}
+                          </ThemedText>
+                        )}
+                        {operation.exactLocation && (
+                          <ThemedText style={[styles.locationSubtext, { color: colors.text + 'AA' }]}>
+                            {operation.exactLocation.barangay}
+                            {operation.exactLocation.purok && `, Purok ${operation.exactLocation.purok}`}
+                            {operation.exactLocation.specificAddress && ` • ${operation.exactLocation.specificAddress}`}
+                          </ThemedText>
+                        )}
+                      </View>
                     </View>
-                    <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                      {getMunicipalityName(operation.municipalityId)}
-                    </ThemedText>
-                  </View>
-                )}
-
-                {/* Exact Location */}
-                {operation.exactLocation && (
-                  <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons name="map" size={18} color={colors.primary} />
-                      <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                        Exact Location
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                      Barangay: {operation.exactLocation.barangay}
-                      {operation.exactLocation.purok && `, Purok: ${operation.exactLocation.purok}`}
-                      {operation.exactLocation.specificAddress && `\n${operation.exactLocation.specificAddress}`}
-                    </ThemedText>
-                  </View>
+                  </>
                 )}
 
                 {/* Dates */}
-                <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="calendar" size={18} color={colors.primary} />
-                    <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                      Dates
-                    </ThemedText>
-                  </View>
-                  <View style={styles.dateContainer}>
-                    <View style={styles.dateRow}>
-                      <ThemedText style={[styles.dateLabel, { color: colors.text + '80' }]}>
-                        Start Date:
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.datesRow}>
+                  <View style={styles.dateItem}>
+                    <View style={styles.dateIconContainer}>
+                      <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+                    </View>
+                    <View style={styles.dateInfo}>
+                      <ThemedText style={[styles.dateLabel, { color: colors.text + 'AA' }]}>
+                        Start Date
                       </ThemedText>
                       <ThemedText style={[styles.dateValue, { color: colors.text }]}>
                         {formatDate(operation.startDate)}
                       </ThemedText>
                     </View>
-                    {operation.endDate && (
-                      <View style={styles.dateRow}>
-                        <ThemedText style={[styles.dateLabel, { color: colors.text + '80' }]}>
-                          End Date:
+                  </View>
+                  {operation.endDate && (
+                    <View style={styles.dateItem}>
+                      <View style={styles.dateIconContainer}>
+                        <Ionicons name="calendar" size={16} color={colors.primary} />
+                      </View>
+                      <View style={styles.dateInfo}>
+                        <ThemedText style={[styles.dateLabel, { color: colors.text + 'AA' }]}>
+                          End Date
                         </ThemedText>
                         <ThemedText style={[styles.dateValue, { color: colors.text }]}>
                           {formatDate(operation.endDate)}
                         </ThemedText>
                       </View>
-                    )}
-                  </View>
+                    </View>
+                  )}
                 </View>
 
                 {/* Resources */}
                 {operation.resources.length > 0 && (
-                  <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="cube" size={18} color={colors.primary} />
+                      <Ionicons name="cube-outline" size={20} color={colors.primary} />
                       <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
                         Resources ({operation.resources.length})
                       </ThemedText>
                     </View>
-                    <View style={styles.resourcesList}>
+                    <View style={styles.resourcesGrid}>
                       {operation.resources.map((resource, index) => (
-                        <View key={index} style={[styles.resourceItem, { borderColor: colors.border }]}>
-                          <ThemedText style={[styles.resourceText, { color: colors.text }]}>
-                            {resource.quantity}x {resource.resourceName}
+                        <View key={index} style={[styles.resourceChip, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
+                          <ThemedText style={[styles.resourceQuantity, { color: colors.primary }]}>
+                            {resource.quantity}x
                           </ThemedText>
-                          <View style={[styles.resourceBadge, { backgroundColor: colors.primary + '20' }]}>
-                            <ThemedText style={[styles.resourceBadgeText, { color: colors.primary }]}>
+                          <ThemedText style={[styles.resourceName, { color: colors.text }]}>
+                            {resource.resourceName}
+                          </ThemedText>
+                          <View style={[styles.resourceCategoryTag, { backgroundColor: colors.primary + '20' }]}>
+                            <ThemedText style={[styles.resourceCategoryText, { color: colors.primary }]}>
                               {resource.category}
                             </ThemedText>
                           </View>
                         </View>
                       ))}
                     </View>
-                  </View>
+                  </>
                 )}
 
                 {/* Personnel */}
                 {operation.assignedPersonnel && operation.assignedPersonnel.length > 0 && (
-                  <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="people" size={18} color={colors.primary} />
+                      <Ionicons name="people-outline" size={20} color={colors.primary} />
                       <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
                         Assigned Personnel ({operation.assignedPersonnel.length})
                       </ThemedText>
                     </View>
                     {teamLeaderName && (
-                      <View style={[styles.teamLeaderBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
-                        <Ionicons name="star" size={16} color={colors.primary} />
-                        <ThemedText style={[styles.teamLeaderText, { color: colors.primary }]}>
-                          Team Leader: {teamLeaderName}
+                      <View style={[styles.teamLeaderHighlight, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '40' }]}>
+                        <Ionicons name="star" size={18} color={colors.primary} />
+                        <ThemedText style={[styles.teamLeaderName, { color: colors.primary }]}>
+                          {teamLeaderName}
+                        </ThemedText>
+                        <ThemedText style={[styles.teamLeaderRole, { color: colors.text + 'AA' }]}>
+                          Team Leader
                         </ThemedText>
                       </View>
                     )}
-                    <View style={styles.personnelList}>
+                    <View style={styles.personnelGrid}>
                       {operation.assignedPersonnel.map((userId) => {
                         const person = personnelMap.get(userId);
                         if (!person) return null;
@@ -444,98 +440,70 @@ export function OperationPreviewModal({
                         const isSupervisor = person.userType === 'supervisor';
                         
                         return (
-                          <View key={userId} style={[styles.personnelItem, { borderColor: colors.border }]}>
-                            <View style={styles.personnelInfo}>
-                              <ThemedText style={[styles.personnelName, { color: colors.text }]}>
+                          <View key={userId} style={[styles.personnelCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                            <View style={styles.personnelAvatar}>
+                              <Ionicons name="person" size={20} color={colors.primary} />
+                            </View>
+                            <View style={styles.personnelDetails}>
+                              <ThemedText style={[styles.personnelName, { color: colors.text }]} numberOfLines={1}>
                                 {formatPersonnelName(person.fullName)}
-                                {isTeamLeader && (
-                                  <ThemedText style={[styles.teamLeaderLabel, { color: colors.primary }]}>
-                                    {' '}(Team Leader)
-                                  </ThemedText>
-                                )}
                               </ThemedText>
                               {person.email && (
-                                <ThemedText style={[styles.personnelEmail, { color: colors.text + '80' }]}>
+                                <ThemedText style={[styles.personnelEmail, { color: colors.text + 'AA' }]} numberOfLines={1}>
                                   {person.email}
                                 </ThemedText>
                               )}
                             </View>
-                            {isSupervisor && (
-                              <View style={[styles.roleBadge, { backgroundColor: '#FF6B35' }]}>
-                                <ThemedText style={styles.roleBadgeText}>
-                                  Supervisor
-                                </ThemedText>
-                              </View>
-                            )}
-                            {!isSupervisor && (
-                              <View style={[styles.roleBadge, { backgroundColor: '#4A90E2' }]}>
-                                <ThemedText style={styles.roleBadgeText}>
-                                  Operator
-                                </ThemedText>
-                              </View>
-                            )}
+                            <View style={[
+                              styles.roleTag,
+                              { backgroundColor: isSupervisor ? '#FF6B35' : '#4A90E2' }
+                            ]}>
+                              <ThemedText style={styles.roleTagText}>
+                                {isSupervisor ? 'Supervisor' : 'Operator'}
+                              </ThemedText>
+                            </View>
                           </View>
                         );
                       })}
                     </View>
-                  </View>
+                  </>
                 )}
 
                 {/* Notes */}
                 {operation.notes && (
-                  <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons name="document-text" size={18} color={colors.primary} />
-                      <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                        Notes
+                  <>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    <View style={styles.infoRow}>
+                      <View style={styles.infoLabel}>
+                        <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                        <ThemedText style={[styles.labelText, { color: colors.text + 'CC' }]}>
+                          Notes
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.valueText, { color: colors.text }]}>
+                        {operation.notes}
                       </ThemedText>
                     </View>
-                    <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                      {operation.notes}
-                    </ThemedText>
-                  </View>
+                  </>
                 )}
 
-                {/* Metadata */}
-                <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="information-circle" size={18} color={colors.primary} />
-                    <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                      Metadata
+                {/* Metadata Footer */}
+                <View style={styles.metadataFooter}>
+                  <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
+                    Operation ID: {operation.id}
+                  </ThemedText>
+                  {operation.createdBy && (
+                    <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
+                      Created by {creatorName || 'Unknown'} • {formatDate(operation.createdAt)}
                     </ThemedText>
-                  </View>
-                  <View style={styles.metadataContainer}>
-                    <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                      Operation ID: {operation.id}
+                  )}
+                  {operation.updatedBy && (
+                    <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
+                      Last updated by {updaterName || 'Unknown'} • {formatDate(operation.updatedAt)}
                     </ThemedText>
-                    {operation.createdBy && (
-                      <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                        Created by: {creatorName || 'Loading...'}
-                      </ThemedText>
-                    )}
-                    {operation.updatedBy && (
-                      <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                        Updated by: {updaterName || 'Loading...'}
-                      </ThemedText>
-                    )}
-                    <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                      Last Updated: {formatDate(operation.updatedAt)}
-                    </ThemedText>
-                  </View>
+                  )}
                 </View>
               </ScrollView>
-
-              {/* Footer */}
-              <View style={[styles.footer, { borderTopColor: colors.border }]}>
-                <TouchableOpacity
-                  style={[styles.closeFooterButton, { backgroundColor: colors.primary }]}
-                  onPress={handleClose}
-                >
-                  <ThemedText style={styles.closeFooterButtonText}>
-                    Close
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
             </ThemedView>
           </Animated.View>
         </Animated.View>
@@ -575,172 +543,167 @@ export function OperationPreviewModal({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Same content as web version */}
-          {/* Title */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="document" size={18} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                Title
-              </ThemedText>
-            </View>
-            <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
+          {/* Hero Section - Title, Status, Type */}
+          <View style={styles.heroSection}>
+            <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
               {operation.title}
             </ThemedText>
+            <View style={styles.heroBadges}>
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: operation.status === 'active' ? '#10B981' : '#6B7280' }
+              ]}>
+                <Ionicons 
+                  name={operation.status === 'active' ? 'play-circle' : 'checkmark-circle'} 
+                  size={14} 
+                  color="#FFFFFF" 
+                  style={{ marginRight: 4 }}
+                />
+                <ThemedText style={styles.statusText}>
+                  {operation.status === 'active' ? 'Active' : 'Concluded'}
+                </ThemedText>
+              </View>
+              <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
+                <Ionicons name="construct" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+                <ThemedText style={[styles.typeBadgeText, { color: colors.primary }]}>
+                  {operation.operationType}
+                </ThemedText>
+              </View>
+            </View>
           </View>
 
           {/* Description */}
           {operation.description && (
-            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="text" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                  Description
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                  <ThemedText style={[styles.labelText, { color: colors.text + 'CC' }]}>
+                    Description
+                  </ThemedText>
+                </View>
+                <ThemedText style={[styles.valueText, { color: colors.text }]}>
+                  {operation.description}
                 </ThemedText>
               </View>
-              <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                {operation.description}
-              </ThemedText>
-            </View>
+            </>
           )}
 
-          {/* Operation Type */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="construct" size={18} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                Operation Type
-              </ThemedText>
-            </View>
-            <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-              {operation.operationType}
-            </ThemedText>
-          </View>
-
-          {/* Status */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="flag" size={18} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                Status
-              </ThemedText>
-            </View>
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: operation.status === 'active' ? colors.success : colors.tabIconDefault }
-            ]}>
-              <ThemedText style={styles.statusText}>
-                {operation.status === 'active' ? 'Active' : 'Concluded'}
-              </ThemedText>
-            </View>
-          </View>
-
-          {/* Location */}
-          {operation.municipalityId && (
-            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="location" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                  Municipality
-                </ThemedText>
+          {/* Location Information */}
+          {(operation.municipalityId || operation.exactLocation) && (
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Ionicons name="location-outline" size={18} color={colors.primary} />
+                  <ThemedText style={[styles.labelText, { color: colors.text + 'CC' }]}>
+                    Location
+                  </ThemedText>
+                </View>
+                <View style={styles.locationDetails}>
+                  {operation.municipalityId && (
+                    <ThemedText style={[styles.valueText, { color: colors.text }]}>
+                      {getMunicipalityName(operation.municipalityId)}
+                    </ThemedText>
+                  )}
+                  {operation.exactLocation && (
+                    <ThemedText style={[styles.locationSubtext, { color: colors.text + 'AA' }]}>
+                      {operation.exactLocation.barangay}
+                      {operation.exactLocation.purok && `, Purok ${operation.exactLocation.purok}`}
+                      {operation.exactLocation.specificAddress && ` • ${operation.exactLocation.specificAddress}`}
+                    </ThemedText>
+                  )}
+                </View>
               </View>
-              <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                {getMunicipalityName(operation.municipalityId)}
-              </ThemedText>
-            </View>
-          )}
-
-          {/* Exact Location */}
-          {operation.exactLocation && (
-            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="map" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                  Exact Location
-                </ThemedText>
-              </View>
-              <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                Barangay: {operation.exactLocation.barangay}
-                {operation.exactLocation.purok && `, Purok: ${operation.exactLocation.purok}`}
-                {operation.exactLocation.specificAddress && `\n${operation.exactLocation.specificAddress}`}
-              </ThemedText>
-            </View>
+            </>
           )}
 
           {/* Dates */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="calendar" size={18} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                Dates
-              </ThemedText>
-            </View>
-            <View style={styles.dateContainer}>
-              <View style={styles.dateRow}>
-                <ThemedText style={[styles.dateLabel, { color: colors.text + '80' }]}>
-                  Start Date:
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.datesRow}>
+            <View style={styles.dateItem}>
+              <View style={styles.dateIconContainer}>
+                <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.dateInfo}>
+                <ThemedText style={[styles.dateLabel, { color: colors.text + 'AA' }]}>
+                  Start Date
                 </ThemedText>
                 <ThemedText style={[styles.dateValue, { color: colors.text }]}>
                   {formatDate(operation.startDate)}
                 </ThemedText>
               </View>
-              {operation.endDate && (
-                <View style={styles.dateRow}>
-                  <ThemedText style={[styles.dateLabel, { color: colors.text + '80' }]}>
-                    End Date:
+            </View>
+            {operation.endDate && (
+              <View style={styles.dateItem}>
+                <View style={styles.dateIconContainer}>
+                  <Ionicons name="calendar" size={16} color={colors.primary} />
+                </View>
+                <View style={styles.dateInfo}>
+                  <ThemedText style={[styles.dateLabel, { color: colors.text + 'AA' }]}>
+                    End Date
                   </ThemedText>
                   <ThemedText style={[styles.dateValue, { color: colors.text }]}>
                     {formatDate(operation.endDate)}
                   </ThemedText>
                 </View>
-              )}
-            </View>
+              </View>
+            )}
           </View>
 
           {/* Resources */}
           {operation.resources.length > 0 && (
-            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.sectionHeader}>
-                <Ionicons name="cube" size={18} color={colors.primary} />
+                <Ionicons name="cube-outline" size={20} color={colors.primary} />
                 <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
                   Resources ({operation.resources.length})
                 </ThemedText>
               </View>
-              <View style={styles.resourcesList}>
+              <View style={styles.resourcesGrid}>
                 {operation.resources.map((resource, index) => (
-                  <View key={index} style={[styles.resourceItem, { borderColor: colors.border }]}>
-                    <ThemedText style={[styles.resourceText, { color: colors.text }]}>
-                      {resource.quantity}x {resource.resourceName}
+                  <View key={index} style={[styles.resourceChip, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
+                    <ThemedText style={[styles.resourceQuantity, { color: colors.primary }]}>
+                      {resource.quantity}x
                     </ThemedText>
-                    <View style={[styles.resourceBadge, { backgroundColor: colors.primary + '20' }]}>
-                      <ThemedText style={[styles.resourceBadgeText, { color: colors.primary }]}>
+                    <ThemedText style={[styles.resourceName, { color: colors.text }]}>
+                      {resource.resourceName}
+                    </ThemedText>
+                    <View style={[styles.resourceCategoryTag, { backgroundColor: colors.primary + '20' }]}>
+                      <ThemedText style={[styles.resourceCategoryText, { color: colors.primary }]}>
                         {resource.category}
                       </ThemedText>
                     </View>
                   </View>
                 ))}
               </View>
-            </View>
+            </>
           )}
 
           {/* Personnel */}
           {operation.assignedPersonnel && operation.assignedPersonnel.length > 0 && (
-            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.sectionHeader}>
-                <Ionicons name="people" size={18} color={colors.primary} />
+                <Ionicons name="people-outline" size={20} color={colors.primary} />
                 <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
                   Assigned Personnel ({operation.assignedPersonnel.length})
                 </ThemedText>
               </View>
               {teamLeaderName && (
-                <View style={[styles.teamLeaderBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
-                  <Ionicons name="star" size={16} color={colors.primary} />
-                  <ThemedText style={[styles.teamLeaderText, { color: colors.primary }]}>
-                    Team Leader: {teamLeaderName}
+                <View style={[styles.teamLeaderHighlight, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '40' }]}>
+                  <Ionicons name="star" size={18} color={colors.primary} />
+                  <ThemedText style={[styles.teamLeaderName, { color: colors.primary }]}>
+                    {teamLeaderName}
+                  </ThemedText>
+                  <ThemedText style={[styles.teamLeaderRole, { color: colors.text + 'AA' }]}>
+                    Team Leader
                   </ThemedText>
                 </View>
               )}
-              <View style={styles.personnelList}>
+              <View style={styles.personnelGrid}>
                 {operation.assignedPersonnel.map((userId) => {
                   const person = personnelMap.get(userId);
                   if (!person) return null;
@@ -748,84 +711,68 @@ export function OperationPreviewModal({
                   const isSupervisor = person.userType === 'supervisor';
                   
                   return (
-                    <View key={userId} style={[styles.personnelItem, { borderColor: colors.border }]}>
-                      <View style={styles.personnelInfo}>
-                        <ThemedText style={[styles.personnelName, { color: colors.text }]}>
+                    <View key={userId} style={[styles.personnelCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                      <View style={styles.personnelAvatar}>
+                        <Ionicons name="person" size={20} color={colors.primary} />
+                      </View>
+                      <View style={styles.personnelDetails}>
+                        <ThemedText style={[styles.personnelName, { color: colors.text }]} numberOfLines={1}>
                           {formatPersonnelName(person.fullName)}
-                          {isTeamLeader && (
-                            <ThemedText style={[styles.teamLeaderLabel, { color: colors.primary }]}>
-                              {' '}(Team Leader)
-                            </ThemedText>
-                          )}
                         </ThemedText>
                         {person.email && (
-                          <ThemedText style={[styles.personnelEmail, { color: colors.text + '80' }]}>
+                          <ThemedText style={[styles.personnelEmail, { color: colors.text + 'AA' }]} numberOfLines={1}>
                             {person.email}
                           </ThemedText>
                         )}
                       </View>
-                      {isSupervisor && (
-                        <View style={[styles.roleBadge, { backgroundColor: '#FF6B35' }]}>
-                          <ThemedText style={styles.roleBadgeText}>
-                            Supervisor
-                          </ThemedText>
-                        </View>
-                      )}
-                      {!isSupervisor && (
-                        <View style={[styles.roleBadge, { backgroundColor: '#4A90E2' }]}>
-                          <ThemedText style={styles.roleBadgeText}>
-                            Operator
-                          </ThemedText>
-                        </View>
-                      )}
+                      <View style={[
+                        styles.roleTag,
+                        { backgroundColor: isSupervisor ? '#FF6B35' : '#4A90E2' }
+                      ]}>
+                        <ThemedText style={styles.roleTagText}>
+                          {isSupervisor ? 'Supervisor' : 'Operator'}
+                        </ThemedText>
+                      </View>
                     </View>
                   );
                 })}
               </View>
-            </View>
+            </>
           )}
 
           {/* Notes */}
           {operation.notes && (
-            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="document-text" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                  Notes
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                  <ThemedText style={[styles.labelText, { color: colors.text + 'CC' }]}>
+                    Notes
+                  </ThemedText>
+                </View>
+                <ThemedText style={[styles.valueText, { color: colors.text }]}>
+                  {operation.notes}
                 </ThemedText>
               </View>
-              <ThemedText style={[styles.sectionValue, { color: colors.text }]}>
-                {operation.notes}
-              </ThemedText>
-            </View>
+            </>
           )}
 
-          {/* Metadata */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="information-circle" size={18} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                Metadata
+          {/* Metadata Footer */}
+          <View style={styles.metadataFooter}>
+            <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
+              Operation ID: {operation.id}
+            </ThemedText>
+            {operation.createdBy && (
+              <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
+                Created by {creatorName || 'Unknown'} • {formatDate(operation.createdAt)}
               </ThemedText>
-            </View>
-            <View style={styles.metadataContainer}>
-              <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                Operation ID: {operation.id}
+            )}
+            {operation.updatedBy && (
+              <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
+                Last updated by {updaterName || 'Unknown'} • {formatDate(operation.updatedAt)}
               </ThemedText>
-              {operation.createdBy && (
-                <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                  Created by: {creatorName || 'Loading...'}
-                </ThemedText>
-              )}
-              {operation.updatedBy && (
-                <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                  Updated by: {updaterName || 'Loading...'}
-                </ThemedText>
-              )}
-              <ThemedText style={[styles.metadataText, { color: colors.text + '80' }]}>
-                Last Updated: {formatDate(operation.updatedAt)}
-              </ThemedText>
-            </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -836,7 +783,7 @@ export function OperationPreviewModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
@@ -851,28 +798,34 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 700,
+    maxWidth: 800,
     maxHeight: '90%',
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+      },
+    }),
     zIndex: 2,
   },
   modalContent: {
     flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 20,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: 24,
     borderBottomWidth: 1,
     backgroundColor: 'transparent',
   },
@@ -901,144 +854,249 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 8,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 24,
+    paddingBottom: 32,
+  },
+  // Hero Section
+  heroSection: {
+    marginBottom: 8,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    lineHeight: 36,
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  heroBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  statusText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  typeBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  // Divider
+  divider: {
+    height: 1,
+    marginVertical: 20,
+    opacity: 0.2,
+  },
+  // Info Rows
+  infoRow: {
+    marginBottom: 4,
+  },
+  infoLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  labelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  valueText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  locationDetails: {
+    gap: 4,
+  },
+  locationSubtext: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  // Dates
+  datesRow: {
+    flexDirection: 'row',
     gap: 16,
+    flexWrap: 'wrap',
   },
-  section: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 12,
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 200,
+    gap: 12,
   },
+  dateIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateInfo: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  dateValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  // Section Headers
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 16,
+    gap: 10,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
-  sectionValue: {
+  // Resources
+  resourcesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  resourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    minWidth: 140,
+  },
+  resourceQuantity: {
     fontSize: 15,
-    lineHeight: 22,
+    fontWeight: '700',
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  dateContainer: {
-    gap: 8,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dateLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  dateValue: {
+  resourceName: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  resourcesList: {
-    gap: 8,
-  },
-  resourceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  resourceText: {
-    fontSize: 14,
-    fontWeight: '500',
     flex: 1,
   },
-  resourceBadge: {
+  resourceCategoryTag: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  resourceBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  teamLeaderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    gap: 8,
-  },
-  teamLeaderText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  personnelList: {
-    gap: 8,
-  },
-  personnelItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  personnelInfo: {
-    flex: 1,
-  },
-  personnelName: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  teamLeaderLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  personnelEmail: {
-    fontSize: 12,
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  roleBadgeText: {
-    color: 'white',
+  resourceCategoryText: {
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  metadataContainer: {
+  // Personnel
+  teamLeaderHighlight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 16,
+    gap: 10,
+  },
+  teamLeaderName: {
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  teamLeaderRole: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  personnelGrid: {
+    gap: 12,
+  },
+  personnelCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  personnelAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personnelDetails: {
+    flex: 1,
+    gap: 4,
+  },
+  personnelName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  personnelEmail: {
+    fontSize: 13,
+  },
+  roleTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  roleTagText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Metadata Footer
+  metadataFooter: {
+    marginTop: 24,
+    paddingTop: 20,
     gap: 6,
   },
-  metadataText: {
+  metadataLabel: {
     fontSize: 12,
+    lineHeight: 18,
   },
+  // Footer
   footer: {
     padding: 20,
     borderTopWidth: 1,
@@ -1046,7 +1104,7 @@ const styles = StyleSheet.create({
   closeFooterButton: {
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1055,6 +1113,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  // Mobile
   mobileContainer: {
     flex: 1,
   },
