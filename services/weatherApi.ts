@@ -81,9 +81,32 @@ export interface WeatherApiResponse {
 }
 
 // Firebase Realtime Database configuration
-const FIREBASE_RTDB_URL = 'https://ws-data-6f163-default-rtdb.firebaseio.com';
-const FIREBASE_RTDB_AUTH = 'ZkkNgbFTLZnvDg6z651x4GiBl5qD41g0CUeoFHrR';
-const FIREBASE_RTDB_PATH = 'sms_data'; // Changed from 'weather-db' to 'sms_data'
+const FIREBASE_RTDB_URL = 'https://respondr-da5cb-default-rtdb.firebaseio.com';
+const FIREBASE_RTDB_PATH = 'weather-data'; // Updated to match new Firebase structure
+
+// Helper function to get Firebase Auth token or return null for public access
+async function getFirebaseAuthToken(): Promise<string | null> {
+  try {
+    const { auth } = await import('@/firebase/config');
+    const { currentUser } = auth;
+    if (currentUser) {
+      return await currentUser.getIdToken();
+    }
+  } catch (error) {
+    // If auth is not available or user is not authenticated, return null for public access
+  }
+  return null;
+}
+
+// Helper function to build Firebase Realtime Database URL
+async function buildFirebaseUrl(path: string): Promise<string> {
+  const token = await getFirebaseAuthToken();
+  if (token) {
+    return `${FIREBASE_RTDB_URL}/${path}.json?auth=${token}`;
+  }
+  // Try without auth (if database rules allow public reads)
+  return `${FIREBASE_RTDB_URL}/${path}.json`;
+}
 
 // Real-time listener state
 interface WeatherListenerState {
@@ -95,7 +118,9 @@ const listenerStates = new Map<string, WeatherListenerState>();
 
 /**
  * Map municipality name to device_id patterns
- * Example: "Mati", "Mati City", or "City of Mati" -> ["WS-MATI-01", "WS-MATI", "WS-MATI-CITY-01", "WS-MATI-CITY"]
+ * Now returns only specific patterns (WS-MATI-01) instead of broad patterns (WS-MATI)
+ * This allows WS-MATI-02, WS-MATI-03, etc. to be detected as unused
+ * Example: "Mati", "Mati City", or "City of Mati" -> ["WS-MATI-01", "WS-MATI-CITY-01"]
  */
 export function getDeviceIdPatternsForMunicipality(municipalityName: string): string[] {
   if (!municipalityName) return [];
@@ -117,18 +142,14 @@ export function getDeviceIdPatternsForMunicipality(municipalityName: string): st
   
   const patterns: string[] = [];
   
-  // Add base patterns (most common: WS-MATI-01)
+  // Only add specific patterns (WS-MATI-01), not broad patterns (WS-MATI)
+  // This allows WS-MATI-02, WS-MATI-03, etc. to be detected as unused
   patterns.push(`WS-${nameUpper}-01`);
-  patterns.push(`WS-${nameUpper}`);
   
-  // If original name contains "city", also add CITY variants
+  // If original name contains "city", also add CITY variant
   if (municipalityName.toLowerCase().includes('city')) {
     patterns.push(`WS-${nameUpper}-CITY-01`);
-    patterns.push(`WS-${nameUpper}-CITY`);
   }
-  
-  // Debug logging
-  console.log(`Device ID patterns for "${municipalityName}":`, patterns);
   
   return patterns;
 }
@@ -232,13 +253,11 @@ export function parseFirebaseWeatherDataToJSON(dataString: string): ParsedWeathe
         timestamp = new Date(fixedStr);
         
         if (isNaN(timestamp.getTime())) {
-          console.warn('Invalid timestamp format:', timestampStr, 'from:', cleanString.substring(0, 150));
           return null;
         }
       }
       timestampMs = timestamp.getTime();
     } else {
-      console.warn('No timestamp found in weather data:', cleanString.substring(0, 150));
       return null;
     }
 
@@ -291,7 +310,6 @@ export function parseFirebaseWeatherDataToJSON(dataString: string): ParsedWeathe
 
     return jsonData;
   } catch (error) {
-    console.error('Error parsing Firebase weather data to JSON:', error);
     return null;
   }
 }
@@ -317,7 +335,6 @@ export function parseFirebaseWeatherData(dataString: string): Partial<WeatherApi
 
     return data;
   } catch (error) {
-    console.error('Error parsing Firebase weather data:', error);
     return null;
   }
 }
@@ -325,10 +342,11 @@ export function parseFirebaseWeatherData(dataString: string): Partial<WeatherApi
 /**
  * Fetch weather data from Firebase Realtime Database
  * @param municipalityName Optional municipality name to filter by device_id (e.g., "Mati" filters for WS-MATI-01)
+ * @param exactDeviceId Optional exact device ID to match (e.g., "WS-MATI-02") - takes precedence over municipalityName patterns
  */
-export async function fetchWeatherFromFirebase(municipalityName?: string): Promise<WeatherApiResponse | null> {
+export async function fetchWeatherFromFirebase(municipalityName?: string, exactDeviceId?: string): Promise<WeatherApiResponse | null> {
   try {
-    const url = `${FIREBASE_RTDB_URL}/${FIREBASE_RTDB_PATH}.json?auth=${FIREBASE_RTDB_AUTH}`;
+    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -337,20 +355,12 @@ export async function fetchWeatherFromFirebase(municipalityName?: string): Promi
     
     const data = await response.json();
     
-    // Get device ID patterns for the municipality if provided
-    const deviceIdPatterns = municipalityName 
+    // If exact device ID is provided, use it directly; otherwise use municipality patterns
+    const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
+    const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
       ? getDeviceIdPatternsForMunicipality(municipalityName)
       : null;
     
-    if (municipalityName) {
-      if (deviceIdPatterns && deviceIdPatterns.length > 0) {
-        console.log(`🔍 Searching for data for "${municipalityName}" with device patterns:`, deviceIdPatterns);
-      } else {
-        console.warn(`⚠️ No device patterns generated for "${municipalityName}"`);
-      }
-    } else {
-      console.log('ℹ️ No municipality filter - showing all data');
-    }
     
     // Find the most recent entry (latest timestamp) matching the device_id filter
     let latestEntry: any = null;
@@ -360,14 +370,52 @@ export async function fetchWeatherFromFirebase(municipalityName?: string): Promi
     
     for (const key in data) {
       const entry = data[key];
-      if (entry && entry.key) {
-        // Convert string data to JSON format first
-        const jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+      if (entry) {
+        // Handle new structure: direct JSON object with properties
+        // OR old structure: string in entry.key
+        let jsonData: ParsedWeatherData | null = null;
+        
+        if (entry.device_id || entry.temperature !== undefined) {
+          // New structure: direct JSON object
+          const timestamp = entry.timestamp_ms 
+            ? new Date(entry.timestamp_ms)
+            : entry.timestamp 
+            ? new Date(entry.timestamp)
+            : null;
+          
+          if (timestamp && !isNaN(timestamp.getTime())) {
+            jsonData = {
+              temperature: entry.temperature || 0,
+              humidity: entry.humidity || 0,
+              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+              windDirection: entry.wind_direction || 0,
+              rainfallPeriod: entry.rainfall_period || 0,
+              rainfallTotal: entry.rainfall_total || 0,
+              signalStrength: entry.signal_strength || 0,
+              samples: entry.samples || 0,
+              timestamp,
+              timestampMs: timestamp.getTime(),
+              deviceId: entry.device_id || '',
+            };
+          }
+        } else if (entry.key) {
+          // Old structure: string that needs parsing
+          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+        }
+        
         if (jsonData && jsonData.timestamp) {
           checkedEntries++;
           
-          // Filter by device_id if municipality is specified
-          if (deviceIdPatterns) {
+          // Filter by device_id
+          if (exactDeviceIdUpper) {
+            // Exact device ID matching (for custom stations)
+            if (!jsonData.deviceId || jsonData.deviceId.toUpperCase().trim() !== exactDeviceIdUpper) {
+              continue; // Skip entries that don't match the exact device ID
+            }
+            matchedEntries++;
+          } else if (deviceIdPatterns) {
+            // Pattern matching (for base stations)
             if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
               // If municipality filter is set but device_id is missing, skip
               continue;
@@ -378,22 +426,16 @@ export async function fetchWeatherFromFirebase(municipalityName?: string): Promi
               const patternUpper = pattern.toUpperCase();
               // Strict matching: exact match OR device_id starts with pattern followed by '-' or end of string
               // Examples:
-              // - "WS-MATI-01" matches pattern "WS-MATI" (starts with "WS-MATI" + "-")
+              // - "WS-MATI-01" matches pattern "WS-MATI-01" (exact match)
               // - "WS-MATI" matches pattern "WS-MATI" (exact match)
               // - "WS-MATI-01" does NOT match pattern "WS-BAGANGA" (doesn't start with "WS-BAGANGA")
-              const isMatch = deviceIdUpper === patternUpper || 
-                             deviceIdUpper.startsWith(patternUpper + '-');
+              const isMatch = deviceIdUpper === patternUpper;
               if (isMatch) {
-                console.log(`✓ Matched device_id "${deviceIdUpper}" with pattern "${patternUpper}" for ${municipalityName}`);
                 matchedEntries++;
               }
               return isMatch;
             });
             if (!matches) {
-              // Log skipped entries for debugging (only first few to avoid spam)
-              if (checkedEntries <= 3) {
-                console.log(`✗ Skipped device_id "${deviceIdUpper}" - doesn't match any pattern for ${municipalityName}`);
-              }
               continue; // Skip entries that don't match the device_id
             }
           }
@@ -407,16 +449,7 @@ export async function fetchWeatherFromFirebase(municipalityName?: string): Promi
       }
     }
     
-    if (municipalityName) {
-      console.log(`📊 Checked ${checkedEntries} entries, found ${matchedEntries} matches for "${municipalityName}"`);
-    }
-    
     if (!latestEntry || !latestEntry.timestamp) {
-      if (municipalityName) {
-        console.warn(`No valid weather data found in Firebase for ${municipalityName} with device patterns:`, deviceIdPatterns);
-      } else {
-        console.warn('No valid weather data found in Firebase');
-      }
       return null;
     }
     
@@ -436,17 +469,17 @@ export async function fetchWeatherFromFirebase(municipalityName?: string): Promi
     };
     
     return result;
-  } catch (error) {
-    console.error('Firebase Realtime Database error:', error);
-    return null;
-  }
+    } catch (error) {
+      return null;
+    }
 }
 
 /**
  * Open-Meteo API (Recommended - Completely Free, No API Key)
  * Best for: Historical data, forecasts, and current weather
+ * DISABLED: Commented out per user request
  */
-export async function fetchWeatherFromOpenMeteo(
+/* export async function fetchWeatherFromOpenMeteo(
   lat: number,
   lon: number
 ): Promise<WeatherApiResponse | null> {
@@ -468,16 +501,17 @@ export async function fetchWeatherFromOpenMeteo(
       timestamp: new Date(current.time),
       location: { lat, lon, name: 'Weather Station' },
     };
-  } catch (error) {
-    console.error('Open-Meteo API error:', error);
+    } catch (error) {
+      // Open-Meteo API error
     return null;
   }
-}
+} */
 
 /**
  * Fetch historical weather data from Open-Meteo
+ * DISABLED: Commented out per user request
  */
-export async function fetchHistoricalWeatherFromOpenMeteo(
+/* export async function fetchHistoricalWeatherFromOpenMeteo(
   lat: number,
   lon: number,
   startDate: Date,
@@ -597,24 +631,24 @@ export async function fetchHistoricalWeatherFromOpenMeteo(
     results.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     return results;
-  } catch (error) {
-    console.error('Open-Meteo Historical API error:', error);
+    } catch (error) {
+      // Open-Meteo Historical API error
     return [];
   }
-}
+} */
 
 /**
  * OpenWeatherMap API (Requires API Key)
  * Free tier: 1,000 calls/day
+ * DISABLED: Commented out per user request
  */
-export async function fetchWeatherFromOpenWeatherMap(
+/* export async function fetchWeatherFromOpenWeatherMap(
   lat: number,
   lon: number
 ): Promise<WeatherApiResponse | null> {
-  if (!WEATHER_API_CONFIG.openWeatherMap.apiKey) {
-    console.warn('OpenWeatherMap API key not configured');
-    return null;
-  }
+    if (!WEATHER_API_CONFIG.openWeatherMap.apiKey) {
+      return null;
+    }
 
   try {
     const url = `${WEATHER_API_CONFIG.openWeatherMap.baseUrl}/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_CONFIG.openWeatherMap.apiKey}&units=metric`;
@@ -633,24 +667,24 @@ export async function fetchWeatherFromOpenWeatherMap(
       timestamp: new Date(data.dt * 1000),
       location: { lat, lon, name: data.name },
     };
-  } catch (error) {
-    console.error('OpenWeatherMap API error:', error);
+    } catch (error) {
+      // OpenWeatherMap API error
     return null;
   }
-}
+} */
 
 /**
  * WeatherAPI.com (Requires API Key)
  * Free tier: 1 million calls/month
+ * DISABLED: Commented out per user request
  */
-export async function fetchWeatherFromWeatherAPI(
+/* export async function fetchWeatherFromWeatherAPI(
   lat: number,
   lon: number
 ): Promise<WeatherApiResponse | null> {
-  if (!WEATHER_API_CONFIG.weatherApi.apiKey) {
-    console.warn('WeatherAPI key not configured');
-    return null;
-  }
+    if (!WEATHER_API_CONFIG.weatherApi.apiKey) {
+      return null;
+    }
 
   try {
     const url = `${WEATHER_API_CONFIG.weatherApi.baseUrl}/current.json?key=${WEATHER_API_CONFIG.weatherApi.apiKey}&q=${lat},${lon}`;
@@ -670,11 +704,11 @@ export async function fetchWeatherFromWeatherAPI(
       timestamp: new Date(current.last_updated),
       location: { lat, lon, name: data.location.name },
     };
-  } catch (error) {
-    console.error('WeatherAPI error:', error);
+    } catch (error) {
+      // WeatherAPI error
     return null;
   }
-}
+} */
 
 /**
  * Check if a municipality name refers to Mati City
@@ -715,32 +749,34 @@ export function getMunicipalityCoordinates(municipalityName: string): { lat: num
 
 /**
  * Unified weather fetch function (uses Firebase Realtime Database)
- * Note: Municipality name parameter is kept for compatibility but not used
+ * @param municipalityName Optional municipality name to filter by device_id patterns
+ * @param exactDeviceId Optional exact device ID to match (for custom stations)
+ * @param useApi API source to use
  */
 export async function fetchWeatherData(
   municipalityName?: string,
+  exactDeviceId?: string,
   useApi: 'firebase' | 'openmeteo' | 'openweather' | 'weatherapi' | 'auto' = 'auto'
 ): Promise<WeatherApiResponse | null> {
   // Always try Firebase first (primary data source)
   if (useApi === 'auto' || useApi === 'firebase') {
-    const data = await fetchWeatherFromFirebase(municipalityName);
+    const data = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
     if (data) return data;
   }
 
   // Fallback to Open-Meteo API only if Firebase fails and it's NOT Mati City
   // Mati City has its own weather station, so we don't use OpenMeteo for it
-  if (useApi === 'auto' && !isMatiCity(municipalityName)) {
+  // DISABLED: API fallback commented out per user request
+  /* if (useApi === 'auto' && !isMatiCity(municipalityName)) {
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
-      console.log(`[Weather API] Firebase data not available for ${municipalityName}, trying Open-Meteo fallback...`);
       // Try Open-Meteo as fallback
       const data = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
       if (data) {
-        console.log(`[Weather API] Successfully fetched data from Open-Meteo for ${municipalityName}`);
         return data;
       }
     }
-  }
+  } */
 
   return null;
 }
@@ -754,9 +790,9 @@ export async function fetchWeatherData(
  * 
  * @param municipalityName Optional municipality name to filter by device_id (e.g., "Mati" filters for WS-MATI-01)
  */
-export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: string): Promise<WeatherApiResponse[]> {
+export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: string, exactDeviceId?: string): Promise<WeatherApiResponse[]> {
   try {
-    const url = `${FIREBASE_RTDB_URL}/${FIREBASE_RTDB_PATH}.json?auth=${FIREBASE_RTDB_AUTH}`;
+    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -769,31 +805,52 @@ export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: s
     let skippedCount = 0;
     let filteredCount = 0;
     
-    // Get device ID patterns for the municipality if provided
-    const deviceIdPatterns = municipalityName 
+    // If exact device ID is provided, use it directly; otherwise use municipality patterns
+    const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
+    const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
       ? getDeviceIdPatternsForMunicipality(municipalityName)
       : null;
     
-    if (municipalityName) {
-      if (deviceIdPatterns && deviceIdPatterns.length > 0) {
-        console.log(`🔍 Fetching historical data for "${municipalityName}" with device patterns:`, deviceIdPatterns);
-      } else {
-        console.warn(`⚠️ No device patterns generated for "${municipalityName}" - will return empty array`);
-      }
-    } else {
-      console.log('ℹ️ No municipality filter - fetching all historical data');
-    }
-    
-    // Parse all entries from Firebase - convert string to JSON first
+    // Parse all entries from Firebase - handle both new (direct JSON) and old (string) formats
     for (const key in data) {
       const entry = data[key];
-      if (entry && entry.key) {
-        // Convert string data to JSON format
-        const jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+      if (entry) {
+        // Handle new structure: direct JSON object with properties
+        // OR old structure: string in entry.key
+        let jsonData: ParsedWeatherData | null = null;
+        
+        if (entry.device_id || entry.temperature !== undefined) {
+          // New structure: direct JSON object
+          const timestamp = entry.timestamp_ms 
+            ? new Date(entry.timestamp_ms)
+            : entry.timestamp 
+            ? new Date(entry.timestamp)
+            : null;
+          
+          if (timestamp && !isNaN(timestamp.getTime())) {
+            jsonData = {
+              temperature: entry.temperature || 0,
+              humidity: entry.humidity || 0,
+              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+              windDirection: entry.wind_direction || 0,
+              rainfallPeriod: entry.rainfall_period || 0,
+              rainfallTotal: entry.rainfall_total || 0,
+              signalStrength: entry.signal_strength || 0,
+              samples: entry.samples || 0,
+              timestamp,
+              timestampMs: timestamp.getTime(),
+              deviceId: entry.device_id || '',
+            };
+          }
+        } else if (entry.key) {
+          // Old structure: string that needs parsing
+          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+        }
+        
         if (jsonData && jsonData.timestamp) {
           // Validate timestamp is not invalid
           if (isNaN(jsonData.timestamp.getTime())) {
-            console.warn('Skipping entry with invalid timestamp:', entry.key.substring(0, 100));
             skippedCount++;
             continue;
           }
@@ -842,19 +899,15 @@ export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: s
           parsedCount++;
         } else {
           skippedCount++;
-          console.warn('Failed to parse entry:', entry.key?.substring(0, 100) || 'empty key');
         }
       }
     }
-    
-    console.log(`Parsed ${parsedCount} entries, skipped ${skippedCount} entries, filtered ${filteredCount} entries from Firebase${municipalityName ? ` for ${municipalityName}` : ''}`);
     
     // Sort by timestamp (oldest first)
     results.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     
     return results;
   } catch (error) {
-    console.error('Firebase Realtime Database error:', error);
     return [];
   }
 }
@@ -865,10 +918,11 @@ export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: s
  */
 export async function fetchHistoricalWeatherData(
   municipalityName?: string,
+  exactDeviceId?: string,
   days: number = 7
 ): Promise<WeatherApiResponse[]> {
   // Fetch all data from Firebase, filtered by municipality/device_id
-  const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName);
+  const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
   
   if (allData.length > 0) {
     // Filter by days if needed
@@ -882,10 +936,10 @@ export async function fetchHistoricalWeatherData(
   
   // Fallback to Open-Meteo API only if Firebase fails and it's NOT Mati City
   // Mati City has its own weather station, so we don't use OpenMeteo for it
-  if (!isMatiCity(municipalityName)) {
+  // DISABLED: API fallback commented out per user request
+  /* if (!isMatiCity(municipalityName)) {
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
-      console.log(`[Weather API] Firebase historical data not available for ${municipalityName}, trying Open-Meteo fallback...`);
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -893,11 +947,10 @@ export async function fetchHistoricalWeatherData(
       
       const historicalData = await fetchHistoricalWeatherFromOpenMeteo(coords.lat, coords.lon, startDate, endDate);
       if (historicalData.length > 0) {
-        console.log(`[Weather API] Successfully fetched ${historicalData.length} historical entries from Open-Meteo for ${municipalityName}`);
         return historicalData;
       }
     }
-  }
+  } */
   
   return [];
 }
@@ -913,10 +966,11 @@ export async function fetchHistoricalWeatherData(
  */
 export function subscribeToWeatherUpdates(
   municipalityName: string | undefined,
+  exactDeviceId: string | undefined,
   onUpdate: (data: WeatherApiResponse) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const listenerKey = municipalityName || 'all';
+  const listenerKey = `${municipalityName || 'all'}_${exactDeviceId || ''}`;
   let isActive = true;
   let lastTimestamp = 0;
   let checkInterval: ReturnType<typeof setInterval> | null = null;
@@ -924,14 +978,13 @@ export function subscribeToWeatherUpdates(
   // Initial fetch to get current data and set baseline timestamp
   const initialFetch = async () => {
     try {
-      const current = await fetchWeatherFromFirebase(municipalityName);
+      const current = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
       if (current && isActive) {
         lastTimestamp = current.timestamp.getTime();
         onUpdate(current);
-        console.log(`[Weather Listener] Initial data loaded for ${municipalityName || 'all stations'}`);
       }
     } catch (error) {
-      console.error('[Weather Listener] Initial fetch error:', error);
+      // Initial fetch error
       if (onError && isActive) {
         onError(error instanceof Error ? error : new Error('Initial fetch failed'));
       }
@@ -943,7 +996,7 @@ export function subscribeToWeatherUpdates(
     if (!isActive) return;
     
     try {
-      const url = `${FIREBASE_RTDB_URL}/${FIREBASE_RTDB_PATH}.json?auth=${FIREBASE_RTDB_AUTH}`;
+      const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -952,8 +1005,9 @@ export function subscribeToWeatherUpdates(
       
       const data = await response.json();
       
-      // Get device ID patterns for the municipality if provided
-      const deviceIdPatterns = municipalityName 
+      // If exact device ID is provided, use it directly; otherwise use municipality patterns
+      const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
+      const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
         ? getDeviceIdPatternsForMunicipality(municipalityName)
         : null;
       
@@ -963,8 +1017,40 @@ export function subscribeToWeatherUpdates(
       
       for (const key in data) {
         const entry = data[key];
-        if (entry && entry.key) {
-          const jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+        if (entry) {
+          // Handle new structure: direct JSON object with properties
+          // OR old structure: string in entry.key
+          let jsonData: ParsedWeatherData | null = null;
+          
+          if (entry.device_id || entry.temperature !== undefined) {
+            // New structure: direct JSON object
+            const timestamp = entry.timestamp_ms 
+              ? new Date(entry.timestamp_ms)
+              : entry.timestamp 
+              ? new Date(entry.timestamp)
+              : null;
+            
+            if (timestamp && !isNaN(timestamp.getTime())) {
+              jsonData = {
+                temperature: entry.temperature || 0,
+                humidity: entry.humidity || 0,
+                windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+                windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+                windDirection: entry.wind_direction || 0,
+                rainfallPeriod: entry.rainfall_period || 0,
+                rainfallTotal: entry.rainfall_total || 0,
+                signalStrength: entry.signal_strength || 0,
+                samples: entry.samples || 0,
+                timestamp,
+                timestampMs: timestamp.getTime(),
+                deviceId: entry.device_id || '',
+              };
+            }
+          } else if (entry.key) {
+            // Old structure: string that needs parsing
+            jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+          }
+          
           if (jsonData && jsonData.timestamp) {
             // Filter by device_id if municipality is specified
             if (deviceIdPatterns) {
@@ -1010,11 +1096,10 @@ export function subscribeToWeatherUpdates(
           },
         };
         
-        console.log(`[Weather Listener] New data detected for ${municipalityName || 'all stations'} at ${latestEntry.timestamp.toISOString()}`);
         onUpdate(result);
       }
     } catch (error) {
-      console.error('[Weather Listener] Error checking for updates:', error);
+      // Error checking for updates
       if (onError && isActive) {
         onError(error instanceof Error ? error : new Error('Update check failed'));
       }
@@ -1038,7 +1123,6 @@ export function subscribeToWeatherUpdates(
         checkInterval = null;
       }
       listenerStates.delete(listenerKey);
-      console.log(`[Weather Listener] Unsubscribed for ${municipalityName || 'all stations'}`);
     }
   });
   
@@ -1062,10 +1146,11 @@ export function subscribeToWeatherUpdates(
  */
 export function subscribeToHistoricalWeatherUpdates(
   municipalityName: string | undefined,
+  exactDeviceId: string | undefined,
   onUpdate: (data: WeatherApiResponse[]) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const listenerKey = `historical_${municipalityName || 'all'}`;
+  const listenerKey = `historical_${municipalityName || 'all'}_${exactDeviceId || ''}`;
   let isActive = true;
   let lastDataCount = 0;
   let checkInterval: ReturnType<typeof setInterval> | null = null;
@@ -1073,14 +1158,13 @@ export function subscribeToHistoricalWeatherUpdates(
   // Initial fetch to get current data
   const initialFetch = async () => {
     try {
-      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName);
+      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
       if (isActive) {
         lastDataCount = historical.length;
         onUpdate(historical);
-        console.log(`[Historical Listener] Initial data loaded: ${historical.length} entries for ${municipalityName || 'all stations'}`);
       }
     } catch (error) {
-      console.error('[Historical Listener] Initial fetch error:', error);
+      // Initial fetch error
       if (onError && isActive) {
         onError(error instanceof Error ? error : new Error('Initial fetch failed'));
       }
@@ -1092,16 +1176,15 @@ export function subscribeToHistoricalWeatherUpdates(
     if (!isActive) return;
     
     try {
-      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName);
+      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
       
       // Only update if we have new entries (count increased)
       if (historical.length > lastDataCount && isActive) {
         lastDataCount = historical.length;
-        console.log(`[Historical Listener] New data detected: ${historical.length} entries for ${municipalityName || 'all stations'}`);
         onUpdate(historical);
       }
     } catch (error) {
-      console.error('[Historical Listener] Error checking for updates:', error);
+      // Error checking for updates
       if (onError && isActive) {
         onError(error instanceof Error ? error : new Error('Update check failed'));
       }
@@ -1121,7 +1204,291 @@ export function subscribeToHistoricalWeatherUpdates(
       clearInterval(checkInterval);
       checkInterval = null;
     }
-    console.log(`[Historical Listener] Unsubscribed for ${municipalityName || 'all stations'}`);
   };
+}
+
+/**
+ * Device ID information from Firebase scan
+ */
+export interface DeviceIdInfo {
+  deviceId: string;
+  lastSeen: Date;
+  lastData?: {
+    temperature: number;
+    humidity: number;
+    rainfall: number;
+    windSpeed: number;
+  };
+  isActive: boolean; // Has data within last 30 days
+}
+
+/**
+ * Scan Firebase for all unique device IDs and return unused ones
+ * @param existingStations Currently displayed weather stations (may include deviceId for custom stations)
+ * @returns Array of unused device IDs that exist in Firebase but aren't being displayed
+ */
+export async function scanForUnusedDeviceIds(
+  existingStations: Array<{ municipality: { name: string }; deviceId?: string }>
+): Promise<DeviceIdInfo[]> {
+  try {
+    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch weather data: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Build a map of all device IDs found in Firebase
+    const deviceIdMap = new Map<string, {
+      lastSeen: Date;
+      lastData?: {
+        temperature: number;
+        humidity: number;
+        rainfall: number;
+        windSpeed: number;
+      };
+    }>();
+    
+    const now = Date.now();
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+    
+    // Parse all entries and collect device IDs - handle both new (direct JSON) and old (string) formats
+    for (const key in data) {
+      const entry = data[key];
+      if (entry) {
+        // Handle new structure: direct JSON object with properties
+        // OR old structure: string in entry.key
+        let jsonData: ParsedWeatherData | null = null;
+        
+        if (entry.device_id || entry.temperature !== undefined) {
+          // New structure: direct JSON object
+          const timestamp = entry.timestamp_ms 
+            ? new Date(entry.timestamp_ms)
+            : entry.timestamp 
+            ? new Date(entry.timestamp)
+            : null;
+          
+          if (timestamp && !isNaN(timestamp.getTime())) {
+            jsonData = {
+              temperature: entry.temperature || 0,
+              humidity: entry.humidity || 0,
+              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+              windDirection: entry.wind_direction || 0,
+              rainfallPeriod: entry.rainfall_period || 0,
+              rainfallTotal: entry.rainfall_total || 0,
+              signalStrength: entry.signal_strength || 0,
+              samples: entry.samples || 0,
+              timestamp,
+              timestampMs: timestamp.getTime(),
+              deviceId: entry.device_id || '',
+            };
+          }
+        } else if (entry.key) {
+          // Old structure: string that needs parsing
+          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+        }
+        
+        if (jsonData && jsonData.deviceId && jsonData.timestamp) {
+          const deviceId = jsonData.deviceId.trim().toUpperCase();
+          const timestamp = jsonData.timestamp.getTime();
+          
+          // Only consider devices with data in the last 30 days
+          if (timestamp >= thirtyDaysAgo) {
+            const existing = deviceIdMap.get(deviceId);
+            
+            // Keep the most recent entry for each device ID
+            if (!existing || timestamp > existing.lastSeen.getTime()) {
+              deviceIdMap.set(deviceId, {
+                lastSeen: jsonData.timestamp,
+                lastData: {
+                  temperature: jsonData.temperature,
+                  humidity: jsonData.humidity,
+                  rainfall: jsonData.rainfallTotal || jsonData.rainfallPeriod || 0,
+                  windSpeed: jsonData.windSpeedAvg || jsonData.windSpeedMax || 0,
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    // Build set of exact device IDs used by custom stations
+    const usedExactDeviceIds = new Set<string>();
+    // Build set of device ID patterns for base stations (without specific deviceId)
+    const usedDeviceIdPatterns = new Set<string>();
+    
+    for (const station of existingStations) {
+      // If station has a specific deviceId (custom station), use exact matching
+      if (station.deviceId) {
+        usedExactDeviceIds.add(station.deviceId.toUpperCase().trim());
+      } else {
+        // For base stations without specific deviceId, use pattern matching
+        const patterns = getDeviceIdPatternsForMunicipality(station.municipality.name);
+        patterns.forEach(pattern => {
+          usedDeviceIdPatterns.add(pattern.toUpperCase());
+        });
+      }
+    }
+    
+    // Find unused device IDs
+    const unusedDeviceIds: DeviceIdInfo[] = [];
+    
+    for (const [deviceId, info] of deviceIdMap.entries()) {
+      const deviceIdUpper = deviceId.toUpperCase();
+      
+      // First check if it's an exact match (custom station)
+      if (usedExactDeviceIds.has(deviceIdUpper)) {
+        continue; // This device ID is already used by a custom station
+      }
+      
+      // Then check if it matches any pattern (base station)
+      let isUsed = false;
+      for (const pattern of usedDeviceIdPatterns) {
+        // Check if device ID matches pattern (exact or starts with pattern + '-')
+        if (deviceIdUpper === pattern || deviceIdUpper.startsWith(pattern + '-')) {
+          isUsed = true;
+          break;
+        }
+      }
+      
+      // If not used, add to unused list
+      if (!isUsed) {
+        unusedDeviceIds.push({
+          deviceId,
+          lastSeen: info.lastSeen,
+          lastData: info.lastData,
+          isActive: true, // Already filtered to last 30 days
+        });
+      }
+    }
+    
+    // Sort by last seen (most recent first)
+    unusedDeviceIds.sort((a, b) => b.lastSeen.getTime() - a.lastSeen.getTime());
+    
+    return unusedDeviceIds;
+  } catch (error) {
+    // Error scanning for unused device IDs
+    throw error;
+  }
+}
+
+/**
+ * Check availability of all stations by checking if they have recent data in Firebase
+ * @param stations Array of weather stations to check
+ * @returns Map of station IDs to their availability status and last seen timestamp
+ */
+export async function checkStationsAvailability(
+  stations: Array<{ id: string; municipality: { name: string }; deviceId?: string }>
+): Promise<Map<string, { isActive: boolean; lastSeen?: Date }>> {
+  const availabilityMap = new Map<string, { isActive: boolean; lastSeen?: Date }>();
+  
+  try {
+    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      // If fetch fails, mark all as inactive
+      stations.forEach(station => {
+        availabilityMap.set(station.id, { isActive: false });
+      });
+      return availabilityMap;
+    }
+    
+    const data = await response.json();
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000); // Consider active if data within last hour
+    
+    // Build a map of device IDs to their latest timestamps
+    const deviceIdTimestamps = new Map<string, number>();
+    
+    // Parse all entries and find latest timestamp for each device ID
+    for (const key in data) {
+      const entry = data[key];
+      if (entry) {
+        let jsonData: ParsedWeatherData | null = null;
+        
+        if (entry.device_id || entry.temperature !== undefined) {
+          const timestamp = entry.timestamp_ms 
+            ? new Date(entry.timestamp_ms)
+            : entry.timestamp 
+            ? new Date(entry.timestamp)
+            : null;
+          
+          if (timestamp && !isNaN(timestamp.getTime())) {
+            jsonData = {
+              temperature: entry.temperature || 0,
+              humidity: entry.humidity || 0,
+              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+              windDirection: entry.wind_direction || 0,
+              rainfallPeriod: entry.rainfall_period || 0,
+              rainfallTotal: entry.rainfall_total || 0,
+              signalStrength: entry.signal_strength || 0,
+              samples: entry.samples || 0,
+              timestamp,
+              timestampMs: timestamp.getTime(),
+              deviceId: entry.device_id || '',
+            };
+          }
+        } else if (entry.key) {
+          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+        }
+        
+        if (jsonData && jsonData.deviceId && jsonData.timestamp) {
+          const deviceId = jsonData.deviceId.trim().toUpperCase();
+          const timestamp = jsonData.timestamp.getTime();
+          
+          const existing = deviceIdTimestamps.get(deviceId);
+          if (!existing || timestamp > existing) {
+            deviceIdTimestamps.set(deviceId, timestamp);
+          }
+        }
+      }
+    }
+    
+    // Check each station's availability
+    for (const station of stations) {
+      let isActive = false;
+      let lastSeen: Date | undefined = undefined;
+      
+      if (station.deviceId) {
+        // Custom station: check exact device ID
+        const deviceIdUpper = station.deviceId.toUpperCase().trim();
+        const timestamp = deviceIdTimestamps.get(deviceIdUpper);
+        if (timestamp) {
+          lastSeen = new Date(timestamp);
+          isActive = timestamp >= oneHourAgo;
+        }
+      } else {
+        // Base station: check municipality patterns
+        const patterns = getDeviceIdPatternsForMunicipality(station.municipality.name);
+        for (const pattern of patterns) {
+          const patternUpper = pattern.toUpperCase();
+          const timestamp = deviceIdTimestamps.get(patternUpper);
+          if (timestamp) {
+            if (!lastSeen || timestamp > lastSeen.getTime()) {
+              lastSeen = new Date(timestamp);
+            }
+            if (timestamp >= oneHourAgo) {
+              isActive = true;
+            }
+          }
+        }
+      }
+      
+      availabilityMap.set(station.id, { isActive, lastSeen });
+    }
+  } catch (error) {
+    // On error, mark all as inactive
+    stations.forEach(station => {
+      availabilityMap.set(station.id, { isActive: false });
+    });
+  }
+  
+  return availabilityMap;
 }
 

@@ -8,6 +8,11 @@ export interface WeatherStation {
   lastSeen?: Date;
   // API connection status (optional, can be updated from parent)
   apiAvailable?: boolean;
+  // Device ID for custom stations (exact device ID from Firebase)
+  deviceId?: string;
+  // Location/area name to distinguish multiple stations in the same municipality
+  // e.g., "Downtown", "Port Area", "North District", etc.
+  locationName?: string;
 }
 
 // Generate stations for all municipalities

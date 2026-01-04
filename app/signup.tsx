@@ -5,6 +5,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useSignup } from '@/hooks/useSignup';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,6 +17,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -94,6 +96,21 @@ export default function SignupScreen() {
       </View>
       
       <SafeAreaView style={{ flex: 1 }}>
+        {/* Back to Home Button - Web Only */}
+        {Platform.OS === 'web' && (
+          <View style={styles.topNavContainer}>
+            <TouchableOpacity 
+              style={[styles.backButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => router.push('/home')}
+            >
+              <Ionicons name="arrow-back" size={18} color={colors.primary} />
+              <ThemedText style={[styles.backButtonText, { color: colors.primary }]}>
+                Back to Home
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <ScrollView 
           style={styles.scrollViewContainer}
           contentContainerStyle={[
@@ -137,6 +154,7 @@ export default function SignupScreen() {
                 error={error}
               />
             </View>
+            
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -156,6 +174,51 @@ const { width, height } = Dimensions.get('window');
 const logoSize = Math.min(width * 0.3, 110);
 
 const styles = StyleSheet.create({
+  topNavContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
+    ...Platform.select({
+      web: {
+        paddingTop: 20,
+      },
+    }),
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignSelf: 'flex-start',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      } as any,
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    marginLeft: 8,
+  },
   scrollViewContainer: {
     flex: 1,
   },

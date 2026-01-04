@@ -12,12 +12,16 @@ interface WeatherStationSwitcherProps {
   stations: WeatherStation[];
   selectedStation: WeatherStation | null;
   onSelectStation: (station: WeatherStation) => void;
+  onAddStation?: () => void;
+  showAddButton?: boolean;
 }
 
 export function WeatherStationSwitcher({
   stations,
   selectedStation,
   onSelectStation,
+  onAddStation,
+  showAddButton = false,
 }: WeatherStationSwitcherProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -52,6 +56,38 @@ export function WeatherStationSwitcher({
     return inactive;
   }, [stations, selectedStation]);
 
+  // Generate display names with incrementing numbers for stations in the same municipality
+  const stationDisplayNames = useMemo(() => {
+    const displayNames = new Map<string, string>();
+    const municipalityGroups = new Map<string, WeatherStation[]>();
+
+    // Group stations by municipality
+    stations.forEach(station => {
+      const key = station.municipality.name;
+      if (!municipalityGroups.has(key)) {
+        municipalityGroups.set(key, []);
+      }
+      municipalityGroups.get(key)!.push(station);
+    });
+
+    // Assign display names with numbers if multiple stations in same municipality
+    municipalityGroups.forEach((groupStations, municipalityName) => {
+      if (groupStations.length > 1) {
+        groupStations.forEach((station, index) => {
+          displayNames.set(station.id, `${municipalityName} ${index + 1}`);
+        });
+      } else {
+        displayNames.set(groupStations[0].id, municipalityName);
+      }
+    });
+
+    return displayNames;
+  }, [stations]);
+
+  const getStationDisplayName = (stationId: string) => {
+    return stationDisplayNames.get(stationId) || '';
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.header}>
@@ -61,9 +97,21 @@ export function WeatherStationSwitcher({
             Weather Stations
           </ThemedText>
         </View>
-        <ThemedText style={[styles.stationCount, { color: colors.text, opacity: 0.6 }]}>
-          {activeStations.length} active
-        </ThemedText>
+        <View style={styles.headerRight}>
+          <ThemedText style={[styles.stationCount, { color: colors.text, opacity: 0.6 }]}>
+            {activeStations.length} active
+          </ThemedText>
+          {showAddButton && onAddStation && (
+            <TouchableOpacity
+              onPress={onAddStation}
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <ThemedText style={styles.addButtonText}>Add</ThemedText>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.scrollContainer}>
@@ -137,7 +185,7 @@ export function WeatherStationSwitcher({
                 ]}
                 numberOfLines={1}
               >
-                {station.municipality.name}
+                {getStationDisplayName(station.id)}
               </ThemedText>
               {isSelected && (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
@@ -191,7 +239,7 @@ export function WeatherStationSwitcher({
                     ]}
                     numberOfLines={1}
                   >
-                    {station.municipality.name}
+                    {getStationDisplayName(station.id)}
                   </ThemedText>
                   {isSelected && (
                     <Ionicons name="checkmark" size={16} color="#FFFFFF" />
@@ -247,6 +295,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -255,6 +308,30 @@ const styles = StyleSheet.create({
   stationCount: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   stationsScroll: {
     gap: 8,

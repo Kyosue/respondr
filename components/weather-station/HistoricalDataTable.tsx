@@ -61,8 +61,8 @@ export function HistoricalDataTable({
       }));
 
       setFirebaseData(historicalData);
-    } catch (error) {
-      console.error('Error fetching historical data from Firebase:', error);
+      } catch (error) {
+        // Error fetching historical data from Firebase
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -90,10 +90,10 @@ export function HistoricalDataTable({
           }));
           
           setFirebaseData(historicalData);
-          console.log(`[HistoricalDataTable] Real-time update: ${historicalData.length} entries for ${municipalityName}`);
+          // Real-time update received
         },
         (error) => {
-          console.error('[HistoricalDataTable] Real-time listener error:', error);
+          // Real-time listener error
         }
       );
       

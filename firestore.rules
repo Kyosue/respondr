@@ -89,6 +89,16 @@ service cloud.firestore {
       //   resource.data.uploadedBy == request.auth.uid;
     }
     
+    // Custom Weather Stations collection - NEW: Added for syncing custom weather stations across devices
+    match /custom_weather_stations/{stationId} {
+      // Allow read for all authenticated users
+      allow read: if request.auth != null;
+      
+      // Allow write (create, update, delete) for all authenticated users
+      // This allows users to add custom weather stations that sync across their devices
+      allow write: if request.auth != null;
+    }
+    
     // Notifications collection
     match /notifications/{notificationId} {
       // Users can read their own notifications (both get and list operations)
