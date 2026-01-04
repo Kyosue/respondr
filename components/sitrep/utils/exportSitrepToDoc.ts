@@ -23,6 +23,10 @@ export interface SitrepData {
   assets: string[];
 }
 
+export interface ExportOptions {
+  userFullName?: string;
+}
+
 // Helper function to resize and compress image
 const resizeImage = (file: Blob, maxWidth: number = 800, maxHeight: number = 600, quality: number = 0.8): Promise<Blob> => {
   return new Promise((resolve, reject) => {
@@ -131,14 +135,164 @@ const convertImagesToBase64 = async (images: Array<{ data: string; name: string 
   return convertedImages;
 };
 
-export const exportSitrepToDoc = async (sitrep: SitrepData) => {
+// Helper function to escape HTML entities
+const escapeHtml = (text: string): string => {
+  const map: { [key: string]: string } = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+};
+
+// Helper function to load logo image from Expo assets and convert to base64
+// Uses require() to ensure Metro bundler includes the asset, then converts to base64
+const loadLogoAsBase64 = async (
+  logoModule: any, // The result of require() for the logo
+  maxWidth: number = 120,
+  maxHeight: number = 120
+): Promise<string> => {
+  try {
+    // For web platform, require() typically returns a URL string
+    // For native, it might return a number (asset ID) or object
+    // Handle all possible formats
+    let imageUri: string;
+    
+    if (typeof logoModule === 'string') {
+      // Direct URL string (most common on web)
+      imageUri = logoModule;
+    } else if (typeof logoModule === 'number') {
+      // Asset ID (native platforms) - would need expo-asset to resolve
+      // For web export, this shouldn't happen, but handle gracefully
+      console.warn('Received asset ID instead of URL - this may not work on web');
+      return '';
+    } else if (logoModule && typeof logoModule === 'object') {
+      // Could be { uri: string }, { default: string }, or similar
+      imageUri = logoModule.uri || logoModule.default || logoModule.src || String(logoModule);
+    } else {
+      console.warn('Invalid logo module format:', typeof logoModule);
+      return '';
+    }
+    
+    // Ensure we have a valid URI
+    if (!imageUri || (typeof imageUri !== 'string')) {
+      console.warn('Could not extract valid URI from logo module');
+      return '';
+    }
+
+    // If it's already a data URI, return it (after resizing if needed)
+    if (imageUri.startsWith('data:image/')) {
+      // Resize the data URI image
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const resizedBlob = await resizeImage(blob, maxWidth, maxHeight, 0.9);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(resizedBlob);
+      });
+    }
+
+    // Load image using Image object (works for web URLs)
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.warn('Could not get canvas context');
+          resolve('');
+          return;
+        }
+
+        // Calculate dimensions maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        const aspectRatio = width / height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            width = Math.min(width, maxWidth);
+            height = width / aspectRatio;
+          } else {
+            height = Math.min(height, maxHeight);
+            width = height * aspectRatio;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                resolve(reader.result as string);
+              };
+              reader.onerror = () => {
+                console.warn('Failed to read logo as base64');
+                resolve('');
+              };
+              reader.readAsDataURL(blob);
+            } else {
+              console.warn('Failed to convert logo to blob');
+              resolve('');
+            }
+          },
+          'image/png',
+          0.9
+        );
+      };
+      
+      img.onerror = () => {
+        console.warn(`Failed to load logo from: ${imageUri}`);
+        resolve(''); // Return empty string if logo can't be loaded
+      };
+      
+      img.src = imageUri;
+    });
+  } catch (error) {
+    console.error('Error loading logo:', error);
+    return ''; // Return empty string if logo can't be loaded
+  }
+};
+
+export const exportSitrepToDoc = async (sitrep: SitrepData, options?: ExportOptions) => {
   // Convert all images to base64 before embedding in the document
   const affectedImages = await convertImagesToBase64(sitrep.affectedImages);
   const casualtyImages = await convertImagesToBase64(sitrep.casualtyImages);
-  // Create HTML content for Word document with robust formatting
+  
+  // Load logos using require() so Metro bundler can include them
+  // This ensures the assets are properly bundled at build time
+  let davorLogoBase64 = '';
+  let pdrrmoLogoBase64 = '';
+  
+  try {
+    const davorLogoModule = require('@/assets/images/davor-logo.png');
+    davorLogoBase64 = await loadLogoAsBase64(davorLogoModule, 120, 120);
+  } catch (error) {
+    console.warn('Could not load Davao Oriental logo:', error);
+  }
+  
+  try {
+    const pdrrmoLogoModule = require('@/assets/images/pdrrmo-logo.png');
+    pdrrmoLogoBase64 = await loadLogoAsBase64(pdrrmoLogoModule, 120, 120);
+  } catch (error) {
+    console.warn('Could not load PDRRMO logo:', error);
+  }
+  
+  // Create HTML content for Word document (Word 97-2003 HTML format - compatible with modern Word)
+  // This format is more reliable than trying to create a true .docx ZIP structure
   let html = `
 <!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:v="urn:schemas-microsoft-com:vml" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="UTF-8">
   <meta name="ProgId" content="Word.Document">
@@ -151,8 +305,29 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
       <w:View>Print</w:View>
       <w:Zoom>100</w:Zoom>
       <w:DoNotOptimizeForBrowser/>
+      <w:ValidateAgainstSchemas/>
+      <w:SaveIfXMLInvalid>false</w:SaveIfXMLInvalid>
+      <w:IgnoreMixedContent>false</w:IgnoreMixedContent>
+      <w:AlwaysShowPlaceholderText>false</w:AlwaysShowPlaceholderText>
+      <w:Compatibility>
+        <w:BreakWrappedTables/>
+        <w:SnapToGridInCell/>
+        <w:WrapTextWithPunct/>
+        <w:UseAsianBreakRules/>
+      </w:Compatibility>
+      <w:AttachedTemplate>
+      </w:AttachedTemplate>
+      <w:EnvelopeVis/>
     </w:WordDocument>
   </xml>
+  <![endif]-->
+  <!--[if gte mso 9]>
+  <style>
+    v\\:* { behavior: url(#default#VML); }
+    o\\:* { behavior: url(#default#VML); }
+    w\\:* { behavior: url(#default#VML); }
+    .shape { behavior: url(#default#VML); }
+  </style>
   <![endif]-->
   <style>
     @page {
@@ -180,9 +355,37 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     
     /* Header Styles */
     .header {
-      text-align: center;
       margin-bottom: 30px;
       padding-bottom: 15px;
+    }
+    
+    .header-top-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+    
+    .header-logo-left,
+    .header-logo-right {
+      width: 120px;
+      vertical-align: top;
+      padding: 0 10px;
+    }
+    
+    .header-logo-left img,
+    .header-logo-right img {
+      max-width: 120px;
+      max-height: 120px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }
+    
+    .header-content {
+      vertical-align: top;
+      text-align: center;
+      padding: 0 15px;
     }
     
     .header .republic {
@@ -255,6 +458,21 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     
     .header .meta-info strong {
       font-weight: bold;
+    }
+    
+    .title-section {
+      margin: 20px 0 22px 0;
+      text-align: center;
+    }
+    
+    .title-section h1 {
+      font-size: 15pt;
+      font-weight: 700;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 1.2pt;
+      color: #1a1a1a;
+      font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
     }
     
     /* Section Styles */
@@ -347,7 +565,7 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
     .header-info-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 22px 0;
+      margin: 12px 0;
       font-size: 10.5pt;
       border: 1.5px solid #000;
     }
@@ -483,55 +701,86 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
   <div class="document-wrapper">
     <!-- HEADER SECTION -->
     <div class="header">
-      <div class="republic">Republic of the Philippines</div>
-      <div class="province">PROVINCE OF DAVAO ORIENTAL</div>
-      <div class="office">PROVINCIAL DISASTER RISK REDUCTION AND MANAGEMENT OFFICE</div>
-      <div class="address">Government Center, Brgy. Dahican City of Mati</div>
-      <div class="contact">Tel. No. (087) 3883-611: Email Add: pdrrmodavaooriental@gmail.com</div>
-      <div class="divider"></div>
-      <div class="emergency">Emergency Hotline Nos.: Tel. No. (087) 3884-911/ 09488386060 (TNT)/09535583598(TM) Email Add: opcendavor14@gmail.com</div>
-      <div style="margin-top: 25px; border-top: 3px double #000; padding-top: 18px;">
-        <h1 style="font-size: 15pt; font-weight: 700; margin: 0 0 22px 0; text-transform: uppercase; letter-spacing: 1.2pt; color: #1a1a1a; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;">SITUATION REPORT (SITREP)</h1>
+      <!-- Header with logos on sides using table for proper Word rendering -->
+      <table class="header-top-table">
+        <tr>
+          <td class="header-logo-left">
+            ${davorLogoBase64 ? `<img src="${davorLogoBase64}" alt="Davao Oriental Logo" style="width:120px;height:auto;display:block;" />` : '<div style="width:120px;"></div>'}
+          </td>
+          <td class="header-content">
+            <div class="republic">Republic of the Philippines</div>
+            <div class="province">PROVINCE OF DAVAO ORIENTAL</div>
+            <div class="office">PROVINCIAL DISASTER RISK REDUCTION AND MANAGEMENT OFFICE</div>
+            <div class="address">Government Center, Brgy. Dahican City of Mati</div>
+            <div class="contact">Tel. No. (087) 3883-611: Email Add: pdrrmodavaooriental@gmail.com</div>
+            <div class="divider"></div>
+            <div class="emergency">Emergency Hotline Nos.: Tel. No. (087) 3884-911/ 09488386060 (TNT)/09535583598(TM) Email Add: opcendavor14@gmail.com</div>
+          </td>
+          <td class="header-logo-right">
+            ${pdrrmoLogoBase64 ? `<img src="${pdrrmoLogoBase64}" alt="PDRRMO Logo" style="width:120px;height:auto;display:block;" />` : '<div style="width:120px;"></div>'}
+          </td>
+        </tr>
+      </table>
+      
+      <div style="margin-top: 15px;">
+        <div style="margin-bottom: 12px;">
+          <div style="margin-bottom: 4px;"><strong>FOR :</strong> HON. NIÑO SOTERO L. UY, JR</div>
+          <div style="margin-bottom: 4px; padding-left: 60px;">Governor/PDRRMC Chairperson Davao Oriental</div>
+          <div style="margin-bottom: 4px;"><strong>THRU :</strong> ENGR. JESUSA C. TIMBANG</div>
+          <div style="margin-bottom: 12px; padding-left: 60px;">PGDH - PDRRMO</div>
+        </div>
+        
+        <div style="margin-bottom: 15px; font-size: 13pt; font-weight: 700;">
+          ${sitrep.operation ? `Initial report re: ${escapeHtml(sitrep.operation)}` : 'Initial Report'}
+        </div>
+        
         <table class="header-info-table">
           <tr>
-            <td>Date of Incident:</td>
-            <td>${sitrep.date}</td>
+            <td>Date of Incident</td>
+            <td>${escapeHtml(sitrep.date || '')}</td>
           </tr>
           <tr>
-            <td>Time of Incident:</td>
-            <td>${sitrep.time}</td>
+            <td>Time of Incident</td>
+            <td>${escapeHtml(sitrep.time || '')}</td>
           </tr>
           <tr>
-            <td>Date Issued:</td>
+            <td>Date Issued</td>
             <td>${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
           </tr>
           <tr>
-            <td>Time Issued:</td>
+            <td>Time Issued</td>
             <td>${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}H</td>
           </tr>
           <tr>
-            <td>Overview:</td>
-            <td>${sitrep.overview || 'No overview provided.'}</td>
+            <td>Overview</td>
+            <td>${escapeHtml(sitrep.overview || 'No overview provided.')}</td>
           </tr>
           <tr>
-            <td>Source:</td>
-            <td>${sitrep.reportingOffice || 'PDRRMO'}</td>
+            <td>Source</td>
+            <td></td>
           </tr>
         </table>
+        
+        <div style="margin-top: 20px;">
+          <div style="margin-bottom: 3px;"><strong>Prepared by:</strong> ${escapeHtml(options?.userFullName || '')}</div>
+          <div style="margin-bottom: 12px; margin-left: 20px;">Operations and Warning Section</div>
+          <div style="margin-bottom: 3px;"><strong>Reviewed by:</strong> Francis Jason J. Bendulo, MCDRM</div>
+          <div style="margin-left: 20px;">PGADH-PDRRMO</div>
+        </div>
       </div>
     </div>
     
     <!-- I. SITUATION OVERVIEW -->
     <div class="section">
       <div class="section-title">I. SITUATION OVERVIEW</div>
-      <div class="overview-text">${sitrep.overview.replace(/\n\n/g, '</p><p class="overview-text">').replace(/\n/g, '<br>')}</div>
+      <p class="overview-text">${escapeHtml(sitrep.overview || 'No overview provided.').replace(/\n\n/g, '</p><p class="overview-text">').replace(/\n/g, '<br>')}</p>
     </div>
     
     <!-- II. AFFECTED AREAS -->
     <div class="section">
       <div class="section-title">II. AFFECTED AREAS</div>
       <ul>
-        ${sitrep.affectedAreas.map(area => `<li><strong>Municipality of ${area.municipality}</strong> – ${area.details}</li>`).join('')}
+        ${sitrep.affectedAreas.map(area => `<li><strong>Municipality of ${escapeHtml(area.municipality)}</strong> – ${escapeHtml(area.details)}</li>`).join('')}
         <li class="bold">Total Affected Barangays: ${sitrep.totalBarangays}</li>
       </ul>
       
@@ -642,8 +891,12 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
 </html>
   `.trim();
 
-  // Create blob with proper Word MIME type
-  const blob = new Blob(['\ufeff', html], { 
+  // Create blob with Word HTML format
+  // Note: True .docx requires a ZIP archive with XML files (complex)
+  // HTML-based .doc format is more reliable and works with modern Word
+  // The BOM (\ufeff) ensures proper UTF-8 encoding recognition by Word
+  const htmlContent = html.trim();
+  const blob = new Blob(['\ufeff', htmlContent], { 
     type: 'application/msword' 
   });
   
@@ -662,4 +915,3 @@ export const exportSitrepToDoc = async (sitrep: SitrepData) => {
   // Return blob and filename for saving to database
   return { blob, fileName };
 };
-

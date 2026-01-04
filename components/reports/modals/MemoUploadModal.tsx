@@ -2,16 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
@@ -52,6 +52,7 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
   const [showEffectiveDatePicker, setShowEffectiveDatePicker] = useState(false);
   const [showExpirationDatePicker, setShowExpirationDatePicker] = useState(false);
   const [priority, setPriority] = useState<'urgent' | 'high' | 'normal' | 'low'>('normal');
+  const [documentType, setDocumentType] = useState<'memorandum' | 'circular' | 'advisory' | 'directive' | 'executive-order' | 'ordinance' | 'policy'>('memorandum');
   const [acknowledgmentRequired, setAcknowledgmentRequired] = useState(false);
   const [tags, setTags] = useState('');
 
@@ -68,6 +69,16 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
     { value: 'high', label: 'High', color: '#FF9500' },
     { value: 'normal', label: 'Normal', color: '#34C759' },
     { value: 'low', label: 'Low', color: '#8E8E93' },
+  ];
+
+  const documentTypes = [
+    { value: 'memorandum', label: 'Memorandum' },
+    { value: 'circular', label: 'Circular' },
+    { value: 'advisory', label: 'Advisory' },
+    { value: 'directive', label: 'Directive' },
+    { value: 'executive-order', label: 'Executive Order' },
+    { value: 'ordinance', label: 'Ordinance' },
+    { value: 'policy', label: 'Policy' },
   ];
 
   const handleFileSelect = async () => {
@@ -146,6 +157,7 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
         memoNumber,
         issuingAgency,
         agencyLevel,
+        documentType,
         effectiveDate: effectiveDate,
         expirationDate: expirationDate || undefined,
         priority,
@@ -177,6 +189,7 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
     setEffectiveDate(new Date());
     setExpirationDate(null);
     setPriority('normal');
+    setDocumentType('memorandum');
     setAcknowledgmentRequired(false);
     setTags('');
     setShowEffectiveDatePicker(false);
@@ -373,6 +386,8 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
             )}
 
             {renderField('Agency Level', true, renderSelectField(agencyLevel, agencyLevels, setAgencyLevel))}
+
+            {renderField('Document Type', true, renderSelectField(documentType, documentTypes, setDocumentType))}
 
             {renderField(
               'Effective Date',
@@ -677,6 +692,8 @@ export function MemoUploadModal({ visible, onClose }: MemoUploadModalProps) {
             )}
 
             {renderField('Agency Level', true, renderSelectField(agencyLevel, agencyLevels, setAgencyLevel))}
+
+            {renderField('Document Type', true, renderSelectField(documentType, documentTypes, setDocumentType))}
 
             {renderField(
               'Effective Date',

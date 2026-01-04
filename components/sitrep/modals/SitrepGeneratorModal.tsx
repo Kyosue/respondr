@@ -32,7 +32,7 @@ export function SitrepGeneratorModal({
   const colors = Colors[colorScheme ?? 'light'];
   const { isWeb } = usePlatform();
   const styles = createStyles(colors);
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
   const { uploadDocument, isUploading: isSaving, error: saveError } = useDocumentUpload();
   const [isExporting, setIsExporting] = useState(false);
   
@@ -376,7 +376,8 @@ export function SitrepGeneratorModal({
 
     try {
       setIsExporting(true);
-      const { blob, fileName } = await exportSitrepToDoc(sitrep);
+      const userFullName = user?.fullName || user?.displayName || '';
+      const { blob, fileName } = await exportSitrepToDoc(sitrep, { userFullName });
       
       // Show success message for export
       Alert.alert('Success', 'Document exported successfully!');
@@ -409,7 +410,8 @@ export function SitrepGeneratorModal({
       setIsExporting(true);
       
       // Generate the document
-      const { blob, fileName } = await exportSitrepToDoc(sitrep);
+      const userFullName = user?.fullName || user?.displayName || '';
+      const { blob, fileName } = await exportSitrepToDoc(sitrep, { userFullName });
       
       // Convert blob to File for upload
       const file = new File([blob], fileName, { type: 'application/msword' });
