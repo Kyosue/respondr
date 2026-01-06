@@ -16,4 +16,5 @@ export interface UserData {
   createdBy?: string;
   permissions?: string[];
   avatarUrl?: string;
+  viewedAt?: any; // Timestamp when user was viewed by admin (removes "new" status)
 }

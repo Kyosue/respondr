@@ -11,8 +11,8 @@ import {
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { HelpSupportModal } from './modals/HelpSupportModal';
 import { TermsModal } from './modals/TermsModal';
 

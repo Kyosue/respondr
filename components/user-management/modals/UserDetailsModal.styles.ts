@@ -136,16 +136,37 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
   userName: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 4,
     textAlign: 'center',
   },
   userEmail: {
     fontSize: 16,
     fontWeight: '400',
     textAlign: 'center',
+  },
+  newBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 2,
+  },
+  newBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   badgesContainer: {
     flexDirection: 'row',

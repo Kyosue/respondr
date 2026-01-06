@@ -466,7 +466,9 @@ export function NotificationButton({
           style={[
             styles.notificationButton,
             {
-              backgroundColor: `${colors.primary}15`,
+              backgroundColor: unreadCount > 0 
+                ? `${colors.primary}25` 
+                : `${colors.primary}15`,
               width: buttonSize,
               height: buttonSize,
               borderRadius: buttonSize / 2,
@@ -483,7 +485,7 @@ export function NotificationButton({
         <Ionicons 
           name="notifications-outline" 
           size={iconSize} 
-          color={colors.text} 
+          color={unreadCount > 0 ? colors.primary : colors.text} 
         />
         {unreadCount > 0 && (
           <View style={[

@@ -13,10 +13,14 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MobileModalSafeAreaWrapper, getMobileModalConfig } from '@/components/ui/MobileModalWrapper';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
+import { updateUser } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { UserData, UserStatus } from '@/types/UserData';
 import { UserType } from '@/types/UserType';
+import { useEffect } from 'react';
+import { serverTimestamp } from 'firebase/firestore';
 
 import { styles } from './UserDetailsModal.styles';
 
@@ -31,6 +35,56 @@ interface UserDetailsModalProps {
   onToggleStatus?: (user: UserData) => void;
 }
 
+// Check if a user is new (created within the last 7 days and not yet viewed by admin)
+function isNewUser(user: UserData): boolean {
+  // If user has been viewed, they're no longer "new"
+  if (user.viewedAt) return false;
+  
+  if (!user.createdAt) return false;
+  
+  try {
+    let createdAt: Date;
+    
+    // Handle Firestore Timestamp
+    if (user.createdAt && typeof user.createdAt === 'object' && 'toDate' in user.createdAt) {
+      createdAt = (user.createdAt as any).toDate();
+    }
+    // Handle Date object
+    else if (user.createdAt instanceof Date) {
+      createdAt = user.createdAt;
+    }
+    // Handle timestamp number
+    else if (typeof user.createdAt === 'number') {
+      createdAt = new Date(user.createdAt);
+    }
+    // Handle timestamp string or ISO string
+    else if (typeof user.createdAt === 'string') {
+      createdAt = new Date(user.createdAt);
+    }
+    // Handle seconds timestamp (Firestore format)
+    else if (user.createdAt && typeof user.createdAt === 'object' && 'seconds' in user.createdAt) {
+      createdAt = new Date((user.createdAt as any).seconds * 1000);
+    }
+    else {
+      return false;
+    }
+    
+    // Check if date is valid
+    if (isNaN(createdAt.getTime())) {
+      return false;
+    }
+    
+    const now = new Date();
+    const diffTime = now.getTime() - createdAt.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    
+    // Consider user "new" if created within last 7 days
+    return diffDays <= 7 && diffDays >= 0;
+  } catch (error) {
+    return false;
+  }
+}
+
 export function UserDetailsModal({
   user,
   visible,
@@ -42,6 +96,17 @@ export function UserDetailsModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
+  const { user: currentUser } = useAuth();
+
+  // Mark user as viewed when modal opens (only if admin and user is new)
+  useEffect(() => {
+    if (visible && user && currentUser && currentUser.userType === 'admin' && isNewUser(user) && !user.viewedAt) {
+      // Mark user as viewed
+      updateUser(user.id, { viewedAt: serverTimestamp() }).catch((error) => {
+        console.error('Error marking user as viewed:', error);
+      });
+    }
+  }, [visible, user?.id, currentUser?.userType, user?.viewedAt]);
 
   if (!user) return null;
 
@@ -135,6 +200,7 @@ export function UserDetailsModal({
   const statusColor = getStatusColor(user.status);
   const statusIcon = getStatusIcon(user.status);
   const userStatus = user.status || 'active';
+  const isNew = isNewUser(user);
 
   return (
     <Modal
@@ -195,9 +261,17 @@ export function UserDetailsModal({
             </View>
             
             <View style={styles.userInfoHeader}>
-              <ThemedText style={[styles.userName, { color: colors.text }]}>
-                {user.fullName}
-              </ThemedText>
+              <View style={styles.userNameRow}>
+                <ThemedText style={[styles.userName, { color: colors.text }]}>
+                  {user.fullName}
+                </ThemedText>
+                {isNew && (
+                  <View style={[styles.newBadge, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="sparkles" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <ThemedText style={styles.newBadgeText}>NEW</ThemedText>
+                  </View>
+                )}
+              </View>
               <ThemedText style={[styles.userEmail, { color: colors.text + '80' }]}>
                 {user.email}
               </ThemedText>
@@ -397,9 +471,17 @@ export function UserDetailsModal({
             </View>
             
             <View style={styles.userInfoHeader}>
-              <ThemedText style={[styles.userName, { color: colors.text }]}>
-                {user.fullName}
-              </ThemedText>
+              <View style={styles.userNameRow}>
+                <ThemedText style={[styles.userName, { color: colors.text }]}>
+                  {user.fullName}
+                </ThemedText>
+                {isNew && (
+                  <View style={[styles.newBadge, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="sparkles" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <ThemedText style={styles.newBadgeText}>NEW</ThemedText>
+                  </View>
+                )}
+              </View>
               <ThemedText style={[styles.userEmail, { color: colors.text + '80' }]}>
                 {user.email}
               </ThemedText>

@@ -55,6 +55,56 @@ function getStatusText(status: UserStatus | undefined): string {
   }
 }
 
+// Check if a user is new (created within the last 7 days and not yet viewed by admin)
+function isNewUser(user: UserData): boolean {
+  // If user has been viewed, they're no longer "new"
+  if (user.viewedAt) return false;
+  
+  if (!user.createdAt) return false;
+  
+  try {
+    let createdAt: Date;
+    
+    // Handle Firestore Timestamp
+    if (user.createdAt && typeof user.createdAt === 'object' && 'toDate' in user.createdAt) {
+      createdAt = (user.createdAt as any).toDate();
+    }
+    // Handle Date object
+    else if (user.createdAt instanceof Date) {
+      createdAt = user.createdAt;
+    }
+    // Handle timestamp number
+    else if (typeof user.createdAt === 'number') {
+      createdAt = new Date(user.createdAt);
+    }
+    // Handle timestamp string or ISO string
+    else if (typeof user.createdAt === 'string') {
+      createdAt = new Date(user.createdAt);
+    }
+    // Handle seconds timestamp (Firestore format)
+    else if (user.createdAt && typeof user.createdAt === 'object' && 'seconds' in user.createdAt) {
+      createdAt = new Date((user.createdAt as any).seconds * 1000);
+    }
+    else {
+      return false;
+    }
+    
+    // Check if date is valid
+    if (isNaN(createdAt.getTime())) {
+      return false;
+    }
+    
+    const now = new Date();
+    const diffTime = now.getTime() - createdAt.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    
+    // Consider user "new" if created within last 7 days
+    return diffDays <= 7 && diffDays >= 0;
+  } catch (error) {
+    return false;
+  }
+}
+
 // Sort users by status first (active first, then inactive, then suspended)
 // Then within each status group, sort by role (admin, supervisor, operator)
 function sortUsersByStatusAndRole(users: UserData[]): UserData[] {
@@ -103,9 +153,41 @@ export function UsersTable({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Sort users by status first (active first), then by role within each status group
-  // Users are already sorted in UserManagement, so we just use them as-is
-  const sortedUsers = useMemo(() => users, [users]);
+  // Sort users: new users first, then by status (active first), then by role within each status group
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const isNewA = isNewUser(a);
+      const isNewB = isNewUser(b);
+      
+      // New users first
+      if (isNewA && !isNewB) return -1;
+      if (!isNewA && isNewB) return 1;
+      
+      // If both are new or both are not new, sort by status and role
+      const statusOrder: Record<UserStatus | 'default', number> = {
+        active: 0,
+        inactive: 1,
+        suspended: 2,
+        default: 0,
+      };
+      
+      const roleOrder: Record<UserType, number> = {
+        admin: 0,
+        supervisor: 1,
+        operator: 2,
+      };
+      
+      const statusA = a.status || 'active';
+      const statusB = b.status || 'active';
+      const statusDiff = statusOrder[statusA] - statusOrder[statusB];
+      
+      if (statusDiff !== 0) {
+        return statusDiff;
+      }
+      
+      return roleOrder[a.userType] - roleOrder[b.userType];
+    });
+  }, [users]);
 
   // Calculate pagination
   const totalItems = sortedUsers.length;
@@ -200,11 +282,19 @@ export function UsersTable({
             const userTypeColor = getUserTypeColor(user.userType);
             const statusColor = getStatusColor(user.status);
             const statusText = getStatusText(user.status);
+            const isNew = isNewUser(user);
 
             return (
               <TouchableOpacity
                 key={user.id}
-                style={[styles.mobileItem, { borderColor: colors.border }]}
+                style={[
+                  styles.mobileItem, 
+                  { 
+                    borderColor: isNew ? colors.primary : colors.border,
+                    borderWidth: isNew ? 2 : 1,
+                    backgroundColor: isNew ? `${colors.primary}05` : 'transparent',
+                  }
+                ]}
                 onPress={() => onUserPress?.(user)}
                 activeOpacity={0.7}
               >
@@ -225,12 +315,20 @@ export function UsersTable({
                     )}
                   </View>
                   <View style={styles.mobileTitleContainer}>
-                    <ThemedText
-                      style={[styles.mobileTitle, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {user.fullName}
-                    </ThemedText>
+                    <View style={styles.mobileTitleRow}>
+                      <ThemedText
+                        style={[styles.mobileTitle, { color: colors.text }]}
+                        numberOfLines={2}
+                      >
+                        {user.fullName}
+                      </ThemedText>
+                      {isNew && (
+                        <View style={[styles.newBadge, { backgroundColor: colors.primary }]}>
+                          <Ionicons name="sparkles" size={10} color="#FFFFFF" style={{ marginRight: 3 }} />
+                          <ThemedText style={styles.newBadgeText}>NEW</ThemedText>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.mobileMetaRow}>
                       <View style={[styles.typeBadge, { backgroundColor: `${userTypeColor}20` }]}>
                         <ThemedText style={[styles.typeText, { color: userTypeColor }]}>
@@ -385,6 +483,7 @@ export function UsersTable({
         const userTypeColor = getUserTypeColor(user.userType);
         const statusColor = getStatusColor(user.status);
         const statusText = getStatusText(user.status);
+        const isNew = isNewUser(user);
 
         return (
           <TouchableOpacity
@@ -393,7 +492,11 @@ export function UsersTable({
               styles.tableRow,
               { 
                 borderBottomColor: colors.border,
-                backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`
+                backgroundColor: isNew 
+                  ? `${colors.primary}08` 
+                  : index % 2 === 0 ? 'transparent' : `${colors.primary}02`,
+                borderLeftWidth: isNew ? 3 : 0,
+                borderLeftColor: isNew ? colors.primary : 'transparent',
               }
             ]}
             onPress={() => onUserPress?.(user)}
@@ -417,9 +520,17 @@ export function UsersTable({
                   )}
                 </View>
                 <View style={styles.nameTextContainer}>
-                  <ThemedText style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
-                    {user.fullName}
-                  </ThemedText>
+                  <View style={styles.nameRow}>
+                    <ThemedText style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+                      {user.fullName}
+                    </ThemedText>
+                    {isNew && (
+                      <View style={[styles.newBadge, { backgroundColor: colors.primary }]}>
+                        <Ionicons name="sparkles" size={9} color="#FFFFFF" style={{ marginRight: 2 }} />
+                        <ThemedText style={styles.newBadgeText}>NEW</ThemedText>
+                      </View>
+                    )}
+                  </View>
                   {user.displayName !== user.fullName && (
                     <ThemedText style={[styles.tableCellSubtext, { color: colors.text, opacity: 0.6 }]} numberOfLines={1}>
                       {user.displayName}
@@ -951,6 +1062,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Gabarito',
     opacity: 0.5,
+  },
+  mobileTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  newBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 2,
+  },
+  newBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Gabarito',
+    letterSpacing: 0.5,
   },
 });
 
