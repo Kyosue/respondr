@@ -654,7 +654,7 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0f172a' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'transparent' }}>
       <View 
         style={Platform.OS === 'web' 
           ? [styles.container, { userSelect: 'none' }]

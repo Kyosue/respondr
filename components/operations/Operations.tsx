@@ -6,6 +6,7 @@ import { OperationRecord, operationsService } from '@/firebase/operations';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { DavaoOrientalMap } from './OperationsMap';
@@ -127,27 +128,55 @@ const Operations = React.memo(() => {
     >
       {isDesktop ? (
         <View style={styles.desktopLayout}>
-          <View style={[styles.mapContainer, styles.mapContainerDesktop, { backgroundColor: colors.surface }]}>
-            <DavaoOrientalMap 
-              width={screenDimensions.width}
-              height={screenDimensions.height}
-              onMunicipalityPress={handleMunicipalityPress}
-              selectedMunicipality={selectedMunicipality}
-              operationsByMunicipality={operationsByMunicipality}
-            />
-          </View>
+          <LinearGradient
+            colors={[
+              '#0a1a2e', // Deep ocean blue (top)
+              '#0d1f3a', // Medium deep blue
+              '#0f2547', // Ocean blue
+              '#1a3a5c', // Medium ocean blue
+              '#1e4a6b', // Lighter ocean blue
+              '#256a8a', // Shallow water blue (bottom)
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={[styles.mapContainer, styles.mapContainerDesktop]}
+          >
+            <View style={styles.oceanOverlay}>
+              <DavaoOrientalMap 
+                width={screenDimensions.width}
+                height={screenDimensions.height}
+                onMunicipalityPress={handleMunicipalityPress}
+                selectedMunicipality={selectedMunicipality}
+                operationsByMunicipality={operationsByMunicipality}
+              />
+            </View>
+          </LinearGradient>
         </View>
       ) : (
         <View style={styles.mobileLayout}>
-          <View style={[styles.mapContainer, { backgroundColor: colors.surface }]}>
-            <DavaoOrientalMap 
-              width={screenDimensions.width}
-              height={screenDimensions.height}
-              onMunicipalityPress={handleMunicipalityPress}
-              selectedMunicipality={selectedMunicipality}
-              operationsByMunicipality={operationsByMunicipality}
-            />
-          </View>
+          <LinearGradient
+            colors={[
+              '#0a1a2e', // Deep ocean blue (top)
+              '#0d1f3a', // Medium deep blue
+              '#0f2547', // Ocean blue
+              '#1a3a5c', // Medium ocean blue
+              '#1e4a6b', // Lighter ocean blue
+              '#256a8a', // Shallow water blue (bottom)
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.mapContainer}
+          >
+            <View style={styles.oceanOverlay}>
+              <DavaoOrientalMap 
+                width={screenDimensions.width}
+                height={screenDimensions.height}
+                onMunicipalityPress={handleMunicipalityPress}
+                selectedMunicipality={selectedMunicipality}
+                operationsByMunicipality={operationsByMunicipality}
+              />
+            </View>
+          </LinearGradient>
         </View>
       )}
 
@@ -200,10 +229,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     minHeight: 400, // Ensure minimum height for desktop
+    position: 'relative',
   },
   mapContainerDesktop: {
     flex: 1, // Map takes full width on desktop
     minWidth: 0, // Allow flexbox to shrink
+  },
+  oceanOverlay: {
+    flex: 1,
+    position: 'relative',
+    // Add subtle topographic depth effect with opacity layers
+    ...Platform.select({
+      web: {
+        background: `
+          radial-gradient(circle at 20% 30%, rgba(30, 58, 92, 0.3) 0%, transparent 50%),
+          radial-gradient(circle at 80% 70%, rgba(26, 58, 92, 0.2) 0%, transparent 50%),
+          radial-gradient(circle at 50% 50%, rgba(15, 37, 71, 0.15) 0%, transparent 60%)
+        `,
+      },
+      default: {},
+    }),
   },
 });
 

@@ -2,7 +2,7 @@ import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0f172a', // Modern dark slate background
+    backgroundColor: 'transparent', // Transparent to show ocean gradient background
     borderRadius: 16,
     position: 'relative',
     flex: 1,
