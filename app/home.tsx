@@ -89,7 +89,7 @@ export default function HomeScreen() {
     loadStations();
   }, []);
 
-  // Check all stations' availability on mount and when stations change
+  // Check all stations' availability on mount, when stations change, and periodically
   useEffect(() => {
     const checkAvailability = async () => {
       if (stations.length === 0) return;
@@ -97,17 +97,26 @@ export default function HomeScreen() {
       try {
         const availability = await checkStationsAvailability(stations);
         
-        // Update base stations
+        // Update base stations - only update if status changed to avoid unnecessary re-renders
         setBaseStations(prevStations =>
           prevStations.map(station => {
             const status = availability.get(station.id);
             if (status) {
-              return {
-                ...station,
-                isActive: status.isActive,
-                lastSeen: status.lastSeen,
-                apiAvailable: status.isActive,
-              };
+              // Only update if status actually changed
+              if (station.isActive !== status.isActive || 
+                  station.lastSeen?.getTime() !== status.lastSeen?.getTime()) {
+                return {
+                  ...station,
+                  isActive: status.isActive,
+                  lastSeen: status.lastSeen,
+                  apiAvailable: status.isActive,
+                };
+              }
+              return station; // No change, return as-is
+            }
+            // If no status found but station was active, keep it active (might be from successful fetch)
+            if (station.isActive && station.apiAvailable) {
+              return station; // Keep current status if it was set by successful data fetch
             }
             return {
               ...station,
@@ -117,17 +126,26 @@ export default function HomeScreen() {
           })
         );
         
-        // Update custom stations
+        // Update custom stations - only update if status changed
         setCustomStations(prevStations =>
           prevStations.map(station => {
             const status = availability.get(station.id);
             if (status) {
-              return {
-                ...station,
-                isActive: status.isActive,
-                lastSeen: status.lastSeen,
-                apiAvailable: status.isActive,
-              };
+              // Only update if status actually changed
+              if (station.isActive !== status.isActive || 
+                  station.lastSeen?.getTime() !== status.lastSeen?.getTime()) {
+                return {
+                  ...station,
+                  isActive: status.isActive,
+                  lastSeen: status.lastSeen,
+                  apiAvailable: status.isActive,
+                };
+              }
+              return station; // No change, return as-is
+            }
+            // If no status found but station was active, keep it active (might be from successful fetch)
+            if (station.isActive && station.apiAvailable) {
+              return station; // Keep current status if it was set by successful data fetch
             }
             return {
               ...station,
@@ -137,25 +155,53 @@ export default function HomeScreen() {
           })
         );
       } catch (error) {
-        // Error checking availability - mark all as inactive
+        // Error checking availability - only mark as inactive if they weren't already active from data fetch
         setBaseStations(prevStations =>
-          prevStations.map(station => ({
-            ...station,
-            isActive: false,
-            apiAvailable: false,
-          }))
+          prevStations.map(station => {
+            // If station was marked active from successful data fetch, keep it active
+            if (station.isActive && station.apiAvailable && station.lastSeen) {
+              // Check if lastSeen is recent (within last 2 hours) to keep it active
+              const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+              if (station.lastSeen.getTime() >= twoHoursAgo) {
+                return station;
+              }
+            }
+            return {
+              ...station,
+              isActive: false,
+              apiAvailable: false,
+            };
+          })
         );
         setCustomStations(prevStations =>
-          prevStations.map(station => ({
-            ...station,
-            isActive: false,
-            apiAvailable: false,
-          }))
+          prevStations.map(station => {
+            // If station was marked active from successful data fetch, keep it active
+            if (station.isActive && station.apiAvailable && station.lastSeen) {
+              // Check if lastSeen is recent (within last 2 hours) to keep it active
+              const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+              if (station.lastSeen.getTime() >= twoHoursAgo) {
+                return station;
+              }
+            }
+            return {
+              ...station,
+              isActive: false,
+              apiAvailable: false,
+            };
+          })
         );
       }
     };
     
+    // Check immediately
     checkAvailability();
+    
+    // Also check periodically (every 5 minutes) to update availability status
+    const intervalId = setInterval(() => {
+      checkAvailability();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(intervalId);
   }, [stations.length]); // Only check when station count changes to avoid infinite loops
   
   // Get location-based default station on mount
