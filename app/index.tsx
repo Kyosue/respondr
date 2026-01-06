@@ -39,6 +39,27 @@ export default function IndexScreen() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { isDesktop } = useScreenSize();
   
+  // Redirect to home page immediately on web (home is the landing page)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // On web, redirect to home page for unauthenticated users
+      // This makes home.tsx the first page visitors see
+      if (!isLoading && !isAuthenticated) {
+        router.replace('/home');
+        return;
+      }
+      // Also redirect if we're still loading but no user exists
+      if (isLoading && !user) {
+        const redirectTimer = setTimeout(() => {
+          if (!isAuthenticated) {
+            router.replace('/home');
+          }
+        }, 100);
+        return () => clearTimeout(redirectTimer);
+      }
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+  
   // Animation values (persist across renders)
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -132,28 +153,32 @@ export default function IndexScreen() {
     }
   }, [activeTab]);
 
-  // Redirect to login if not authenticated
-  // Optimistically redirect if no user, even while loading (faster UX)
+  // Redirect to login if not authenticated (for native apps)
+  // Note: Web users are already redirected to /home above
   useEffect(() => {
-    // If we've checked auth and user is not authenticated, redirect immediately
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-    // Also redirect immediately if auth is loading but we already know there's no user
-    // This prevents showing loading screen unnecessarily when user is clearly not logged in
-    else if (isLoading && !user) {
-      // Set a short timeout to allow auth to resolve quickly, but don't wait too long
-      const redirectTimer = setTimeout(() => {
-        // Only redirect if still loading and no user after 300ms
-        // This gives Firebase a chance to respond quickly, but doesn't wait the full timeout
-        if (!isAuthenticated) {
-          router.replace('/login');
-        }
-      }, 300);
-      
-      return () => clearTimeout(redirectTimer);
+    if (Platform.OS !== 'web') {
+      // For native apps, redirect to login if not authenticated
+      if (!isLoading && !isAuthenticated) {
+        router.replace('/login');
+      }
+      else if (isLoading && !user) {
+        const redirectTimer = setTimeout(() => {
+          if (!isAuthenticated) {
+            router.replace('/login');
+          }
+        }, 300);
+        return () => clearTimeout(redirectTimer);
+      }
     }
   }, [isLoading, isAuthenticated, user, router]);
+
+  // On web, redirect to home page if not authenticated (home is the landing page)
+  if (Platform.OS === 'web' && !isAuthenticated) {
+    // Don't wait for loading to complete - redirect immediately to show home page
+    if (!isLoading || !user) {
+      return null; // Will redirect via useEffect
+    }
+  }
 
   // Show loading state if auth is still loading
   if (isLoading) {
@@ -161,6 +186,7 @@ export default function IndexScreen() {
   }
 
   // Don't render anything if not authenticated (will redirect)
+  // Note: For native apps, this redirects to /login
   if (!isAuthenticated) {
     return null;
   }

@@ -36,6 +36,11 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+  },
   userInfo: {
     flex: 1,
   },

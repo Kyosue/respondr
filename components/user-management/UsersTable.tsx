@@ -1,12 +1,12 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
+import { UserData, UserStatus, UserType } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
-import { UserData, UserStatus, UserType } from '@/firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface UsersTableProps {
   users: UserData[];
@@ -209,11 +209,13 @@ export function UsersTable({
                 activeOpacity={0.7}
               >
                 <View style={styles.mobileItemHeader}>
-                  <View style={[styles.avatarContainer, { backgroundColor: `${userTypeColor}20` }]}>
-                    {user.avatarUrl ? (
-                      <View style={styles.avatarImage}>
-                        <Ionicons name="person" size={20} color={userTypeColor} />
-                      </View>
+                  <View style={[styles.avatarContainer, { backgroundColor: user?.avatarUrl ? 'transparent' : `${userTypeColor}20` }]}>
+                    {user?.avatarUrl ? (
+                      <Image 
+                        source={{ uri: user.avatarUrl }} 
+                        style={styles.avatarImage}
+                        resizeMode="cover"
+                      />
                     ) : (
                       <Ionicons 
                         name={getUserTypeIcon(user.userType) as any} 
@@ -399,11 +401,13 @@ export function UsersTable({
           >
             <View style={[styles.tableCell, styles.tableCellName]}>
               <View style={styles.userNameCell}>
-                <View style={[styles.avatarContainer, styles.tableAvatarContainer, { backgroundColor: `${userTypeColor}20` }]}>
-                  {user.avatarUrl ? (
-                    <View style={styles.avatarImage}>
-                      <Ionicons name="person" size={18} color={userTypeColor} />
-                    </View>
+                <View style={[styles.avatarContainer, styles.tableAvatarContainer, { backgroundColor: user?.avatarUrl ? 'transparent' : `${userTypeColor}20` }]}>
+                  {user?.avatarUrl ? (
+                    <Image 
+                      source={{ uri: user.avatarUrl }} 
+                      style={styles.avatarImage}
+                      resizeMode="cover"
+                    />
                   ) : (
                     <Ionicons 
                       name={getUserTypeIcon(user.userType) as any} 
@@ -761,8 +765,7 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 20,
   },
   nameTextContainer: {
     flex: 1,

@@ -17,15 +17,15 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    Image,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -34,16 +34,16 @@ export default function HomeScreen() {
   const { isDark } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  const { isMobile } = useScreenSize();
+  const { isMobile, width } = useScreenSize();
   
-  // Redirect mobile users to login (home page is web-only)
+  // Redirect native app users to login (home page is web-only, but works on mobile browsers)
   useEffect(() => {
     if (Platform.OS !== 'web') {
       router.replace('/login');
     }
   }, [router]);
 
-  // Don't render on mobile
+  // Don't render on native apps
   if (Platform.OS !== 'web') {
     return null;
   }
@@ -396,7 +396,7 @@ export default function HomeScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Top Navigation Bar */}
         <View style={[styles.navBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <View style={styles.navContent}>
+          <View style={[styles.navContent, isMobile && styles.navContentMobile]}>
             {/* Logo and App Name */}
             <TouchableOpacity 
               style={styles.navLeft}
@@ -407,51 +407,78 @@ export default function HomeScreen() {
               }}
               activeOpacity={0.7}
             >
-              <View style={[styles.navLogoContainer, { backgroundColor: `${colors.primary}10` }]}>
+              <View style={[
+                styles.navLogoContainer, 
+                { backgroundColor: `${colors.primary}10` },
+                isMobile && styles.navLogoContainerMobile
+              ]}>
                 <Image
                   source={require('@/assets/images/respondr_foreground.png')}
-                  style={styles.navLogo}
+                  style={[styles.navLogo, isMobile && styles.navLogoMobile]}
                   resizeMode="contain"
                 />
               </View>
-              <View style={styles.navTitleContainer}>
-                <ThemedText type="title" style={[styles.navTitle, { color: colors.text }]}>
-                  Respondr
-                </ThemedText>
-                <ThemedText style={[styles.navSubtitle, { color: colors.text }]}>
-                  Weather Monitoring
-                </ThemedText>
-              </View>
+              {!isMobile && (
+                <View style={styles.navTitleContainer}>
+                  <ThemedText type="title" style={[styles.navTitle, { color: colors.text }]}>
+                    Respondr
+                  </ThemedText>
+                  <ThemedText style={[styles.navSubtitle, { color: colors.text }]}>
+                    Weather Monitoring
+                  </ThemedText>
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Sign In and Sign Up Buttons */}
-            <View style={styles.navRight}>
-              <TouchableOpacity 
-                style={[styles.navSignInButton, { borderColor: colors.primary }]}
-                onPress={() => router.push('/login')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="log-in-outline" size={18} color={colors.primary} />
-                <ThemedText style={[styles.navSignInText, { color: colors.primary }]}>
-                  Sign In
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.navSignUpButton, { backgroundColor: colors.primary }]}
-                onPress={() => router.push('/signup')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
-                <ThemedText style={styles.navSignUpText}>
-                  Sign Up
-                </ThemedText>
-              </TouchableOpacity>
+            <View style={[styles.navRight, isMobile && styles.navRightMobile]}>
+              {isMobile ? (
+                <>
+                  <TouchableOpacity 
+                    style={[styles.navSignInButton, { borderColor: colors.primary }, styles.navButtonMobile]}
+                    onPress={() => router.push('/login')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="log-in-outline" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.navSignUpButton, { backgroundColor: colors.primary }, styles.navButtonMobile]}
+                    onPress={() => router.push('/signup')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={[styles.navSignInButton, { borderColor: colors.primary }]}
+                    onPress={() => router.push('/login')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="log-in-outline" size={18} color={colors.primary} />
+                    <ThemedText style={[styles.navSignInText, { color: colors.primary }]}>
+                      Sign In
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.navSignUpButton, { backgroundColor: colors.primary }]}
+                    onPress={() => router.push('/signup')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
+                    <ThemedText style={styles.navSignUpText}>
+                      Sign Up
+                    </ThemedText>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         </View>
 
         <ScrollView 
-          contentContainerStyle={styles.scrollView}
+          contentContainerStyle={[styles.scrollView, isMobile && styles.scrollViewMobile]}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -463,69 +490,117 @@ export default function HomeScreen() {
         >
           <View style={styles.container}>
             {/* Hero Section */}
-            <View style={styles.heroSection}>
-              <View style={[styles.heroIconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name="partly-sunny" size={64} color={colors.primary} />
+            <View style={[styles.heroSection, isMobile && styles.heroSectionMobile]}>
+              <View style={[styles.heroIconContainer, { backgroundColor: `${colors.primary}15` }, isMobile && styles.heroIconContainerMobile]}>
+                <Ionicons name="partly-sunny" size={isMobile ? 48 : 64} color={colors.primary} />
               </View>
-              <ThemedText type="title" style={[styles.heroTitle, { color: colors.text }]}>
+              <ThemedText type="title" style={[styles.heroTitle, { color: colors.text }, isMobile && styles.heroTitleMobile]}>
                 PDRRMO Real-time Weather Monitoring
               </ThemedText>
-              <ThemedText style={[styles.heroSubtitle, { color: colors.text }]}>
+              <ThemedText style={[styles.heroSubtitle, { color: colors.text }, isMobile && styles.heroSubtitleMobile]}>
                 Track weather conditions across all municipalities in Davao Oriental. Get instant access to temperature, humidity, rainfall, and wind data to stay informed and prepared.
               </ThemedText>
               
               {/* Feature Highlights */}
-              <View style={styles.featureGrid}>
-                <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Ionicons name="time-outline" size={24} color={colors.primary} />
-                  <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
-                    Real-time Data
-                  </ThemedText>
-                  <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
-                    Live updates every hour
-                  </ThemedText>
+              {isMobile ? (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.featureGridMobile}
+                  style={{ width: '100%' }}
+                >
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="time-outline" size={20} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
+                      Real-time Data
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }, styles.featureDescriptionMobile]}>
+                      Live updates every hour
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="location-outline" size={20} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
+                      All Municipalities
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }, styles.featureDescriptionMobile]}>
+                      Coverage across Davao Oriental
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
+                      Historical Analytics
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }, styles.featureDescriptionMobile]}>
+                      7-day trends and patterns
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
+                      PAGASA Alerts
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }, styles.featureDescriptionMobile]}>
+                      Official rainfall advisories
+                    </ThemedText>
+                  </View>
+                </ScrollView>
+              ) : (
+                <View style={styles.featureGrid}>
+                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="time-outline" size={24} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
+                      Real-time Data
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
+                      Live updates every hour
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="location-outline" size={24} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
+                      All Municipalities
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
+                      Coverage across Davao Oriental
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="analytics-outline" size={24} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
+                      Historical Analytics
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
+                      7-day trends and patterns
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="shield-checkmark-outline" size={24} color={colors.primary} />
+                    <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
+                      PAGASA Alerts
+                    </ThemedText>
+                    <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
+                      Official rainfall advisories
+                    </ThemedText>
+                  </View>
                 </View>
-                <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Ionicons name="location-outline" size={24} color={colors.primary} />
-                  <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
-                    All Municipalities
-                  </ThemedText>
-                  <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
-                    Coverage across Davao Oriental
-                  </ThemedText>
-                </View>
-                <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Ionicons name="analytics-outline" size={24} color={colors.primary} />
-                  <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
-                    Historical Analytics
-                  </ThemedText>
-                  <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
-                    7-day trends and patterns
-                  </ThemedText>
-                </View>
-                <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color={colors.primary} />
-                  <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
-                    PAGASA Alerts
-                  </ThemedText>
-                  <ThemedText style={[styles.featureDescription, { color: colors.text }]}>
-                    Official rainfall advisories
-                  </ThemedText>
-                </View>
-              </View>
+              )}
             </View>
 
             {/* Section Header */}
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, isMobile && styles.sectionHeaderMobile]}>
               <View style={styles.sectionHeaderContent}>
-                <Ionicons name="map-outline" size={24} color={colors.primary} />
-                <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colors.text }]}>
+                <Ionicons name="map-outline" size={isMobile ? 20 : 24} color={colors.primary} />
+                <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colors.text }, isMobile && styles.sectionTitleMobile]}>
                   Select Weather Station
                 </ThemedText>
               </View>
-              <ThemedText style={[styles.sectionDescription, { color: colors.text }]}>
-                Choose a municipality to view detailed weather information
-              </ThemedText>
+              {!isMobile && (
+                <ThemedText style={[styles.sectionDescription, { color: colors.text }]}>
+                  Choose a municipality to view detailed weather information
+                </ThemedText>
+              )}
             </View>
 
             {/* Weather Station Selector */}
@@ -558,16 +633,18 @@ export default function HomeScreen() {
             ) : currentData ? (
               <>
                 {/* Section Header for Weather Data */}
-                <View style={styles.sectionHeader}>
+                <View style={[styles.sectionHeader, isMobile && styles.sectionHeaderMobile]}>
                   <View style={styles.sectionHeaderContent}>
-                    <Ionicons name="stats-chart-outline" size={24} color={colors.primary} />
-                    <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colors.text }]}>
-                      Weather Data for {selectedStation?.municipality.name}
+                    <Ionicons name="stats-chart-outline" size={isMobile ? 20 : 24} color={colors.primary} />
+                    <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colors.text }, isMobile && styles.sectionTitleMobile]}>
+                      {isMobile ? 'Weather Data' : `Weather Data for ${selectedStation?.municipality.name}`}
                     </ThemedText>
                   </View>
-                  <ThemedText style={[styles.sectionDescription, { color: colors.text }]}>
-                    Comprehensive weather metrics and historical analysis
-                  </ThemedText>
+                  {!isMobile && (
+                    <ThemedText style={[styles.sectionDescription, { color: colors.text }]}>
+                      Comprehensive weather metrics and historical analysis
+                    </ThemedText>
+                  )}
                 </View>
 
                 {/* Current Weather Metrics */}
@@ -700,6 +777,10 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  navContentMobile: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   navLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -727,9 +808,19 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  navLogoContainerMobile: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    marginRight: 0,
+  },
   navLogo: {
     width: navLogoSize,
     height: navLogoSize,
+  },
+  navLogoMobile: {
+    width: 32,
+    height: 32,
   },
   navTitleContainer: {
     flexDirection: 'column',
@@ -763,6 +854,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  navRightMobile: {
+    gap: 8,
+  },
   navSignInButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -788,6 +882,16 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
     }),
+  },
+  navButtonMobile: {
+    width: 40,
+    height: 40,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    minHeight: 40,
+    marginRight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   navSignInText: {
     fontSize: 15,
@@ -844,6 +948,11 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: Platform.OS === 'web' ? 40 : 100,
   },
+  scrollViewMobile: {
+    padding: 16,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
   container: {
     flex: 1,
     alignItems: 'center',
@@ -854,6 +963,9 @@ const styles = StyleSheet.create({
     marginBottom: 48,
     width: '100%',
     maxWidth: 1200,
+  },
+  heroSectionMobile: {
+    marginBottom: 32,
   },
   heroIconContainer: {
     width: 120,
@@ -870,6 +982,12 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  heroIconContainerMobile: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+  },
   heroTitle: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -882,6 +1000,11 @@ const styles = StyleSheet.create({
         marginBottom: 20,
       },
     }),
+  },
+  heroTitleMobile: {
+    fontSize: 24,
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   heroSubtitle: {
     fontSize: 16,
@@ -898,6 +1021,12 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  heroSubtitleMobile: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
   featureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -908,6 +1037,11 @@ const styles = StyleSheet.create({
         marginHorizontal: -12,
       },
     }),
+  },
+  featureGridMobile: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   featureCard: {
     flex: 1,
@@ -926,6 +1060,14 @@ const styles = StyleSheet.create({
         borderRadius: 20,
       },
     }),
+  },
+  featureCardMobile: {
+    flex: 0,
+    minWidth: 140,
+    width: 140,
+    padding: 16,
+    marginHorizontal: 8,
+    marginBottom: 0,
   },
   featureTitle: {
     fontSize: 16,
@@ -951,6 +1093,15 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  featureTitleMobile: {
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  featureDescriptionMobile: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
   sectionHeader: {
     width: '100%',
     maxWidth: 1200,
@@ -961,6 +1112,10 @@ const styles = StyleSheet.create({
         marginBottom: 32,
       },
     }),
+  },
+  sectionHeaderMobile: {
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   sectionHeaderContent: {
     flexDirection: 'row',
@@ -978,6 +1133,10 @@ const styles = StyleSheet.create({
         marginLeft: 12,
       },
     }),
+  },
+  sectionTitleMobile: {
+    fontSize: 18,
+    marginLeft: 8,
   },
   sectionDescription: {
     fontSize: 14,

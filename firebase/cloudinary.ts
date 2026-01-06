@@ -465,5 +465,25 @@ export const imageUtils = {
       quality: 'auto',
       format: 'auto'
     });
+  },
+
+  // Upload user avatar image
+  async uploadUserAvatar(file: File | Blob | string, userId: string): Promise<CloudinaryUploadResult> {
+    return cloudinaryService.uploadImage(file, {
+      folder: `users/${userId}/avatars`,
+      tags: ['user', 'avatar', userId]
+    });
+  },
+
+  // Generate user avatar image URL
+  generateUserAvatarUrl(publicId: string, size: number = 200): string {
+    return cloudinaryService.generateImageUrl(publicId, {
+      width: size,
+      height: size,
+      crop: 'fill',
+      gravity: 'face',
+      quality: 'auto',
+      format: 'auto'
+    });
   }
 };

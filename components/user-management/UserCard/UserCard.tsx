@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
 import {
+  Image,
   Platform,
   TouchableOpacity,
   View
@@ -98,10 +99,18 @@ export const UserCard = memo(function UserCard({
       >
         <View style={styles.leftSection}>
           <View style={styles.avatarContainer}>
-            <View style={[styles.userAvatar, { backgroundColor: userTypeColor }]}>
-              <ThemedText style={styles.avatarText}>
-                {user.fullName.charAt(0).toUpperCase()}
-              </ThemedText>
+            <View style={[styles.userAvatar, { backgroundColor: user?.avatarUrl ? 'transparent' : userTypeColor }]}>
+              {user?.avatarUrl ? (
+                <Image 
+                  source={{ uri: user.avatarUrl }} 
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <ThemedText style={styles.avatarText}>
+                  {user.fullName.charAt(0).toUpperCase()}
+                </ThemedText>
+              )}
             </View>
             {/* Status indicator */}
             <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>

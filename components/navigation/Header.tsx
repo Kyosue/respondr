@@ -2,18 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  Animated,
-  Image,
-  Modal,
-  Platform,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    Animated,
+    Image,
+    Modal,
+    Platform,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { LogoutModal } from '@/components/modals/LogoutModal';
 import { ThemedText } from '@/components/ThemedText';
 import { NotificationButton } from '@/components/ui/NotificationButton';
+import { ProfileButton } from '@/components/ui/ProfileButton';
 import { getMenuItems } from '@/config/navigation';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,16 +40,15 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
   // Get menu items based on user role
   const menuItems = user?.userType ? getMenuItems(user.userType) : [];
 
-
-  // Map user role to color (match UserCard logic)
-  const getUserTypeColor = (userType?: 'admin' | 'supervisor' | 'operator') => {
-    switch (userType) {
-      case 'admin': return '#EF4444'; // red
-      case 'supervisor': return '#F59E0B'; // orange
-      case 'operator': return '#3B82F6'; // blue
-      default: return colors.primary; // fallback
-    }
+  // Get first and last word from user's full name
+  const getUserDisplayName = (fullName?: string) => {
+    if (!fullName) return '';
+    const nameParts = fullName.trim().split(/\s+/);
+    if (nameParts.length === 1) return nameParts[0];
+    return `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
   };
+
+  const displayName = getUserDisplayName(user?.fullName || userName);
 
   const toggleMenu = () => {
     if (menuVisible) {
@@ -93,9 +93,6 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
     }
   };
 
-  // Get first letter of name for avatar placeholder
-  const nameInitial = userName.charAt(0).toUpperCase();
-
   return (
     <>
       <View style={styles.header}>
@@ -107,6 +104,14 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
           />
         </TouchableOpacity>
         
+        {displayName ? (
+          <View style={styles.nameContainer}>
+            <ThemedText style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
+              {displayName}
+            </ThemedText>
+          </View>
+        ) : null}
+        
         <View style={styles.rightSection}>
           <NotificationButton
             buttonSize={36}
@@ -115,11 +120,13 @@ export function Header({ userName, onTabChange, currentTab }: HeaderProps) {
             dropdownMaxHeight={400}
             onNavigate={onTabChange}
           />
-          <View style={[styles.avatar, { backgroundColor: getUserTypeColor(user?.userType as any) }]}>
-            <ThemedText style={styles.avatarText} darkColor="#000" lightColor="#fff">
-              {nameInitial}
-            </ThemedText>
-          </View>
+          <ProfileButton
+            buttonSize={36}
+            iconSize={16}
+            dropdownWidth={320}
+            dropdownMaxHeight={600}
+            dropdownHeightPercentage={0.9}
+          />
         </View>
       </View>
 
@@ -239,21 +246,19 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: 8,
   },
+  nameContainer: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,

@@ -97,6 +97,7 @@ export const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -113,6 +114,11 @@ export const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  largeAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
   },
   statusIndicator: {
     position: 'absolute',

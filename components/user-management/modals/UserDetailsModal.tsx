@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Animated,
   Dimensions,
+  Image,
   Modal,
   ScrollView,
   TouchableOpacity,
@@ -174,10 +175,18 @@ export function UserDetailsModal({
           {/* User Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              <View style={[styles.largeAvatar, { backgroundColor: userTypeColor }]}>
-                <ThemedText style={styles.largeAvatarText}>
-                  {user.fullName.charAt(0).toUpperCase()}
-                </ThemedText>
+              <View style={[styles.largeAvatar, { backgroundColor: user?.avatarUrl ? 'transparent' : userTypeColor }]}>
+                {user?.avatarUrl ? (
+                  <Image 
+                    source={{ uri: user.avatarUrl }} 
+                    style={styles.largeAvatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <ThemedText style={styles.largeAvatarText}>
+                    {user.fullName.charAt(0).toUpperCase()}
+                  </ThemedText>
+                )}
               </View>
               {/* Status indicator */}
               <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
@@ -368,10 +377,18 @@ export function UserDetailsModal({
           {/* User Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              <View style={[styles.largeAvatar, { backgroundColor: userTypeColor }]}>
-                <ThemedText style={styles.largeAvatarText}>
-                  {user.fullName.charAt(0).toUpperCase()}
-                </ThemedText>
+              <View style={[styles.largeAvatar, { backgroundColor: user?.avatarUrl ? 'transparent' : userTypeColor }]}>
+                {user?.avatarUrl ? (
+                  <Image 
+                    source={{ uri: user.avatarUrl }} 
+                    style={styles.largeAvatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <ThemedText style={styles.largeAvatarText}>
+                    {user.fullName.charAt(0).toUpperCase()}
+                  </ThemedText>
+                )}
               </View>
               {/* Status indicator */}
               <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>

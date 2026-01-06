@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Modal,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  Modal,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -84,9 +85,37 @@ export function ImageSelectionModal({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      {...Platform.select({
+        web: {
+          // @ts-ignore - web-specific prop
+          presentationStyle: 'overFullScreen',
+        },
+      })}
     >
-      <View style={styles.overlay}>
-        <ThemedView style={[styles.modal, { backgroundColor: colors.background }]}>
+      <View 
+        style={styles.overlay}
+        {...Platform.select({
+          web: {
+            // @ts-ignore - web-specific style
+            onClick: (e: any) => {
+              if (e.target === e.currentTarget) {
+                onClose();
+              }
+            },
+          },
+        })}
+      >
+        <ThemedView 
+          style={[styles.modal, { backgroundColor: colors.background }]}
+          {...Platform.select({
+            web: {
+              // @ts-ignore - web-specific style
+              onClick: (e: any) => {
+                e.stopPropagation();
+              },
+            },
+          })}
+        >
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.title}>Select Image</ThemedText>
@@ -176,6 +205,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    ...Platform.select({
+      web: {
+        position: 'fixed' as any,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999999,
+        display: 'flex',
+        flexDirection: 'column',
+        margin: 0,
+      } as any,
+      default: {
+        zIndex: 10000,
+      },
+    }),
   },
   modal: {
     width: '100%',
@@ -190,6 +237,15 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 8,
+    ...Platform.select({
+      web: {
+        zIndex: 1000000,
+        position: 'relative' as any,
+        margin: 'auto',
+        boxShadow: '0 12px 32px rgba(0,0,0,0.3)',
+      } as any,
+      default: {},
+    }),
   },
   header: {
     flexDirection: 'row',
@@ -259,3 +315,5 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+
+

@@ -74,7 +74,7 @@ export function DashboardMetrics({
                   <>
                     <View style={styles.mobileTopRow}>
                       <View style={[styles.iconBackground, styles.iconBackgroundMobile, { backgroundColor: `${metric.color}20` }]}>
-                        <Ionicons name={metric.icon} size={20} color="#FFFFFF" />
+                        <Ionicons name={metric.icon} size={16} color="#FFFFFF" />
                       </View>
                       <ThemedText style={styles.metricValueMobile}>
                         {metric.value}
@@ -120,9 +120,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   metricsContainerMobile: {
-    gap: 12,
+    gap: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   metricCard: {
     flex: 1,
@@ -136,8 +137,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   metricCardMobile: {
-    width: '48%',
-    minWidth: '48%',
+    width: '31%',
+    minWidth: '31%',
     flex: 0,
     marginBottom: 0,
     shadowOpacity: 0.1,
@@ -151,8 +152,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gradientCardMobile: {
-    padding: 12,
-    minHeight: 95,
+    padding: 10,
+    minHeight: 85,
     justifyContent: 'flex-start',
   },
   metricContent: {
@@ -167,8 +168,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
     width: '100%',
+    gap: 4,
   },
   iconBackground: {
     width: 48,
@@ -180,9 +182,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   iconBackgroundMobile: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
   metricTextContainer: {
     flex: 1,
@@ -212,13 +214,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   metricLabelMobile: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#FFFFFF',
     opacity: 0.9,
     fontWeight: '500',
     fontFamily: 'Gabarito',
-    lineHeight: 14,
+    lineHeight: 13,
     textAlign: 'left',
+    marginTop: 4,
   },
 });
 

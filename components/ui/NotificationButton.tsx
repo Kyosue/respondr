@@ -12,6 +12,8 @@ interface NotificationButtonProps {
   iconSize?: number;
   dropdownWidth?: number;
   dropdownMaxHeight?: number;
+  dropdownHeight?: number; // Explicit height for mobile (overrides percentage)
+  dropdownHeightPercentage?: number; // Percentage of screen height for mobile (default: 0.85 = 85%)
   onNavigate?: (tab: string, params?: any) => void;
 }
 
@@ -19,7 +21,9 @@ export function NotificationButton({
   buttonSize = 40,
   iconSize = 20,
   dropdownWidth = 360,
-  dropdownMaxHeight = 500,
+  dropdownMaxHeight = 800,
+  dropdownHeight = 650,
+  dropdownHeightPercentage = 0.85, // 85% of screen height by default
   onNavigate,
 }: NotificationButtonProps) {
   const colorScheme = useColorScheme();
@@ -103,6 +107,21 @@ export function NotificationButton({
   const buttonRef = useRef<View>(null);
   const isWeb = Platform.OS === 'web';
   const slideAnim = useRef(new Animated.Value(isWeb ? dropdownWidth : 0)).current;
+
+  // Calculate mobile height - explicit height takes precedence, then percentage, then maxHeight
+  const screenHeight = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
+  const calculatedMobileHeight = dropdownHeight 
+    ? Math.min(dropdownHeight, screenHeight - 100) // Ensure it doesn't exceed screen
+    : Math.min(
+        screenHeight * dropdownHeightPercentage,
+        dropdownMaxHeight,
+        screenHeight - 100 // Leave some margin
+      );
+  const mobileHeight = calculatedMobileHeight;
+  const mobileWidth = Math.min(dropdownWidth + 40, screenWidth - 24);
+  const mobileTop = (screenHeight - mobileHeight) / 2;
+  const mobileLeft = (screenWidth - mobileWidth) / 2;
 
   // Measure button position
   const handleButtonLayout = () => {
@@ -246,13 +265,15 @@ export function NotificationButton({
               height: Dimensions.get('window').height - 32,
               maxHeight: Dimensions.get('window').height - 32,
             } : {
-              maxHeight: dropdownMaxHeight,
-              // Mobile: center the dropdown with increased width
+              // Mobile: center the dropdown with explicit height controls
               position: 'absolute' as const,
-              top: (Dimensions.get('window').height - Math.min(dropdownMaxHeight, Dimensions.get('window').height - 100)) / 2,
-              left: (Dimensions.get('window').width - Math.min(dropdownWidth + 40, Dimensions.get('window').width - 24)) / 2,
-              maxWidth: Dimensions.get('window').width - 24,
-              width: Math.min(dropdownWidth + 40, Dimensions.get('window').width - 24),
+              top: mobileTop,
+              left: mobileLeft,
+              width: mobileWidth,
+              height: mobileHeight,
+              maxHeight: mobileHeight,
+              minHeight: mobileHeight,
+              maxWidth: screenWidth - 24,
             }),
           },
         ]}
@@ -632,7 +653,7 @@ const styles = StyleSheet.create({
         // maxHeight removed for web to allow full height
       },
       default: {
-        maxHeight: 400,
+        // Height is controlled by parent container
       },
     }),
   },
