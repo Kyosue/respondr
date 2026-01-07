@@ -477,9 +477,8 @@ export async function fetchWeatherFromFirebase(municipalityName?: string, exactD
 /**
  * Open-Meteo API (Recommended - Completely Free, No API Key)
  * Best for: Historical data, forecasts, and current weather
- * DISABLED: Commented out per user request
  */
-/* export async function fetchWeatherFromOpenMeteo(
+export async function fetchWeatherFromOpenMeteo(
   lat: number,
   lon: number
 ): Promise<WeatherApiResponse | null> {
@@ -505,13 +504,12 @@ export async function fetchWeatherFromFirebase(municipalityName?: string, exactD
       // Open-Meteo API error
     return null;
   }
-} */
+}
 
 /**
  * Fetch historical weather data from Open-Meteo
- * DISABLED: Commented out per user request
  */
-/* export async function fetchHistoricalWeatherFromOpenMeteo(
+export async function fetchHistoricalWeatherFromOpenMeteo(
   lat: number,
   lon: number,
   startDate: Date,
@@ -635,14 +633,13 @@ export async function fetchWeatherFromFirebase(municipalityName?: string, exactD
       // Open-Meteo Historical API error
     return [];
   }
-} */
+}
 
 /**
  * OpenWeatherMap API (Requires API Key)
  * Free tier: 1,000 calls/day
- * DISABLED: Commented out per user request
  */
-/* export async function fetchWeatherFromOpenWeatherMap(
+export async function fetchWeatherFromOpenWeatherMap(
   lat: number,
   lon: number
 ): Promise<WeatherApiResponse | null> {
@@ -671,14 +668,13 @@ export async function fetchWeatherFromFirebase(municipalityName?: string, exactD
       // OpenWeatherMap API error
     return null;
   }
-} */
+}
 
 /**
  * WeatherAPI.com (Requires API Key)
  * Free tier: 1 million calls/month
- * DISABLED: Commented out per user request
  */
-/* export async function fetchWeatherFromWeatherAPI(
+export async function fetchWeatherFromWeatherAPI(
   lat: number,
   lon: number
 ): Promise<WeatherApiResponse | null> {
@@ -708,7 +704,7 @@ export async function fetchWeatherFromFirebase(municipalityName?: string, exactD
       // WeatherAPI error
     return null;
   }
-} */
+}
 
 /**
  * Check if a municipality name refers to Mati City
@@ -764,19 +760,42 @@ export async function fetchWeatherData(
     if (data) return data;
   }
 
-  // Fallback to Open-Meteo API only if Firebase fails and it's NOT Mati City
-  // Mati City has its own weather station, so we don't use OpenMeteo for it
-  // DISABLED: API fallback commented out per user request
-  /* if (useApi === 'auto' && !isMatiCity(municipalityName)) {
+  // Fallback to external APIs if Firebase fails
+  if (useApi === 'auto' || useApi === 'openmeteo') {
+    // Try Open-Meteo as fallback (free, no API key needed)
+    // Only skip for Mati City if it has its own weather station
+    if (!isMatiCity(municipalityName)) {
+      const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+      if (coords) {
+        const data = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
+        if (data) {
+          return data;
+        }
+      }
+    }
+  }
+
+  if (useApi === 'auto' || useApi === 'openweather') {
+    // Try OpenWeatherMap as fallback (requires API key)
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
-      // Try Open-Meteo as fallback
-      const data = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
+      const data = await fetchWeatherFromOpenWeatherMap(coords.lat, coords.lon);
       if (data) {
         return data;
       }
     }
-  } */
+  }
+
+  if (useApi === 'auto' || useApi === 'weatherapi') {
+    // Try WeatherAPI.com as fallback (requires API key)
+    const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+    if (coords) {
+      const data = await fetchWeatherFromWeatherAPI(coords.lat, coords.lon);
+      if (data) {
+        return data;
+      }
+    }
+  }
 
   return null;
 }
@@ -934,10 +953,9 @@ export async function fetchHistoricalWeatherData(
     return allData;
   }
   
-  // Fallback to Open-Meteo API only if Firebase fails and it's NOT Mati City
-  // Mati City has its own weather station, so we don't use OpenMeteo for it
-  // DISABLED: API fallback commented out per user request
-  /* if (!isMatiCity(municipalityName)) {
+  // Fallback to Open-Meteo API if Firebase fails
+  // Only skip for Mati City if it has its own weather station
+  if (!isMatiCity(municipalityName)) {
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
       const endDate = new Date();
@@ -950,7 +968,7 @@ export async function fetchHistoricalWeatherData(
         return historicalData;
       }
     }
-  } */
+  }
   
   return [];
 }

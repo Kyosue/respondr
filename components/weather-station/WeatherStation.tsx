@@ -1,25 +1,26 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { Municipality } from '@/data/davaoOrientalData';
 import { getUsersWithFilters } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useScreenSize } from '@/hooks/useScreenSize';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useScreenSize } from '@/hooks/useScreenSize';
 import { calculateRainfallAnalytics, PAGASAAdvisory as PAGASAAdvisoryType, RainfallAnalytics } from '@/services/pagasaAdvisoryService';
-import { fetchWeatherData as fetchApiWeather, fetchHistoricalWeatherData, subscribeToHistoricalWeatherUpdates, subscribeToWeatherUpdates, checkStationsAvailability } from '@/services/weatherApi';
+import { checkStationsAvailability, fetchWeatherData as fetchApiWeather, fetchHistoricalWeatherData, subscribeToHistoricalWeatherUpdates, subscribeToWeatherUpdates } from '@/services/weatherApi';
 import { generateStations, WeatherStation } from '@/types/WeatherStation';
 import { notifyAdvisoryLevelChange } from '@/utils/notificationHelpers';
-import { loadCustomStations, addCustomStation, saveCustomStations, updateCustomStation } from '@/utils/weatherStationStorage';
-import { Municipality } from '@/data/davaoOrientalData';
+import { addCustomStation, loadCustomStations } from '@/utils/weatherStationStorage';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { AddWeatherStationModal } from './AddWeatherStationModal';
 import { HistoricalDataPoint, HistoricalDataView } from './HistoricalDataView';
 import { PAGASAAdvisory } from './PAGASAAdvisory';
 import { AlertThreshold, WeatherAlert } from './WeatherAlert';
 import { WeatherAnalyticsDashboard } from './WeatherAnalyticsDashboard';
 import { WeatherData, WeatherMetrics } from './WeatherMetrics';
+import { WeatherPredictiveAnalysis } from './WeatherPredictiveAnalysis';
 import { WeatherStationSwitcher } from './WeatherStationSwitcher';
-import { AddWeatherStationModal } from './AddWeatherStationModal';
 
 // Default alert thresholds (can be configured later)
 const DEFAULT_THRESHOLDS: AlertThreshold = {
@@ -607,7 +608,7 @@ const WeatherStationScreen: React.FC = () => {
   };
 
   const handleAlertDismiss = (alertId: string) => {
-    setDismissedAlerts(prev => new Set([...prev, alertId]));
+    setDismissedAlerts(prev => new Set(Array.from(prev).concat(alertId)));
   };
 
   const handleAddStation = async (deviceId: string, municipality: Municipality, locationName?: string) => {
@@ -764,6 +765,12 @@ const WeatherStationScreen: React.FC = () => {
 
         {/* Analytics Dashboard */}
         <WeatherAnalyticsDashboard currentData={currentData} historicalData={historicalData} />
+
+        {/* Predictive Analysis */}
+        <WeatherPredictiveAnalysis 
+          historicalData={historicalData} 
+          currentData={currentData}
+        />
 
         {/* Historical Data */}
         <HistoricalDataView
