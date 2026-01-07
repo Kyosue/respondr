@@ -436,13 +436,6 @@ export function WeatherAnalyticsDashboard({
               <Stop offset="0" stopColor={colors.background} stopOpacity="0.05" />
               <Stop offset="1" stopColor={colors.background} stopOpacity="0" />
             </SvgLinearGradient>
-            {/* Area gradients for each metric */}
-            {metrics.map((metric, metricIndex) => (
-              <SvgLinearGradient key={`areaGradient-${metricIndex}`} id={`areaGradient-${metricIndex}`} x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={metric.color} stopOpacity="0.25" />
-                <Stop offset="1" stopColor={metric.color} stopOpacity="0.05" />
-              </SvgLinearGradient>
-            ))}
           </Defs>
           
           {/* Grid background */}
@@ -498,15 +491,8 @@ export function WeatherAnalyticsDashboard({
               .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
               .join(' ');
 
-            const plotBottom = chartHeight - chartMargin.bottom;
-            const areaPath = `${pathData} L ${metric.data[metric.data.length - 1].x} ${plotBottom} L ${metric.data[0].x} ${plotBottom} Z`;
-
             return (
               <React.Fragment key={metricIndex}>
-                <Path
-                  d={areaPath}
-                  fill={`url(#areaGradient-${metricIndex})`}
-                />
                 <Path
                   d={pathData}
                   stroke={metric.color}
