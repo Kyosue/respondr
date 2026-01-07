@@ -1,26 +1,29 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Municipality } from '@/data/davaoOrientalData';
-import { getUsersWithFilters } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useScreenSize } from '@/hooks/useScreenSize';
-import { calculateRainfallAnalytics, PAGASAAdvisory as PAGASAAdvisoryType, RainfallAnalytics } from '@/services/pagasaAdvisoryService';
-import { checkStationsAvailability, fetchWeatherData as fetchApiWeather, fetchHistoricalWeatherData, subscribeToHistoricalWeatherUpdates, subscribeToWeatherUpdates } from '@/services/weatherApi';
-import { generateStations, WeatherStation } from '@/types/WeatherStation';
-import { notifyAdvisoryLevelChange } from '@/utils/notificationHelpers';
-import { addCustomStation, loadCustomStations } from '@/utils/weatherStationStorage';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { AddWeatherStationModal } from './AddWeatherStationModal';
-import { HistoricalDataPoint, HistoricalDataView } from './HistoricalDataView';
+import { HistoricalDataView } from './HistoricalDataView';
 import { PAGASAAdvisory } from './PAGASAAdvisory';
 import { AlertThreshold, WeatherAlert } from './WeatherAlert';
 import { WeatherAnalyticsDashboard } from './WeatherAnalyticsDashboard';
-import { WeatherData, WeatherMetrics } from './WeatherMetrics';
+import { WeatherMetrics } from './WeatherMetrics';
 import { WeatherPredictiveAnalysis } from './WeatherPredictiveAnalysis';
 import { WeatherStationSwitcher } from './WeatherStationSwitcher';
+import { WeatherStation } from '@/types/WeatherStation';
+import { addCustomStation } from '@/utils/weatherStationStorage';
+import {
+  useWeatherStations,
+  useWeatherData,
+  useAdvisoryNotifications,
+  useWeatherSubscriptions,
+  useStationSelection,
+} from './hooks';
 
 // Default alert thresholds (can be configured later)
 const DEFAULT_THRESHOLDS: AlertThreshold = {
@@ -36,551 +39,56 @@ const WeatherStationScreen: React.FC = () => {
   const { isMobile } = useScreenSize();
   const { isAdminOrSupervisor } = usePermissions();
   
-  // Initialize stations - will be merged with custom stations
-  const [baseStations, setBaseStations] = useState<WeatherStation[]>(generateStations());
-  const [customStations, setCustomStations] = useState<WeatherStation[]>([]);
+  // Station management
+  const {
+    stations,
+    updateStationStatus,
+    reloadCustomStations,
+  } = useWeatherStations();
+
+  // Station selection
+  const {
+    selectedStation,
+    setSelectedStation,
+  } = useStationSelection(stations);
+
+  // Weather data management
+  const {
+    currentData,
+    historicalData,
+    rainfallAnalytics,
+    isConnected,
+    isLoading,
+    isRefreshing,
+    fetchWeatherData,
+    clearData,
+    updateCurrentData,
+    updateHistoricalData,
+    setIsConnected,
+  } = useWeatherData(selectedStation);
+
+  // Advisory notifications
+  const { resetAdvisoryTracking } = useAdvisoryNotifications(
+    rainfallAnalytics,
+    selectedStation
+  );
+
+  // Real-time subscriptions
+  useWeatherSubscriptions(
+    selectedStation,
+    updateCurrentData,
+    updateHistoricalData,
+    setIsConnected,
+    (stationId, updates) => {
+      updateStationStatus(stationId, updates);
+    }
+  );
+
+  // UI state
   const [showAddModal, setShowAddModal] = useState(false);
-  
-  // Merge base stations with custom stations
-  const stations = useMemo(() => {
-    // Combine base and custom stations, avoiding duplicates
-    const stationMap = new Map<string, WeatherStation>();
-    
-    // Add base stations first
-    baseStations.forEach(station => {
-      stationMap.set(station.id, station);
-    });
-    
-    // Add custom stations (they will override base stations if same ID)
-    customStations.forEach(station => {
-      stationMap.set(station.id, station);
-    });
-    
-    return Array.from(stationMap.values());
-  }, [baseStations, customStations]);
-  
-  // Load custom stations on mount
-  useEffect(() => {
-    const loadStations = async () => {
-      try {
-        const custom = await loadCustomStations();
-        setCustomStations(custom);
-      } catch (error) {
-        // Error loading custom stations - set empty array to prevent issues
-        setCustomStations([]);
-      }
-    };
-    
-    loadStations();
-  }, []);
-
-  // Check all stations' availability on mount and when stations change
-  useEffect(() => {
-    const checkAvailability = async () => {
-      if (stations.length === 0) return;
-      
-      try {
-        const availability = await checkStationsAvailability(stations);
-        
-        // Update base stations
-        setBaseStations(prevStations =>
-          prevStations.map(station => {
-            const status = availability.get(station.id);
-            if (status) {
-              return {
-                ...station,
-                isActive: status.isActive,
-                lastSeen: status.lastSeen,
-                apiAvailable: status.isActive,
-              };
-            }
-            return {
-              ...station,
-              isActive: false,
-              apiAvailable: false,
-            };
-          })
-        );
-        
-        // Update custom stations
-        setCustomStations(prevStations =>
-          prevStations.map(station => {
-            const status = availability.get(station.id);
-            if (status) {
-              return {
-                ...station,
-                isActive: status.isActive,
-                lastSeen: status.lastSeen,
-                apiAvailable: status.isActive,
-              };
-            }
-            return {
-              ...station,
-              isActive: false,
-              apiAvailable: false,
-            };
-          })
-        );
-      } catch (error) {
-        // Error checking availability - mark all as inactive
-        setBaseStations(prevStations =>
-          prevStations.map(station => ({
-            ...station,
-            isActive: false,
-            apiAvailable: false,
-          }))
-        );
-        setCustomStations(prevStations =>
-          prevStations.map(station => ({
-            ...station,
-            isActive: false,
-            apiAvailable: false,
-          }))
-        );
-      }
-    };
-    
-    checkAvailability();
-  }, [stations.length]); // Only run when number of stations changes
-  
-  // Location-based default station selection
-  const [defaultStation, setDefaultStation] = useState<WeatherStation | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
-  
-  // Get location-based default station on mount
-  useEffect(() => {
-    const loadDefaultStation = async () => {
-      setIsLoadingLocation(true);
-      try {
-        const { getLocationBasedDefaultStation } = await import('@/utils/locationUtils');
-        const station = await getLocationBasedDefaultStation(stations);
-        setDefaultStation(station);
-      } catch (error) {
-        // Fallback to City of Mati if location fails
-        const matiStation = stations.find(s => 
-          s.municipality.name === 'City of Mati' || 
-          s.municipality.name === 'Mati City' ||
-          s.municipality.name === 'Mati'
-        );
-        setDefaultStation(matiStation || stations.find(s => s.isActive) || stations[0] || null);
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    };
-    
-    if (stations.length > 0) {
-      loadDefaultStation();
-    }
-  }, [stations]);
-  
-  const [selectedStation, setSelectedStation] = useState<WeatherStation | null>(defaultStation);
-  
-  // Update selected station when default station is determined
-  useEffect(() => {
-    if (defaultStation && !selectedStation) {
-      setSelectedStation(defaultStation);
-    }
-  }, [defaultStation, selectedStation]);
-  const [currentData, setCurrentData] = useState<WeatherData | null>(null);
-  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
-  const [rainfallAnalytics, setRainfallAnalytics] = useState<RainfallAnalytics | null>(null);
-  const [isConnected, setIsConnected] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
-  
-  // Track previous advisory levels to detect changes
-  const previousCurrentAdvisory = useRef<PAGASAAdvisoryType | null>(null);
-  const previousPredictedAdvisory = useRef<PAGASAAdvisoryType | null>(null);
-  
-  // Use ref to store the latest selectedStation to avoid stale closures in interval
-  const selectedStationRef = useRef(selectedStation);
-  useEffect(() => {
-    selectedStationRef.current = selectedStation;
-  }, [selectedStation]);
 
-  // Fetch weather data from real API
-  const fetchWeatherData = useCallback(async (stationId: string, isRefresh: boolean = false) => {
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-
-    try {
-      // Use ref to get the latest selectedStation to avoid stale closures
-      const currentStation = selectedStationRef.current;
-      const municipalityName = currentStation?.municipality.name;
-      // For custom stations, use the exact deviceId; for base stations, use municipality name
-      const exactDeviceId = currentStation?.deviceId;
-      
-      // Fetch current weather data from Firebase Realtime Database
-      // For custom stations, use exact deviceId; for base stations, use municipality name patterns
-      const current = await fetchApiWeather(municipalityName, exactDeviceId);
-      
-      if (current) {
-        // Set current weather data
-        setCurrentData({
-          temperature: current.temperature,
-          humidity: current.humidity,
-          rainfall: current.rainfall,
-          windSpeed: current.windSpeed,
-          windDirection: current.windDirection || 0,
-          lastUpdated: current.timestamp,
-        });
-        setIsConnected(true);
-
-        // Update station status with API data
-        if (currentStation) {
-          // Check if it's a custom station by checking the ID prefix
-          const isCustom = currentStation.id.startsWith('custom-');
-          
-          if (isCustom) {
-            setCustomStations(prevStations => 
-              prevStations.map(station => 
-                station.id === currentStation.id
-                  ? {
-                      ...station,
-                      isActive: true,
-                      lastSeen: current.timestamp,
-                      apiAvailable: true,
-                    }
-                  : station
-              )
-            );
-          } else {
-            setBaseStations(prevStations => 
-              prevStations.map(station => 
-                station.id === currentStation.id
-                  ? {
-                      ...station,
-                      isActive: true,
-                      lastSeen: current.timestamp,
-                      apiAvailable: true,
-                    }
-                  : station
-              )
-            );
-          }
-        }
-
-        // Fetch historical data (last 7 days) from Firebase, filtered by municipality/device_id
-        const historical = await fetchHistoricalWeatherData(municipalityName, exactDeviceId, 7);
-        
-        if (historical.length > 0) {
-          // Transform historical data to match expected format
-          const transformedHistorical = historical.map(h => ({
-            timestamp: h.timestamp,
-            temperature: h.temperature,
-            humidity: h.humidity,
-            rainfall: h.rainfall,
-            windSpeed: h.windSpeed,
-            windDirection: h.windDirection || 0,
-          }));
-          setHistoricalData(transformedHistorical);
-          
-          // Calculate PAGASA rainfall analytics
-          const analytics = calculateRainfallAnalytics(transformedHistorical);
-          setRainfallAnalytics(analytics);
-        } else {
-          // If no historical data, create a single point from current data
-          const singlePoint = [{
-            timestamp: current.timestamp,
-            temperature: current.temperature,
-            humidity: current.humidity,
-            rainfall: current.rainfall,
-            windSpeed: current.windSpeed,
-            windDirection: current.windDirection || 0,
-          }];
-          setHistoricalData(singlePoint);
-          
-          // Calculate PAGASA analytics even with single point
-          const analytics = calculateRainfallAnalytics(singlePoint);
-          setRainfallAnalytics(analytics);
-        }
-        
-        // Note: Advisory level change detection and notification will be handled in useEffect below
-      } else {
-        // If API call failed or no data found for this municipality, clear all data
-        setCurrentData(null);
-        setHistoricalData([]);
-        setRainfallAnalytics(null);
-        setIsConnected(false);
-        
-        // Update station status to reflect API unavailability
-        if (currentStation) {
-          // Check if it's a custom station by checking the ID prefix
-          const isCustom = currentStation.id.startsWith('custom-');
-          
-          if (isCustom) {
-            setCustomStations(prevStations => 
-              prevStations.map(station => 
-                station.id === currentStation.id
-                  ? {
-                      ...station,
-                      isActive: false,
-                      apiAvailable: false,
-                    }
-                  : station
-              )
-            );
-          } else {
-            setBaseStations(prevStations => 
-              prevStations.map(station => 
-                station.id === currentStation.id
-                  ? {
-                      ...station,
-                      isActive: false,
-                      apiAvailable: false,
-                    }
-                  : station
-              )
-            );
-          }
-        }
-        
-        // No weather data found
-      }
-    } catch (error) {
-      // Error fetching weather data
-      // Clear data on error to prevent showing stale data
-      setCurrentData(null);
-      setHistoricalData([]);
-      setRainfallAnalytics(null);
-      setIsConnected(false);
-      
-      // Update station status on error
-      const currentStation = selectedStationRef.current;
-      if (currentStation) {
-        // Check if it's a custom station by checking the ID prefix
-        const isCustom = currentStation.id.startsWith('custom-');
-        
-        if (isCustom) {
-          setCustomStations(prevStations => 
-            prevStations.map(station => 
-              station.id === currentStation.id
-                ? {
-                    ...station,
-                    isActive: false,
-                    apiAvailable: false,
-                  }
-                : station
-            )
-          );
-        } else {
-          setBaseStations(prevStations => 
-            prevStations.map(station => 
-              station.id === currentStation.id
-                ? {
-                    ...station,
-                    isActive: false,
-                    apiAvailable: false,
-                  }
-                : station
-            )
-          );
-        }
-      }
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []); // Remove baseStations and customStations from dependencies to prevent infinite loop
-
-  // Detect advisory level changes and notify all users
-  useEffect(() => {
-    if (!rainfallAnalytics) return;
-
-    const checkAndNotifyAdvisoryChange = async () => {
-      try {
-        const currentAdvisory = rainfallAnalytics.currentAdvisory;
-        const predictedAdvisory = rainfallAnalytics.predictedAdvisory;
-        const municipalityName = selectedStation?.municipality.name;
-
-        // Check current advisory level change
-        if (previousCurrentAdvisory.current) {
-          const prev = previousCurrentAdvisory.current;
-          const curr = currentAdvisory;
-          
-          // Only notify if level or color changed
-          if (prev.level !== curr.level || prev.color !== curr.color) {
-            // Get all active users
-            const allActiveUsers = await getUsersWithFilters({ status: 'active' });
-            const userIds = allActiveUsers.map(user => user.id);
-            
-            if (userIds.length > 0) {
-              await notifyAdvisoryLevelChange(
-                userIds,
-                prev.level,
-                prev.color,
-                curr.level,
-                curr.color,
-                municipalityName,
-                false // isPredicted = false for current advisory
-              );
-            }
-          }
-        }
-        
-        // Check predicted advisory level change (if available)
-        if (predictedAdvisory && rainfallAnalytics.continuationPrediction.willContinue) {
-          if (previousPredictedAdvisory.current) {
-            const prev = previousPredictedAdvisory.current;
-            const curr = predictedAdvisory;
-            
-            // Only notify if level or color changed
-            if (prev.level !== curr.level || prev.color !== curr.color) {
-              // Get all active users
-              const allActiveUsers = await getUsersWithFilters({ status: 'active' });
-              const userIds = allActiveUsers.map(user => user.id);
-              
-              if (userIds.length > 0) {
-                await notifyAdvisoryLevelChange(
-                  userIds,
-                  prev.level,
-                  prev.color,
-                  curr.level,
-                  curr.color,
-                  municipalityName,
-                  true // isPredicted = true for predicted advisory
-                );
-              }
-            }
-          }
-        }
-        
-        // Update previous advisory levels
-        previousCurrentAdvisory.current = { ...currentAdvisory };
-        if (predictedAdvisory && rainfallAnalytics.continuationPrediction.willContinue) {
-          previousPredictedAdvisory.current = { ...predictedAdvisory };
-        } else {
-          previousPredictedAdvisory.current = null;
-        }
-      } catch (error) {
-        // Don't throw - this is a background notification process
-      }
-    };
-
-    // Only check for changes after initial load (skip first render)
-    if (previousCurrentAdvisory.current !== null || previousPredictedAdvisory.current !== null) {
-      checkAndNotifyAdvisoryChange();
-    } else {
-      // Initialize previous values on first load (don't notify)
-      previousCurrentAdvisory.current = { ...rainfallAnalytics.currentAdvisory };
-      if (rainfallAnalytics.predictedAdvisory && rainfallAnalytics.continuationPrediction.willContinue) {
-        previousPredictedAdvisory.current = { ...rainfallAnalytics.predictedAdvisory };
-      }
-    }
-  }, [rainfallAnalytics, selectedStation]);
-
-  // Set up real-time listeners when station is selected
-  useEffect(() => {
-    if (!selectedStation) return;
-
-    // Reset previous advisory levels when switching stations
-    previousCurrentAdvisory.current = null;
-    previousPredictedAdvisory.current = null;
-
-    const municipalityName = selectedStation.municipality.name;
-    // For custom stations, use the exact deviceId; for base stations, use undefined
-    const exactDeviceId = selectedStation.deviceId;
-    
-    // Initial fetch to load current data
-    fetchWeatherData(selectedStation.id);
-
-    // Set up real-time listener for current weather data
-    // This will automatically update when new data arrives in the database
-    const unsubscribeCurrent = subscribeToWeatherUpdates(
-      municipalityName,
-      exactDeviceId,
-      (data) => {
-        // Update current weather data when new data is detected
-        setCurrentData({
-          temperature: data.temperature,
-          humidity: data.humidity,
-          rainfall: data.rainfall,
-          windSpeed: data.windSpeed,
-          windDirection: data.windDirection || 0,
-          lastUpdated: data.timestamp,
-        });
-        setIsConnected(true);
-        
-        // Update station status
-        const currentStation = selectedStationRef.current;
-        if (currentStation) {
-          // Check if it's a custom station by checking the ID prefix
-          const isCustom = currentStation.id.startsWith('custom-');
-          
-          if (isCustom) {
-            setCustomStations(prevStations => 
-              prevStations.map(station => 
-                station.id === currentStation.id
-                  ? {
-                      ...station,
-                      isActive: true,
-                      lastSeen: data.timestamp,
-                      apiAvailable: true,
-                    }
-                  : station
-              )
-            );
-          } else {
-            setBaseStations(prevStations => 
-              prevStations.map(station => 
-                station.id === currentStation.id
-                  ? {
-                      ...station,
-                      isActive: true,
-                      lastSeen: data.timestamp,
-                      apiAvailable: true,
-                    }
-                  : station
-              )
-            );
-          }
-        }
-      },
-      (error) => {
-        // Real-time listener error
-        setIsConnected(false);
-      }
-    );
-
-    // Set up real-time listener for historical data
-    // This will automatically update when new historical entries are added
-    const unsubscribeHistorical = subscribeToHistoricalWeatherUpdates(
-      municipalityName,
-      exactDeviceId,
-      (historicalData) => {
-        if (historicalData.length > 0) {
-          // Transform historical data to match expected format
-          const transformedHistorical = historicalData.map(h => ({
-            timestamp: h.timestamp,
-            temperature: h.temperature,
-            humidity: h.humidity,
-            rainfall: h.rainfall,
-            windSpeed: h.windSpeed,
-            windDirection: h.windDirection || 0,
-          }));
-          setHistoricalData(transformedHistorical);
-          
-          // Calculate PAGASA rainfall analytics
-          const analytics = calculateRainfallAnalytics(transformedHistorical);
-          setRainfallAnalytics(analytics);
-        }
-      },
-      (error) => {
-        // Historical listener error
-      }
-    );
-
-    // Cleanup: unsubscribe when station changes or component unmounts
-    return () => {
-      unsubscribeCurrent();
-      unsubscribeHistorical();
-    };
-  }, [selectedStation, fetchWeatherData]);
-
+  // Handlers
   const handleRefresh = () => {
     if (selectedStation) {
       fetchWeatherData(selectedStation.id, true);
@@ -588,18 +96,10 @@ const WeatherStationScreen: React.FC = () => {
   };
 
   const handleSelectStation = (station: WeatherStation) => {
-    // Clear existing data immediately when switching stations to prevent showing stale data
-    setCurrentData(null);
-    setHistoricalData([]);
-    setRainfallAnalytics(null);
-    
-    // Update selected station reference to match current stations state
-    const updatedStation = stations.find(s => s.id === station.id);
-    if (updatedStation) {
-      setSelectedStation(updatedStation);
-    } else {
-      setSelectedStation(station);
-    }
+    // Clear existing data immediately when switching stations
+    clearData();
+    resetAdvisoryTracking();
+    setSelectedStation(station);
     setDismissedAlerts(new Set()); // Reset alerts when switching stations
   };
 
@@ -628,16 +128,15 @@ const WeatherStationScreen: React.FC = () => {
         isActive: true,
         lastSeen: undefined,
         apiAvailable: undefined,
-        deviceId: deviceId, // Store the actual device ID
-        locationName: locationName, // Store location name to distinguish multiple stations
+        deviceId: deviceId,
+        locationName: locationName,
       };
       
       // Add to custom stations (this will sync to Firebase)
       await addCustomStation(newStation);
       
       // Reload stations from Firebase to get the latest data
-      const updatedCustomStations = await loadCustomStations();
-      setCustomStations(updatedCustomStations);
+      await reloadCustomStations();
     } catch (error) {
       // Re-throw error so modal can display it
       const errorMessage = error instanceof Error ? error.message : 'Failed to add weather station';
@@ -645,7 +144,14 @@ const WeatherStationScreen: React.FC = () => {
     }
   };
 
+  // Initial fetch when station is selected
+  useEffect(() => {
+    if (selectedStation) {
+      fetchWeatherData(selectedStation.id);
+    }
+  }, [selectedStation?.id, fetchWeatherData]); // Only refetch when station ID changes
 
+  // Loading state
   if (isLoading && !currentData) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -732,7 +238,7 @@ const WeatherStationScreen: React.FC = () => {
             onAddStation={handleAddStation}
             existingStations={stations.map(s => ({
               municipality: s.municipality,
-              deviceId: s.deviceId, // Pass the deviceId if it's a custom station
+              deviceId: s.deviceId,
             }))}
           />
         )}
@@ -756,11 +262,7 @@ const WeatherStationScreen: React.FC = () => {
         <WeatherMetrics 
           historicalData={historicalData} 
           onMetricPress={handleMetricPress}
-          onRefresh={() => {
-            if (selectedStation) {
-              fetchWeatherData(selectedStation.id, true);
-            }
-          }}
+          onRefresh={handleRefresh}
         />
 
         {/* Analytics Dashboard */}
@@ -777,11 +279,7 @@ const WeatherStationScreen: React.FC = () => {
           data={historicalData}
           loading={isLoading}
           municipalityName={selectedStation?.municipality.name}
-          onRefresh={() => {
-            if (selectedStation) {
-              fetchWeatherData(selectedStation.id, true);
-            }
-          }}
+          onRefresh={handleRefresh}
         />
       </ScrollView>
     </View>
@@ -857,4 +355,3 @@ const styles = StyleSheet.create({
 });
 
 export default WeatherStationScreen;
-

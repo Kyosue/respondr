@@ -243,6 +243,13 @@ export const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  timelineScrollView: {
+    marginHorizontal: -14, // Extend to card edges
+    paddingHorizontal: 14, // Compensate for content padding
+  },
+  timelineScrollContent: {
+    paddingRight: 14, // Extra padding on right for scroll indicator
+  },
   timelineContent: {
     flexDirection: 'row',
     gap: 12,

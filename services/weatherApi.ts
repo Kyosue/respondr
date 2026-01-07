@@ -744,7 +744,9 @@ export function getMunicipalityCoordinates(municipalityName: string): { lat: num
 }
 
 /**
- * Unified weather fetch function (uses Firebase Realtime Database)
+ * Unified weather fetch function
+ * - Mati City: Uses Firebase Realtime Database as primary source
+ * - Other municipalities: Uses Open-Meteo as primary source
  * @param municipalityName Optional municipality name to filter by device_id patterns
  * @param exactDeviceId Optional exact device ID to match (for custom stations)
  * @param useApi API source to use
@@ -754,45 +756,69 @@ export async function fetchWeatherData(
   exactDeviceId?: string,
   useApi: 'firebase' | 'openmeteo' | 'openweather' | 'weatherapi' | 'auto' = 'auto'
 ): Promise<WeatherApiResponse | null> {
-  // Always try Firebase first (primary data source)
-  if (useApi === 'auto' || useApi === 'firebase') {
-    const data = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
-    if (data) return data;
-  }
-
-  // Fallback to external APIs if Firebase fails
-  if (useApi === 'auto' || useApi === 'openmeteo') {
-    // Try Open-Meteo as fallback (free, no API key needed)
-    // Only skip for Mati City if it has its own weather station
-    if (!isMatiCity(municipalityName)) {
+  const isMati = isMatiCity(municipalityName);
+  
+  // For Mati City: Firebase is primary source
+  if (isMati) {
+    if (useApi === 'auto' || useApi === 'firebase') {
+      const data = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
+      if (data) return data;
+    }
+    
+    // Fallback to external APIs if Firebase fails
+    if (useApi === 'auto' || useApi === 'openmeteo') {
       const coords = getMunicipalityCoordinates(municipalityName || 'mati');
       if (coords) {
         const data = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
-        if (data) {
-          return data;
-        }
+        if (data) return data;
       }
     }
-  }
-
-  if (useApi === 'auto' || useApi === 'openweather') {
-    // Try OpenWeatherMap as fallback (requires API key)
-    const coords = getMunicipalityCoordinates(municipalityName || 'mati');
-    if (coords) {
-      const data = await fetchWeatherFromOpenWeatherMap(coords.lat, coords.lon);
-      if (data) {
-        return data;
+    
+    if (useApi === 'auto' || useApi === 'openweather') {
+      const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+      if (coords) {
+        const data = await fetchWeatherFromOpenWeatherMap(coords.lat, coords.lon);
+        if (data) return data;
       }
     }
-  }
-
-  if (useApi === 'auto' || useApi === 'weatherapi') {
-    // Try WeatherAPI.com as fallback (requires API key)
-    const coords = getMunicipalityCoordinates(municipalityName || 'mati');
-    if (coords) {
-      const data = await fetchWeatherFromWeatherAPI(coords.lat, coords.lon);
-      if (data) {
-        return data;
+    
+    if (useApi === 'auto' || useApi === 'weatherapi') {
+      const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+      if (coords) {
+        const data = await fetchWeatherFromWeatherAPI(coords.lat, coords.lon);
+        if (data) return data;
+      }
+    }
+  } else {
+    // For other municipalities: Open-Meteo is primary source
+    if (useApi === 'auto' || useApi === 'openmeteo') {
+      const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+      if (coords) {
+        const data = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
+        if (data) return data;
+      }
+    }
+    
+    // Fallback to Firebase if Open-Meteo fails
+    if (useApi === 'auto' || useApi === 'firebase') {
+      const data = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
+      if (data) return data;
+    }
+    
+    // Additional fallbacks
+    if (useApi === 'auto' || useApi === 'openweather') {
+      const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+      if (coords) {
+        const data = await fetchWeatherFromOpenWeatherMap(coords.lat, coords.lon);
+        if (data) return data;
+      }
+    }
+    
+    if (useApi === 'auto' || useApi === 'weatherapi') {
+      const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+      if (coords) {
+        const data = await fetchWeatherFromWeatherAPI(coords.lat, coords.lon);
+        if (data) return data;
       }
     }
   }
@@ -932,30 +958,32 @@ export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: s
 }
 
 /**
- * Fetch historical weather data from Firebase Realtime Database
- * Note: Currently returns only the latest data point as Firebase structure stores single entries
+ * Fetch historical weather data
+ * - Mati City: Uses Firebase Realtime Database as primary source
+ * - Other municipalities: Uses Open-Meteo as primary source
  */
 export async function fetchHistoricalWeatherData(
   municipalityName?: string,
   exactDeviceId?: string,
   days: number = 7
 ): Promise<WeatherApiResponse[]> {
-  // Fetch all data from Firebase, filtered by municipality/device_id
-  const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
+  const isMati = isMatiCity(municipalityName);
   
-  if (allData.length > 0) {
-    // Filter by days if needed
-    if (days > 0) {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      return allData.filter(entry => entry.timestamp >= cutoffDate);
+  // For Mati City: Firebase is primary source
+  if (isMati) {
+    const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
+    
+    if (allData.length > 0) {
+      // Filter by days if needed
+      if (days > 0) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        return allData.filter(entry => entry.timestamp >= cutoffDate);
+      }
+      return allData;
     }
-    return allData;
-  }
-  
-  // Fallback to Open-Meteo API if Firebase fails
-  // Only skip for Mati City if it has its own weather station
-  if (!isMatiCity(municipalityName)) {
+    
+    // Fallback to Open-Meteo API if Firebase fails
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
       const endDate = new Date();
@@ -968,16 +996,44 @@ export async function fetchHistoricalWeatherData(
         return historicalData;
       }
     }
+  } else {
+    // For other municipalities: Open-Meteo is primary source
+    const coords = getMunicipalityCoordinates(municipalityName || 'mati');
+    if (coords) {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const historicalData = await fetchHistoricalWeatherFromOpenMeteo(coords.lat, coords.lon, startDate, endDate);
+      if (historicalData.length > 0) {
+        return historicalData;
+      }
+    }
+    
+    // Fallback to Firebase if Open-Meteo fails
+    const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
+    if (allData.length > 0) {
+      // Filter by days if needed
+      if (days > 0) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        return allData.filter(entry => entry.timestamp >= cutoffDate);
+      }
+      return allData;
+    }
   }
   
   return [];
 }
 
 /**
- * Subscribe to real-time weather data updates from Firebase Realtime Database
- * Automatically detects and processes new data when it arrives
+ * Subscribe to real-time weather data updates
+ * - Mati City: Uses Firebase Realtime Database
+ * - Other municipalities: Polls Open-Meteo API periodically
  * 
  * @param municipalityName Optional municipality name to filter by device_id
+ * @param exactDeviceId Optional exact device ID to match (for custom stations)
  * @param onUpdate Callback function called when new weather data is detected
  * @param onError Optional error callback
  * @returns Unsubscribe function to stop listening
@@ -992,11 +1048,13 @@ export function subscribeToWeatherUpdates(
   let isActive = true;
   let lastTimestamp = 0;
   let checkInterval: ReturnType<typeof setInterval> | null = null;
+  const isMati = isMatiCity(municipalityName);
   
   // Initial fetch to get current data and set baseline timestamp
   const initialFetch = async () => {
     try {
-      const current = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
+      // Use unified fetch function which handles Mati vs other municipalities
+      const current = await fetchWeatherData(municipalityName, exactDeviceId);
       if (current && isActive) {
         lastTimestamp = current.timestamp.getTime();
         onUpdate(current);
@@ -1014,107 +1072,121 @@ export function subscribeToWeatherUpdates(
     if (!isActive) return;
     
     try {
-      const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch weather data: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // If exact device ID is provided, use it directly; otherwise use municipality patterns
-      const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
-      const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
-        ? getDeviceIdPatternsForMunicipality(municipalityName)
-        : null;
-      
-      // Find the most recent entry matching the device_id filter
-      let latestEntry: any = null;
-      let latestTimestamp = 0;
-      
-      for (const key in data) {
-        const entry = data[key];
-        if (entry) {
-          // Handle new structure: direct JSON object with properties
-          // OR old structure: string in entry.key
-          let jsonData: ParsedWeatherData | null = null;
-          
-          if (entry.device_id || entry.temperature !== undefined) {
-            // New structure: direct JSON object
-            const timestamp = entry.timestamp_ms 
-              ? new Date(entry.timestamp_ms)
-              : entry.timestamp 
-              ? new Date(entry.timestamp)
-              : null;
+      if (isMati) {
+        // For Mati City: Check Firebase Realtime Database
+        const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch weather data: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // If exact device ID is provided, use it directly; otherwise use municipality patterns
+        const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
+        const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
+          ? getDeviceIdPatternsForMunicipality(municipalityName)
+          : null;
+        
+        // Find the most recent entry matching the device_id filter
+        let latestEntry: any = null;
+        let latestTimestamp = 0;
+        
+        for (const key in data) {
+          const entry = data[key];
+          if (entry) {
+            // Handle new structure: direct JSON object with properties
+            // OR old structure: string in entry.key
+            let jsonData: ParsedWeatherData | null = null;
             
-            if (timestamp && !isNaN(timestamp.getTime())) {
-              jsonData = {
-                temperature: entry.temperature || 0,
-                humidity: entry.humidity || 0,
-                windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-                windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-                windDirection: entry.wind_direction || 0,
-                rainfallPeriod: entry.rainfall_period || 0,
-                rainfallTotal: entry.rainfall_total || 0,
-                signalStrength: entry.signal_strength || 0,
-                samples: entry.samples || 0,
-                timestamp,
-                timestampMs: timestamp.getTime(),
-                deviceId: entry.device_id || '',
-              };
+            if (entry.device_id || entry.temperature !== undefined) {
+              // New structure: direct JSON object
+              const timestamp = entry.timestamp_ms 
+                ? new Date(entry.timestamp_ms)
+                : entry.timestamp 
+                ? new Date(entry.timestamp)
+                : null;
+              
+              if (timestamp && !isNaN(timestamp.getTime())) {
+                jsonData = {
+                  temperature: entry.temperature || 0,
+                  humidity: entry.humidity || 0,
+                  windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+                  windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+                  windDirection: entry.wind_direction || 0,
+                  rainfallPeriod: entry.rainfall_period || 0,
+                  rainfallTotal: entry.rainfall_total || 0,
+                  signalStrength: entry.signal_strength || 0,
+                  samples: entry.samples || 0,
+                  timestamp,
+                  timestampMs: timestamp.getTime(),
+                  deviceId: entry.device_id || '',
+                };
+              }
+            } else if (entry.key) {
+              // Old structure: string that needs parsing
+              jsonData = parseFirebaseWeatherDataToJSON(entry.key);
             }
-          } else if (entry.key) {
-            // Old structure: string that needs parsing
-            jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-          }
-          
-          if (jsonData && jsonData.timestamp) {
-            // Filter by device_id if municipality is specified
-            if (deviceIdPatterns) {
-              if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
-                continue;
+            
+            if (jsonData && jsonData.timestamp) {
+              // Filter by device_id if municipality is specified
+              if (deviceIdPatterns) {
+                if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
+                  continue;
+                }
+                
+                const deviceIdUpper = jsonData.deviceId.toUpperCase().trim();
+                const matches = deviceIdPatterns.some(pattern => {
+                  const patternUpper = pattern.toUpperCase();
+                  return deviceIdUpper === patternUpper || 
+                         deviceIdUpper.startsWith(patternUpper + '-');
+                });
+                if (!matches) {
+                  continue;
+                }
               }
               
-              const deviceIdUpper = jsonData.deviceId.toUpperCase().trim();
-              const matches = deviceIdPatterns.some(pattern => {
-                const patternUpper = pattern.toUpperCase();
-                return deviceIdUpper === patternUpper || 
-                       deviceIdUpper.startsWith(patternUpper + '-');
-              });
-              if (!matches) {
-                continue;
+              const timestamp = jsonData.timestamp.getTime();
+              if (timestamp > latestTimestamp) {
+                latestTimestamp = timestamp;
+                latestEntry = jsonData;
               }
-            }
-            
-            const timestamp = jsonData.timestamp.getTime();
-            if (timestamp > latestTimestamp) {
-              latestTimestamp = timestamp;
-              latestEntry = jsonData;
             }
           }
         }
-      }
-      
-      // Only update if we have new data (timestamp is newer than last known)
-      if (latestEntry && latestTimestamp > lastTimestamp && isActive) {
-        lastTimestamp = latestTimestamp;
         
-        const result: WeatherApiResponse = {
-          temperature: latestEntry.temperature,
-          humidity: latestEntry.humidity,
-          rainfall: latestEntry.rainfallTotal || latestEntry.rainfallPeriod || 0,
-          windSpeed: latestEntry.windSpeedAvg || latestEntry.windSpeedMax || 0,
-          windDirection: latestEntry.windDirection,
-          timestamp: latestEntry.timestamp,
-          location: {
-            lat: 6.9551,
-            lon: 126.2167,
-            name: 'Weather Station',
-          },
-        };
-        
-        onUpdate(result);
+        // Only update if we have new data (timestamp is newer than last known)
+        if (latestEntry && latestTimestamp > lastTimestamp && isActive) {
+          lastTimestamp = latestTimestamp;
+          
+          const result: WeatherApiResponse = {
+            temperature: latestEntry.temperature,
+            humidity: latestEntry.humidity,
+            rainfall: latestEntry.rainfallTotal || latestEntry.rainfallPeriod || 0,
+            windSpeed: latestEntry.windSpeedAvg || latestEntry.windSpeedMax || 0,
+            windDirection: latestEntry.windDirection,
+            timestamp: latestEntry.timestamp,
+            location: {
+              lat: 6.9551,
+              lon: 126.2167,
+              name: 'Weather Station',
+            },
+          };
+          
+          onUpdate(result);
+        }
+      } else {
+        // For other municipalities: Poll Open-Meteo API
+        const current = await fetchWeatherData(municipalityName, exactDeviceId);
+        if (current && isActive) {
+          const currentTimestamp = current.timestamp.getTime();
+          // Update if timestamp is newer (or if it's the first update)
+          if (currentTimestamp > lastTimestamp || lastTimestamp === 0) {
+            lastTimestamp = currentTimestamp;
+            onUpdate(current);
+          }
+        }
       }
     } catch (error) {
       // Error checking for updates
@@ -1395,7 +1467,9 @@ export async function scanForUnusedDeviceIds(
 }
 
 /**
- * Check availability of all stations by checking if they have recent data in Firebase
+ * Check availability of all stations
+ * - Mati City: Checks Firebase Realtime Database for device IDs
+ * - Other municipalities: Checks Open-Meteo API availability
  * @param stations Array of weather stations to check
  * @returns Map of station IDs to their availability status and last seen timestamp
  */
@@ -1404,107 +1478,162 @@ export async function checkStationsAvailability(
 ): Promise<Map<string, { isActive: boolean; lastSeen?: Date }>> {
   const availabilityMap = new Map<string, { isActive: boolean; lastSeen?: Date }>();
   
-  try {
-    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      // If fetch fails, mark all as inactive
-      stations.forEach(station => {
-        availabilityMap.set(station.id, { isActive: false });
-      });
-      return availabilityMap;
+  // Separate stations by municipality type
+  const matiStations: typeof stations = [];
+  const otherStations: typeof stations = [];
+  
+  for (const station of stations) {
+    if (isMatiCity(station.municipality.name)) {
+      matiStations.push(station);
+    } else {
+      otherStations.push(station);
     }
-    
-    const data = await response.json();
-    const now = Date.now();
-    const oneHourAgo = now - (60 * 60 * 1000); // Consider active if data within last hour
-    
-    // Build a map of device IDs to their latest timestamps
-    const deviceIdTimestamps = new Map<string, number>();
-    
-    // Parse all entries and find latest timestamp for each device ID
-    for (const key in data) {
-      const entry = data[key];
-      if (entry) {
-        let jsonData: ParsedWeatherData | null = null;
-        
-        if (entry.device_id || entry.temperature !== undefined) {
-          const timestamp = entry.timestamp_ms 
-            ? new Date(entry.timestamp_ms)
-            : entry.timestamp 
-            ? new Date(entry.timestamp)
-            : null;
-          
-          if (timestamp && !isNaN(timestamp.getTime())) {
-            jsonData = {
-              temperature: entry.temperature || 0,
-              humidity: entry.humidity || 0,
-              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-              windDirection: entry.wind_direction || 0,
-              rainfallPeriod: entry.rainfall_period || 0,
-              rainfallTotal: entry.rainfall_total || 0,
-              signalStrength: entry.signal_strength || 0,
-              samples: entry.samples || 0,
-              timestamp,
-              timestampMs: timestamp.getTime(),
-              deviceId: entry.device_id || '',
-            };
-          }
-        } else if (entry.key) {
-          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-        }
-        
-        if (jsonData && jsonData.deviceId && jsonData.timestamp) {
-          const deviceId = jsonData.deviceId.trim().toUpperCase();
-          const timestamp = jsonData.timestamp.getTime();
-          
-          const existing = deviceIdTimestamps.get(deviceId);
-          if (!existing || timestamp > existing) {
-            deviceIdTimestamps.set(deviceId, timestamp);
-          }
-        }
-      }
-    }
-    
-    // Check each station's availability
-    for (const station of stations) {
-      let isActive = false;
-      let lastSeen: Date | undefined = undefined;
+  }
+  
+  // Check Mati City stations via Firebase
+  if (matiStations.length > 0) {
+    try {
+      const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
+      const response = await fetch(url);
       
-      if (station.deviceId) {
-        // Custom station: check exact device ID
-        const deviceIdUpper = station.deviceId.toUpperCase().trim();
-        const timestamp = deviceIdTimestamps.get(deviceIdUpper);
-        if (timestamp) {
-          lastSeen = new Date(timestamp);
-          isActive = timestamp >= oneHourAgo;
+      if (response.ok) {
+        const data = await response.json();
+        const now = Date.now();
+        const oneHourAgo = now - (60 * 60 * 1000); // Consider active if data within last hour
+        
+        // Build a map of device IDs to their latest timestamps
+        const deviceIdTimestamps = new Map<string, number>();
+        
+        // Parse all entries and find latest timestamp for each device ID
+        for (const key in data) {
+          const entry = data[key];
+          if (entry) {
+            let jsonData: ParsedWeatherData | null = null;
+            
+            if (entry.device_id || entry.temperature !== undefined) {
+              const timestamp = entry.timestamp_ms 
+                ? new Date(entry.timestamp_ms)
+                : entry.timestamp 
+                ? new Date(entry.timestamp)
+                : null;
+              
+              if (timestamp && !isNaN(timestamp.getTime())) {
+                jsonData = {
+                  temperature: entry.temperature || 0,
+                  humidity: entry.humidity || 0,
+                  windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
+                  windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
+                  windDirection: entry.wind_direction || 0,
+                  rainfallPeriod: entry.rainfall_period || 0,
+                  rainfallTotal: entry.rainfall_total || 0,
+                  signalStrength: entry.signal_strength || 0,
+                  samples: entry.samples || 0,
+                  timestamp,
+                  timestampMs: timestamp.getTime(),
+                  deviceId: entry.device_id || '',
+                };
+              }
+            } else if (entry.key) {
+              jsonData = parseFirebaseWeatherDataToJSON(entry.key);
+            }
+            
+            if (jsonData && jsonData.deviceId && jsonData.timestamp) {
+              const deviceId = jsonData.deviceId.trim().toUpperCase();
+              const timestamp = jsonData.timestamp.getTime();
+              
+              const existing = deviceIdTimestamps.get(deviceId);
+              if (!existing || timestamp > existing) {
+                deviceIdTimestamps.set(deviceId, timestamp);
+              }
+            }
+          }
+        }
+        
+        // Check each Mati station's availability
+        for (const station of matiStations) {
+          let isActive = false;
+          let lastSeen: Date | undefined = undefined;
+          
+          if (station.deviceId) {
+            // Custom station: check exact device ID
+            const deviceIdUpper = station.deviceId.toUpperCase().trim();
+            const timestamp = deviceIdTimestamps.get(deviceIdUpper);
+            if (timestamp) {
+              lastSeen = new Date(timestamp);
+              isActive = timestamp >= oneHourAgo;
+            }
+          } else {
+            // Base station: check municipality patterns
+            const patterns = getDeviceIdPatternsForMunicipality(station.municipality.name);
+            for (const pattern of patterns) {
+              const patternUpper = pattern.toUpperCase();
+              const timestamp = deviceIdTimestamps.get(patternUpper);
+              if (timestamp) {
+                if (!lastSeen || timestamp > lastSeen.getTime()) {
+                  lastSeen = new Date(timestamp);
+                }
+                if (timestamp >= oneHourAgo) {
+                  isActive = true;
+                }
+              }
+            }
+          }
+          
+          availabilityMap.set(station.id, { isActive, lastSeen });
         }
       } else {
-        // Base station: check municipality patterns
-        const patterns = getDeviceIdPatternsForMunicipality(station.municipality.name);
-        for (const pattern of patterns) {
-          const patternUpper = pattern.toUpperCase();
-          const timestamp = deviceIdTimestamps.get(patternUpper);
-          if (timestamp) {
-            if (!lastSeen || timestamp > lastSeen.getTime()) {
-              lastSeen = new Date(timestamp);
-            }
-            if (timestamp >= oneHourAgo) {
-              isActive = true;
-            }
+        // Firebase fetch failed, mark Mati stations as inactive
+        matiStations.forEach(station => {
+          availabilityMap.set(station.id, { isActive: false });
+        });
+      }
+    } catch (error) {
+      // On error, mark Mati stations as inactive
+      matiStations.forEach(station => {
+        availabilityMap.set(station.id, { isActive: false });
+      });
+    }
+  }
+  
+  // Check other municipalities via Open-Meteo API
+  if (otherStations.length > 0) {
+    // Check all other stations in parallel
+    const availabilityPromises = otherStations.map(async (station) => {
+      try {
+        const coords = getMunicipalityCoordinates(station.municipality.name);
+        if (coords) {
+          // Try to fetch current weather from Open-Meteo
+          const weatherData = await fetchWeatherFromOpenMeteo(coords.lat, coords.lon);
+          if (weatherData) {
+            // Station is active if we can fetch data from Open-Meteo
+            return {
+              stationId: station.id,
+              isActive: true,
+              lastSeen: weatherData.timestamp,
+            };
           }
         }
+        return {
+          stationId: station.id,
+          isActive: false,
+          lastSeen: undefined,
+        };
+      } catch (error) {
+        return {
+          stationId: station.id,
+          isActive: false,
+          lastSeen: undefined,
+        };
       }
-      
-      availabilityMap.set(station.id, { isActive, lastSeen });
-    }
-  } catch (error) {
-    // On error, mark all as inactive
-    stations.forEach(station => {
-      availabilityMap.set(station.id, { isActive: false });
     });
+    
+    const results = await Promise.all(availabilityPromises);
+    for (const result of results) {
+      availabilityMap.set(result.stationId, {
+        isActive: result.isActive,
+        lastSeen: result.lastSeen,
+      });
+    }
   }
   
   return availabilityMap;
