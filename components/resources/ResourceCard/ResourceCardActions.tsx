@@ -34,7 +34,6 @@ export function ResourceCardActions({
       {!isExternalResource && isBorrowable && (
         <TouchableOpacity 
           style={[styles.primaryActionButton, { 
-            marginRight: 6,
             backgroundColor: resource.availableQuantity > 0 ? colors.primary : colors.success 
           }]}
           onPress={(e) => {

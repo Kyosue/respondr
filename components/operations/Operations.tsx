@@ -217,7 +217,6 @@ const styles = StyleSheet.create({
   mobileLayout: {
     flex: 1,
     gap: 16,
-    padding: 16,
   },
   mapContainer: {
     flex: 1,

@@ -2,7 +2,7 @@ import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   resourceCard: {
-    marginHorizontal: 16,
+    marginHorizontal: 5,
     marginVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
@@ -18,16 +18,19 @@ export const styles = StyleSheet.create({
     }),
   },
   cardContent: {
+    flexDirection: 'column',
+    padding: 10,
+    paddingVertical: 10,
+  },
+  mainSection: {
     flexDirection: 'row',
-    padding: 12,
-    paddingVertical: 12,
   },
   imageContainer: {
     width: 40,
     height: 40,
     borderRadius: 8,
     overflow: 'hidden',
-    marginRight: 12,
+    marginRight: 10,
     flexShrink: 0,
   },
   resourceImage: {
@@ -44,11 +47,19 @@ export const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  topRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
+    gap: 6,
+  },
+  titleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
   },
   resourceTitle: {
     fontSize: 16,
@@ -63,16 +74,11 @@ export const styles = StyleSheet.create({
       },
     }),
   },
-  topRightGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 0,
-  },
   conditionChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    flexShrink: 0,
   },
   conditionText: {
     fontSize: 10,
@@ -83,7 +89,7 @@ export const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
     flexWrap: 'wrap',
   },
   metaItem: {
@@ -119,27 +125,48 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   availabilityRow: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 8,
   },
   availabilityText: {
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Gabarito',
-    marginBottom: 4,
+    flexShrink: 0,
+    minWidth: 30,
+    textAlign: 'left',
   },
-  availabilityBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    width: '100%',
+  progressBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 16,
+    flex: 1,
+    ...(Platform.OS !== 'web' && {
+      height: 14,
+    }),
   },
-  availabilityFill: {
+  progressBarItem: {
+    width: 3,
     height: '100%',
-    borderRadius: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 1.5,
+    ...(Platform.OS !== 'web' && {
+      width: 2.5,
+    }),
+  },
+  progressBarItemSpacing: {
+    marginRight: 2,
+    ...(Platform.OS !== 'web' && {
+      marginRight: 1.5,
+    }),
   },
   actionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   primaryActionButton: {
     width: 32,

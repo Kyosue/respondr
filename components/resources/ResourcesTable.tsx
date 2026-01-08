@@ -5,8 +5,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Resource, ResourceCategory } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface ResourcesTableProps {
   resources: Resource[];
@@ -72,6 +72,125 @@ function getStatusColor(availableQuantity: number, totalQuantity: number): strin
   if (percentage > 70) return '#10B981';
   if (percentage > 30) return '#F59E0B';
   return '#EF4444';
+}
+
+// Animated Count Display Component
+interface AnimatedCountProps {
+  availableQuantity: number;
+  totalQuantity: number;
+  colors: any;
+  textStyle?: any;
+}
+
+function AnimatedCount({ availableQuantity, totalQuantity, colors, textStyle }: AnimatedCountProps) {
+  const availableCountAnimation = useRef(new Animated.Value(0)).current;
+  const totalCountAnimation = useRef(new Animated.Value(0)).current;
+  const [displayAvailable, setDisplayAvailable] = useState(0);
+  const [displayTotal, setDisplayTotal] = useState(0);
+
+  useEffect(() => {
+    // Animate available quantity
+    Animated.timing(availableCountAnimation, {
+      toValue: availableQuantity,
+      duration: 1500,
+      useNativeDriver: false,
+    }).start();
+
+    // Animate total quantity
+    Animated.timing(totalCountAnimation, {
+      toValue: totalQuantity,
+      duration: 1500,
+      useNativeDriver: false,
+    }).start();
+
+    // Update display values as animation progresses
+    const availableListener = availableCountAnimation.addListener(({ value }) => {
+      setDisplayAvailable(Math.floor(value));
+    });
+
+    const totalListener = totalCountAnimation.addListener(({ value }) => {
+      setDisplayTotal(Math.floor(value));
+    });
+
+    return () => {
+      availableCountAnimation.removeListener(availableListener);
+      totalCountAnimation.removeListener(totalListener);
+    };
+  }, [availableQuantity, totalQuantity, availableCountAnimation, totalCountAnimation]);
+
+  const defaultStyle = textStyle || [styles.tableCellText, { color: colors.text, opacity: 0.8 }];
+  
+  return (
+    <ThemedText style={defaultStyle}>
+      {displayAvailable}/{displayTotal}
+    </ThemedText>
+  );
+}
+
+// Animated Progress Bar Component with Vertical Bars
+interface AnimatedProgressBarProps {
+  percentage: number;
+  color: string;
+  totalBars?: number;
+}
+
+function AnimatedProgressBar({ percentage, color, totalBars = 20 }: AnimatedProgressBarProps) {
+  const activeBars = Math.round((percentage / 100) * totalBars);
+  const barAnimations = useRef(
+    Array.from({ length: totalBars }).map(() => ({
+      scale: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+    }))
+  ).current;
+
+  useEffect(() => {
+    const animations = barAnimations.map((anim, index) => {
+      const isActive = index < activeBars;
+      const delay = index * 10; // 10ms delay between each bar
+      
+      return Animated.parallel([
+        Animated.timing(anim.scale, {
+          toValue: isActive ? 1 : 0.3,
+          duration: 300,
+          delay,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim.opacity, {
+          toValue: isActive ? 1 : 0.3,
+          duration: 300,
+          delay,
+          useNativeDriver: true,
+        }),
+      ]);
+    });
+
+    Animated.stagger(0, animations).start();
+  }, [activeBars, barAnimations]);
+
+  return (
+    <View style={styles.progressBarContainer}>
+      {Array.from({ length: totalBars }).map((_, index) => {
+        const isActive = index < activeBars;
+        const isLast = index === totalBars - 1;
+        const anim = barAnimations[index];
+        
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              styles.progressBarItem,
+              !isLast && styles.progressBarItemSpacing,
+              isActive && { backgroundColor: color },
+              {
+                transform: [{ scaleY: anim.scale }],
+                opacity: anim.opacity,
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
 }
 
 export function ResourcesTable({ 
@@ -261,9 +380,17 @@ export function ResourcesTable({
                   )}
                   <View style={styles.mobileMetaItem}>
                     <Ionicons name="stats-chart-outline" size={14} color={statusColor} style={{ marginRight: 6 }} />
-                    <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7 }]}>
-                      {resource.availableQuantity}/{resource.totalQuantity} Available
-                    </ThemedText>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                      <AnimatedCount 
+                        availableQuantity={resource.availableQuantity}
+                        totalQuantity={resource.totalQuantity}
+                        colors={colors}
+                        textStyle={[styles.mobileText, { color: colors.text, opacity: 0.7 }]}
+                      />
+                      <ThemedText style={[styles.mobileText, { color: colors.text, opacity: 0.7, marginLeft: 4 }]}>
+                        Available
+                      </ThemedText>
+                    </View>
                   </View>
                 </View>
                 <View style={styles.mobileFooter}>
@@ -565,21 +692,17 @@ export function ResourcesTable({
               <View style={styles.tableCell}>
                 <View style={styles.statusCell}>
                   <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
-                  <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]}>
-                    {resource.availableQuantity}/{resource.totalQuantity}
-                  </ThemedText>
-                </View>
-                <View style={[styles.availabilityBar, { backgroundColor: colors.border }]}>
-                  <View 
-                    style={[
-                      styles.availabilityFill, 
-                      { 
-                        backgroundColor: statusColor,
-                        width: `${availabilityPercentage}%` 
-                      }
-                    ]} 
+                  <AnimatedCount 
+                    availableQuantity={resource.availableQuantity}
+                    totalQuantity={resource.totalQuantity}
+                    colors={colors}
                   />
                 </View>
+                <AnimatedProgressBar 
+                  percentage={availabilityPercentage} 
+                  color={statusColor}
+                  totalBars={Platform.OS === 'web' ? 30 : 20}
+                />
               </View>
               <View style={[styles.tableCell, styles.tableCellActions]}>
                 <View style={styles.actionsCell}>
@@ -932,15 +1055,31 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  availabilityBar: {
+  progressBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 12,
     width: '100%',
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
+    marginTop: 4,
+    ...(Platform.OS !== 'web' && {
+      height: 10,
+    }),
   },
-  availabilityFill: {
+  progressBarItem: {
+    width: 3,
     height: '100%',
-    borderRadius: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 1.5,
+    ...(Platform.OS !== 'web' && {
+      width: 2.5,
+    }),
+  },
+  progressBarItemSpacing: {
+    marginRight: 2,
+    ...(Platform.OS !== 'web' && {
+      marginRight: 1.5,
+    }),
   },
   actionsCell: {
     flexDirection: 'row',

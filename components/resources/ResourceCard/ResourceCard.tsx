@@ -1,10 +1,10 @@
-import { memo, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
-    Animated,
-    Image,
-    Platform,
-    TouchableOpacity,
-    View
+  Animated,
+  Image,
+  Platform,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -15,6 +15,72 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { styles } from './ResourceCard.styles';
 import { ResourceCardActions } from './ResourceCardActions';
+
+// Animated Progress Bar Component with Vertical Bars
+interface AnimatedProgressBarProps {
+  percentage: number;
+  color: string;
+  totalBars?: number;
+}
+
+function AnimatedProgressBar({ percentage, color, totalBars = 20 }: AnimatedProgressBarProps) {
+  const activeBars = Math.round((percentage / 100) * totalBars);
+  const barAnimations = useRef(
+    Array.from({ length: totalBars }).map(() => ({
+      scale: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+    }))
+  ).current;
+
+  useEffect(() => {
+    const animations = barAnimations.map((anim, index) => {
+      const isActive = index < activeBars;
+      const delay = index * 10; // 10ms delay between each bar
+      
+      return Animated.parallel([
+        Animated.timing(anim.scale, {
+          toValue: isActive ? 1 : 0.3,
+          duration: 300,
+          delay,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim.opacity, {
+          toValue: isActive ? 1 : 0.3,
+          duration: 300,
+          delay,
+          useNativeDriver: true,
+        }),
+      ]);
+    });
+
+    Animated.stagger(0, animations).start();
+  }, [activeBars, barAnimations]);
+
+  return (
+    <View style={styles.progressBarContainer}>
+      {Array.from({ length: totalBars }).map((_, index) => {
+        const isActive = index < activeBars;
+        const isLast = index === totalBars - 1;
+        const anim = barAnimations[index];
+        
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              styles.progressBarItem,
+              !isLast && styles.progressBarItemSpacing,
+              isActive && { backgroundColor: color },
+              {
+                transform: [{ scaleY: anim.scale }],
+                opacity: anim.opacity,
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
 
 interface ResourceCardProps {
   resource: Resource;
@@ -138,37 +204,40 @@ export const ResourceCard = memo(function ResourceCard({
         activeOpacity={0.7}
       >
         <View style={styles.cardContent}>
-          {/* Image */}
-          <View style={styles.imageContainer}>
-            {resource.images && resource.images.length > 0 ? (
-              <Image 
-                source={{ uri: resource.images[0] }} 
-                style={styles.resourceImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.placeholderImage, { backgroundColor: categoryColor + '20' }]}>
-                <Ionicons 
-                  name={getCategoryIcon(resource.category)} 
-                  size={20} 
-                  color={categoryColor} 
+          {/* Main Section: Image + Content */}
+          <View style={styles.mainSection}>
+            {/* Image */}
+            <View style={styles.imageContainer}>
+              {resource.images && resource.images.length > 0 ? (
+                <Image 
+                  source={{ uri: resource.images[0] }} 
+                  style={styles.resourceImage}
+                  resizeMode="cover"
                 />
-              </View>
-            )}
-          </View>
+              ) : (
+                <View style={[styles.placeholderImage, { backgroundColor: categoryColor + '20' }]}>
+                  <Ionicons 
+                    name={getCategoryIcon(resource.category)} 
+                    size={20} 
+                    color={categoryColor} 
+                  />
+                </View>
+              )}
+            </View>
 
-          {/* Main Content Section */}
-          <View style={styles.contentSection}>
-            {/* Row 1: Title + Condition + Actions */}
-            <View style={styles.topRow}>
-              <ThemedText style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={1}>
-                {resource.name}
-              </ThemedText>
-              <View style={styles.topRightGroup}>
-                <View style={[styles.conditionChip, { backgroundColor: conditionColor + '20', marginRight: 6 }]}>
-                  <ThemedText style={[styles.conditionText, { color: conditionColor }]}>
-                    {getConditionText(resource.condition)}
+            {/* Content Section */}
+            <View style={styles.contentSection}>
+              {/* Title Row with Condition and Actions */}
+              <View style={styles.titleRow}>
+                <View style={styles.titleGroup}>
+                  <ThemedText style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={1}>
+                    {resource.name}
                   </ThemedText>
+                  <View style={[styles.conditionChip, { backgroundColor: conditionColor + '20' }]}>
+                    <ThemedText style={[styles.conditionText, { color: conditionColor }]}>
+                      {getConditionText(resource.condition)}
+                    </ThemedText>
+                  </View>
                 </View>
                 <ResourceCardActions
                   resource={resource}
@@ -181,53 +250,47 @@ export const ResourceCard = memo(function ResourceCard({
                   colors={colors}
                 />
               </View>
-            </View>
 
-            {/* Row 2: Meta Info (Category, Location, External) */}
-            <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Ionicons name={getCategoryIcon(resource.category)} size={12} color={categoryColor} style={{ marginRight: 4 }} />
-                <ThemedText style={[styles.metaText, { color: colors.text }]}>
-                  {resource.category.toUpperCase()}
-                </ThemedText>
+              {/* Meta Info Row */}
+              <View style={styles.metaRow}>
+                <View style={styles.metaItem}>
+                  <Ionicons name={getCategoryIcon(resource.category)} size={12} color={categoryColor} style={{ marginRight: 4 }} />
+                  <ThemedText style={[styles.metaText, { color: colors.text }]}>
+                    {resource.category.toUpperCase()}
+                  </ThemedText>
+                </View>
+                {resource.location && (
+                  <>
+                    <ThemedText style={[styles.metaSeparator, { color: colors.text }]}>•</ThemedText>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="location-outline" size={12} color={colors.text} style={{ opacity: 0.6, marginRight: 4 }} />
+                      <ThemedText style={[styles.metaText, { color: colors.text }]} numberOfLines={1}>
+                        {resource.location}
+                      </ThemedText>
+                    </View>
+                  </>
+                )}
+                {isExternalResource && (
+                  <>
+                    <ThemedText style={[styles.metaSeparator, { color: colors.text }]}>•</ThemedText>
+                    <View style={[styles.externalBadgeInline, { backgroundColor: '#FFB74D20' }]}>
+                      <ThemedText style={[styles.externalTextInline, { color: '#FF8F00' }]}>
+                        EXTERNAL
+                      </ThemedText>
+                    </View>
+                  </>
+                )}
               </View>
-              {resource.location && (
-                <>
-                  <ThemedText style={[styles.metaSeparator, { color: colors.text }]}>•</ThemedText>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="location-outline" size={12} color={colors.text} style={{ opacity: 0.6, marginRight: 4 }} />
-                    <ThemedText style={[styles.metaText, { color: colors.text }]} numberOfLines={1}>
-                      {resource.location}
-                    </ThemedText>
-                  </View>
-                </>
-              )}
-              {isExternalResource && (
-                <>
-                  <ThemedText style={[styles.metaSeparator, { color: colors.text }]}>•</ThemedText>
-                  <View style={[styles.externalBadgeInline, { backgroundColor: '#FFB74D20' }]}>
-                    <ThemedText style={[styles.externalTextInline, { color: '#FF8F00' }]}>
-                      EXTERNAL
-                    </ThemedText>
-                  </View>
-                </>
-              )}
-            </View>
 
-            {/* Row 3: Availability */}
-            <View style={styles.availabilityRow}>
-              <ThemedText style={[styles.availabilityText, { color: colors.text }]}>
-                {resource.availableQuantity}/{resource.totalQuantity} Available
-              </ThemedText>
-              <View style={[styles.availabilityBar, { backgroundColor: colors.border }]}>
-                <View 
-                  style={[
-                    styles.availabilityFill, 
-                    { 
-                      backgroundColor: statusColor,
-                      width: `${availabilityPercentage}%` 
-                    }
-                  ]} 
+              {/* Availability Row - Inline */}
+              <View style={styles.availabilityRow}>
+                <ThemedText style={[styles.availabilityText, { color: colors.text }]}>
+                  {resource.availableQuantity}/{resource.totalQuantity}
+                </ThemedText>
+                <AnimatedProgressBar 
+                  percentage={availabilityPercentage} 
+                  color={statusColor}
+                  totalBars={Platform.OS === 'web' ? 50 : 35}
                 />
               </View>
             </View>
