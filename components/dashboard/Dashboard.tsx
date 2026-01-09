@@ -156,18 +156,22 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
           </View>
         ) : (
           <View style={dashboardStyles.desktopLayout}>
-            <View style={dashboardStyles.desktopFullWidth}>
-              <RecentOperations 
-                operations={operations}
-                onViewAll={() => handleNavigate('operations')}
-                onNavigate={handleNavigate}
-              />
-              <ResourceOverview />
-              <ActivityStream
-                operations={operations}
-                documents={documents}
-                transactions={resourceState.transactions}
-              />
+            <View style={dashboardStyles.desktopContentRow}>
+              <View style={dashboardStyles.desktopLeftColumn}>
+                <RecentOperations 
+                  operations={operations}
+                  onViewAll={() => handleNavigate('operations')}
+                  onNavigate={handleNavigate}
+                />
+                <ResourceOverview />
+              </View>
+              <View style={dashboardStyles.desktopRightColumn}>
+                <ActivityStream
+                  operations={operations}
+                  documents={documents}
+                  transactions={resourceState.transactions}
+                />
+              </View>
             </View>
           </View>
         )}

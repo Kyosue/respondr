@@ -32,6 +32,21 @@ export const dashboardStyles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
+  desktopContentRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 20,
+    alignItems: 'flex-start',
+  },
+  desktopLeftColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 20,
+  },
+  desktopRightColumn: {
+    width: 400,
+    flexShrink: 0,
+  },
   desktopFullWidth: {
     width: '100%',
     gap: 20,

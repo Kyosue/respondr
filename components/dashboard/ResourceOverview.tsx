@@ -23,8 +23,29 @@ interface StatCardWithAnimationProps {
 }
 
 function StatCardWithAnimation({ stat, activeBars, totalBars, colors }: StatCardWithAnimationProps) {
+  const [cardWidth, setCardWidth] = useState(0);
+  const [calculatedBars, setCalculatedBars] = useState(totalBars);
+  
+  // Calculate number of bars based on card width
+  useEffect(() => {
+    if (cardWidth > 0) {
+      // Bar width + spacing (4px bar + 2px spacing = 6px per bar on web, 3px + 1.5px = 4.5px on mobile)
+      const barWidth = Platform.OS === 'web' ? 4 : 3;
+      const barSpacing = Platform.OS === 'web' ? 2 : 1.5;
+      const padding = Platform.OS === 'web' ? 24 : 20; // Card padding * 2
+      const availableWidth = cardWidth - padding;
+      const barUnit = barWidth + barSpacing;
+      const maxBars = Math.floor(availableWidth / barUnit);
+      // Use at least 20 bars, but not more than what fits
+      const bars = Math.max(20, Math.min(maxBars, 60));
+      setCalculatedBars(bars);
+    } else {
+      setCalculatedBars(totalBars);
+    }
+  }, [cardWidth, totalBars]);
+
   const barAnimations = useRef(
-    Array.from({ length: totalBars }).map(() => ({
+    Array.from({ length: 60 }).map(() => ({
       scale: new Animated.Value(0),
       opacity: new Animated.Value(0),
     }))
@@ -54,8 +75,9 @@ function StatCardWithAnimation({ stat, activeBars, totalBars, colors }: StatCard
 
   useEffect(() => {
     // Staggered animation for each bar
-    const animations = barAnimations.map((anim, index) => {
-      const isActive = index < activeBars;
+    const activeBarsCount = Math.round((stat.percentage / 100) * calculatedBars);
+    const animations = barAnimations.slice(0, calculatedBars).map((anim, index) => {
+      const isActive = index < activeBarsCount;
       const delay = index * 15; // 15ms delay between each bar
       
       return Animated.parallel([
@@ -74,11 +96,21 @@ function StatCardWithAnimation({ stat, activeBars, totalBars, colors }: StatCard
       ]);
     });
 
-    Animated.stagger(0, animations).start();
-  }, [activeBars, barAnimations]);
+    if (animations.length > 0) {
+      Animated.stagger(0, animations).start();
+    }
+  }, [calculatedBars, stat.percentage, barAnimations]);
+
+  const activeBarsCount = Math.round((stat.percentage / 100) * calculatedBars);
 
   return (
-    <View style={[styles.statCard, { backgroundColor: `${stat.color}10` }]}>
+    <View 
+      style={[styles.statCard, { backgroundColor: `${stat.color}10` }]}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        setCardWidth(width);
+      }}
+    >
       <View style={styles.statCardTop}>
         <View style={[styles.statIconContainer, { backgroundColor: stat.color }]}>
           <Ionicons name={stat.icon as any} size={20} color="#FFFFFF" />
@@ -93,11 +125,11 @@ function StatCardWithAnimation({ stat, activeBars, totalBars, colors }: StatCard
         </View>
       </View>
       
-      {/* Individual Progress Bar with Vertical Bars - Full Width */}
+      {/* Individual Progress Bar with Vertical Bars - Auto Width */}
       <View style={styles.cardProgressBar}>
-        {Array.from({ length: totalBars }).map((_, index) => {
-          const isActive = index < activeBars;
-          const isLast = index === totalBars - 1;
+        {Array.from({ length: calculatedBars }).map((_, index) => {
+          const isActive = index < activeBarsCount;
+          const isLast = index === calculatedBars - 1;
           const anim = barAnimations[index];
           
           return (
@@ -180,8 +212,7 @@ export function ResourceOverview() {
     },
   ];
 
-  // Progress bar with vertical bars (equalizer style)
-  // More bars to fill the card width on both web and mobile
+  // Default total bars (will be overridden by card width measurement)
   const totalBars = Platform.OS === 'web' ? 40 : 30;
 
   return (
@@ -197,12 +228,11 @@ export function ResourceOverview() {
 
       <View style={[styles.statsGrid, isMobile && styles.statsGridMobile]}>
         {stats.map((stat) => {
-          const activeBars = Math.round((stat.percentage / 100) * totalBars);
           return (
             <StatCardWithAnimation
               key={stat.label}
               stat={stat}
-              activeBars={activeBars}
+              activeBars={0} // Will be calculated inside component
               totalBars={totalBars}
               colors={colors}
             />
@@ -307,9 +337,10 @@ const styles = StyleSheet.create({
   cardProgressBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     height: 16,
     width: '100%',
+    flexWrap: 'nowrap',
     ...(Platform.OS !== 'web' && {
       height: 14,
     }),
@@ -319,6 +350,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: 1.5,
+    flexShrink: 0,
     ...(Platform.OS !== 'web' && {
       width: 3,
     }),
