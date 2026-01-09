@@ -142,12 +142,12 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
         {/* Main Content Grid */}
         {isMobile ? (
           <View style={dashboardStyles.mobileLayout}>
+            <ResourceOverview />
             <RecentOperations 
               operations={operations}
               onViewAll={() => handleNavigate('operations')}
               onNavigate={handleNavigate}
             />
-            <ResourceOverview />
             <ActivityStream
               operations={operations}
               documents={documents}
@@ -158,12 +158,12 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
           <View style={dashboardStyles.desktopLayout}>
             <View style={dashboardStyles.desktopContentRow}>
               <View style={dashboardStyles.desktopLeftColumn}>
+                <ResourceOverview />
                 <RecentOperations 
                   operations={operations}
                   onViewAll={() => handleNavigate('operations')}
                   onNavigate={handleNavigate}
                 />
-                <ResourceOverview />
               </View>
               <View style={dashboardStyles.desktopRightColumn}>
                 <ActivityStream

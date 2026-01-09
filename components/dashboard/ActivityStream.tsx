@@ -7,8 +7,8 @@ import { useScreenSize } from '@/hooks/useScreenSize';
 import { SitRepDocument } from '@/types/Document';
 import { ResourceTransaction } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 interface ActivityItem {
   id: string;
@@ -105,6 +105,92 @@ function groupByTime(activities: ActivityItem[]): { label: string; items: Activi
   return Object.entries(groups)
     .filter(([_, items]) => items.length > 0)
     .map(([label, items]) => ({ label, items }));
+}
+
+// Animated Activity Item Component
+interface AnimatedActivityItemProps {
+  children: React.ReactNode;
+  index: number;
+}
+
+function AnimatedActivityItem({ children, index }: AnimatedActivityItemProps) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    // Stagger animation: each item appears 80ms after the previous one (slower, smoother)
+    const delay = index * 80;
+    
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 600,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateX, {
+        toValue: 0,
+        delay,
+        tension: 40,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index, opacity, translateX]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateX }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+// Animated Group Label Component
+interface AnimatedGroupLabelProps {
+  children: React.ReactNode;
+  index: number;
+}
+
+function AnimatedGroupLabel({ children, index }: AnimatedGroupLabelProps) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-10)).current;
+
+  useEffect(() => {
+    // Group labels appear before their items with smooth animation
+    const delay = index * 300; // Groups appear with more delay between them
+    
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        delay,
+        tension: 40,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index, opacity, translateY]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
 export function ActivityStream({ operations, documents, transactions }: ActivityStreamProps) {
@@ -239,7 +325,12 @@ export function ActivityStream({ operations, documents, transactions }: Activity
 
   if (recentActivities.length === 0) {
     return (
-      <ThemedView style={[styles.card, isMobile && styles.cardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <ThemedView style={[
+        styles.card, 
+        isMobile && styles.cardMobile,
+        !isMobile && styles.cardDesktop,
+        { backgroundColor: colors.surface, borderColor: colors.border }
+      ]}>
         <View style={styles.headerSection}>
           <View style={styles.titleContainer}>
             <View style={[styles.headerIconContainer, { backgroundColor: `${colors.accent}15` }]}>
@@ -258,7 +349,12 @@ export function ActivityStream({ operations, documents, transactions }: Activity
   }
 
   return (
-    <ThemedView style={[styles.card, isMobile && styles.cardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <ThemedView style={[
+      styles.card, 
+      isMobile && styles.cardMobile,
+      !isMobile && styles.cardDesktop,
+      { backgroundColor: colors.surface, borderColor: colors.border }
+    ]}>
       <View style={styles.headerSection}>
         <View style={styles.titleContainer}>
           <View style={[styles.headerIconContainer, { backgroundColor: `${colors.accent}15` }]}>
@@ -270,28 +366,43 @@ export function ActivityStream({ operations, documents, transactions }: Activity
         </View>
       </View>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {groupedActivities.map((group) => (
-          <View key={group.label} style={styles.group}>
-            <ThemedText style={[styles.groupLabel, { color: colors.text, opacity: 0.7 }]}>
-              {group.label}
-            </ThemedText>
-            {group.items.map((activity) => (
-              <View key={activity.id} style={styles.activityItem}>
-                <View style={[styles.activityIconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                  <Ionicons name={activity.icon} size={16} color={colors.primary} />
-                </View>
-                <View style={styles.activityContent}>
-                  <ThemedText style={[styles.activityMessage, { color: colors.text }]} numberOfLines={2}>
-                    {activity.message}
-                  </ThemedText>
-                  <ThemedText style={[styles.activityTime, { color: colors.text, opacity: 0.6 }]}>
-                    {activityTimeStrings.get(activity.id) || formatTimeAgo(activity.timestamp instanceof Date ? activity.timestamp : new Date(activity.timestamp))}
-                  </ThemedText>
-                </View>
-              </View>
-            ))}
-          </View>
-        ))}
+        {groupedActivities.map((group, groupIndex) => {
+          let itemIndex = 0;
+          // Calculate starting index for items in this group
+          for (let i = 0; i < groupIndex; i++) {
+            itemIndex += groupedActivities[i].items.length;
+          }
+          
+          return (
+            <View key={group.label} style={styles.group}>
+              <AnimatedGroupLabel index={groupIndex}>
+                <ThemedText style={[styles.groupLabel, { color: colors.text, opacity: 0.7 }]}>
+                  {group.label}
+                </ThemedText>
+              </AnimatedGroupLabel>
+              {group.items.map((activity, activityIndex) => {
+                const currentItemIndex = itemIndex + activityIndex;
+                return (
+                  <AnimatedActivityItem key={activity.id} index={currentItemIndex}>
+                    <View style={styles.activityItem}>
+                      <View style={[styles.activityIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                        <Ionicons name={activity.icon} size={16} color={colors.primary} />
+                      </View>
+                      <View style={styles.activityContent}>
+                        <ThemedText style={[styles.activityMessage, { color: colors.text }]} numberOfLines={2}>
+                          {activity.message}
+                        </ThemedText>
+                        <ThemedText style={[styles.activityTime, { color: colors.text, opacity: 0.6 }]}>
+                          {activityTimeStrings.get(activity.id) || formatTimeAgo(activity.timestamp instanceof Date ? activity.timestamp : new Date(activity.timestamp))}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  </AnimatedActivityItem>
+                );
+              })}
+            </View>
+          );
+        })}
       </ScrollView>
     </ThemedView>
   );
@@ -313,6 +424,12 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 16,
     borderRadius: 14,
+  },
+  cardDesktop: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    marginBottom: 0,
   },
   container: {
     flex: 1,
@@ -353,6 +470,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    ...(Platform.OS === 'web' && {
+      minHeight: 0,
+    }),
   },
   group: {
     marginBottom: 16,

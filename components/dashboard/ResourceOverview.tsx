@@ -253,6 +253,9 @@ const styles = StyleSheet.create({
       padding: 14,
       marginBottom: 16,
     }),
+    ...(Platform.OS === 'web' && {
+      marginBottom: 0,
+    }),
   },
   header: {
     flexDirection: 'row',

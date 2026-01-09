@@ -9,7 +9,8 @@ export const dashboardStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Platform.OS === 'web' ? 100 : 120, // Extra padding to prevent content from being cut off by bottom nav
+    paddingBottom: Platform.OS === 'web' ? 24 : 120, // Extra padding to prevent content from being cut off by bottom nav
+    flexGrow: 1,
   },
   header: {
     marginBottom: Platform.OS === 'web' ? 24 : 20,
@@ -36,16 +37,18 @@ export const dashboardStyles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     gap: 20,
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
   },
   desktopLeftColumn: {
     flex: 1,
     minWidth: 0,
     gap: 20,
+    justifyContent: 'flex-start',
   },
   desktopRightColumn: {
     width: 400,
     flexShrink: 0,
+    justifyContent: 'flex-start',
   },
   desktopFullWidth: {
     width: '100%',
