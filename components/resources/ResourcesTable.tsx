@@ -127,6 +127,53 @@ function AnimatedCount({ availableQuantity, totalQuantity, colors, textStyle }: 
   );
 }
 
+// Animated Row Component for staggered entrance animation
+interface AnimatedRowProps {
+  children: React.ReactNode;
+  index: number;
+  style?: any;
+}
+
+function AnimatedRow({ children, index, style }: AnimatedRowProps) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    // Stagger animation: each row appears 50ms after the previous one
+    const delay = index * 50;
+    
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        delay,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index, opacity, translateY]);
+
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity,
+          transform: [{ translateY }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 // Animated Progress Bar Component with Vertical Bars
 interface AnimatedProgressBarProps {
   percentage: number;
@@ -208,6 +255,8 @@ export function ResourcesTable({
   const { isMobile } = useScreenSize();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const mobileScrollRef = useRef<ScrollView>(null);
+  const desktopScrollRef = useRef<ScrollView>(null);
 
   // Calculate pagination
   const totalItems = resources.length;
@@ -230,6 +279,16 @@ export function ResourcesTable({
   React.useEffect(() => {
     setCurrentPage(1);
   }, [resources.length]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    if (mobileScrollRef.current) {
+      mobileScrollRef.current.scrollTo({ y: 0, animated: true });
+    }
+    if (desktopScrollRef.current) {
+      desktopScrollRef.current.scrollTo({ y: 0, animated: true });
+    }
+  }, [currentPage]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -297,8 +356,12 @@ export function ResourcesTable({
             {resources.length}
           </ThemedText>
         </View>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {resources.map((resource) => {
+        <ScrollView 
+          ref={mobileScrollRef}
+          style={styles.scrollView} 
+          showsVerticalScrollIndicator={false}
+        >
+          {resources.map((resource, index) => {
             const categoryColor = getCategoryColor(resource.category);
             const conditionColor = getConditionColor(resource.condition);
             const statusColor = getStatusColor(resource.availableQuantity, resource.totalQuantity);
@@ -307,12 +370,12 @@ export function ResourcesTable({
             const canBorrow = !isExternalResource && isBorrowable && resource.availableQuantity > 0;
 
             return (
-              <TouchableOpacity
-                key={resource.id}
-                style={[styles.mobileItem, { borderColor: colors.border }]}
-                onPress={() => onResourcePress?.(resource)}
-                activeOpacity={0.7}
-              >
+              <AnimatedRow key={resource.id} index={index}>
+                <TouchableOpacity
+                  style={[styles.mobileItem, { borderColor: colors.border }]}
+                  onPress={() => onResourcePress?.(resource)}
+                  activeOpacity={0.7}
+                >
                 <View style={styles.mobileItemHeader}>
                   <View style={[styles.imageContainer, { backgroundColor: `${categoryColor}20` }]}>
                     {resource.images && resource.images.length > 0 ? (
@@ -432,6 +495,7 @@ export function ResourcesTable({
                   </View>
                 </View>
               </TouchableOpacity>
+              </AnimatedRow>
             );
           })}
         </ScrollView>
@@ -584,6 +648,7 @@ export function ResourcesTable({
         
         {/* Scrollable Table Body */}
         <ScrollView 
+          ref={desktopScrollRef}
           style={styles.tableBodyScroll}
           contentContainerStyle={styles.tableBodyContent}
           showsVerticalScrollIndicator={true}
@@ -598,18 +663,18 @@ export function ResourcesTable({
           const availabilityPercentage = (resource.availableQuantity / resource.totalQuantity) * 100;
 
           return (
-            <TouchableOpacity
-              key={resource.id}
-              style={[
-                styles.tableRow,
-                { 
-                  borderBottomColor: colors.border,
-                  backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`
-                }
-              ]}
-              onPress={() => onResourcePress?.(resource)}
-              activeOpacity={0.7}
-            >
+            <AnimatedRow key={resource.id} index={index}>
+              <TouchableOpacity
+                style={[
+                  styles.tableRow,
+                  { 
+                    borderBottomColor: colors.border,
+                    backgroundColor: index % 2 === 0 ? 'transparent' : `${colors.primary}02`
+                  }
+                ]}
+                onPress={() => onResourcePress?.(resource)}
+                activeOpacity={0.7}
+              >
               <View style={[styles.tableCell, styles.tableCellName]}>
                 <View style={styles.resourceNameCell}>
                   <View style={[styles.imageContainer, styles.tableImageContainer, { backgroundColor: `${categoryColor}20` }]}>
@@ -743,6 +808,7 @@ export function ResourcesTable({
                 </View>
               </View>
             </TouchableOpacity>
+            </AnimatedRow>
           );
         })}
         </ScrollView>

@@ -5,8 +5,8 @@ import { UserData, UserStatus, UserType } from '@/firebase/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface UsersTableProps {
   users: UserData[];
@@ -135,6 +135,53 @@ function sortUsersByStatusAndRole(users: UserData[]): UserData[] {
     // If status is the same, sort by role (admin, supervisor, operator)
     return roleOrder[a.userType] - roleOrder[b.userType];
   });
+}
+
+// Animated Row Component for staggered entrance animation
+interface AnimatedRowProps {
+  children: React.ReactNode;
+  index: number;
+  style?: any;
+}
+
+function AnimatedRow({ children, index, style }: AnimatedRowProps) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    // Stagger animation: each row appears 50ms after the previous one
+    const delay = index * 50;
+    
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        delay,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index, opacity, translateY]);
+
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity,
+          transform: [{ translateY }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
 export function UsersTable({ 
@@ -278,26 +325,26 @@ export function UsersTable({
           </ThemedText>
         </View>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {users.map((user) => {
+          {users.map((user, index) => {
             const userTypeColor = getUserTypeColor(user.userType);
             const statusColor = getStatusColor(user.status);
             const statusText = getStatusText(user.status);
             const isNew = isNewUser(user);
 
             return (
-              <TouchableOpacity
-                key={user.id}
-                style={[
-                  styles.mobileItem, 
-                  { 
-                    borderColor: isNew ? colors.primary : colors.border,
-                    borderWidth: isNew ? 2 : 1,
-                    backgroundColor: isNew ? `${colors.primary}05` : 'transparent',
-                  }
-                ]}
-                onPress={() => onUserPress?.(user)}
-                activeOpacity={0.7}
-              >
+              <AnimatedRow key={user.id} index={index}>
+                <TouchableOpacity
+                  style={[
+                    styles.mobileItem, 
+                    { 
+                      borderColor: isNew ? colors.primary : colors.border,
+                      borderWidth: isNew ? 2 : 1,
+                      backgroundColor: isNew ? `${colors.primary}05` : 'transparent',
+                    }
+                  ]}
+                  onPress={() => onUserPress?.(user)}
+                  activeOpacity={0.7}
+                >
                 <View style={styles.mobileItemHeader}>
                   <View style={[styles.avatarContainer, { backgroundColor: user?.avatarUrl ? 'transparent' : `${userTypeColor}20` }]}>
                     {user?.avatarUrl ? (
@@ -420,6 +467,7 @@ export function UsersTable({
                   </View>
                 </View>
               </TouchableOpacity>
+              </AnimatedRow>
             );
           })}
         </ScrollView>
@@ -486,22 +534,22 @@ export function UsersTable({
         const isNew = isNewUser(user);
 
         return (
-          <TouchableOpacity
-            key={user.id}
-            style={[
-              styles.tableRow,
-              { 
-                borderBottomColor: colors.border,
-                backgroundColor: isNew 
-                  ? `${colors.primary}08` 
-                  : index % 2 === 0 ? 'transparent' : `${colors.primary}02`,
-                borderLeftWidth: isNew ? 3 : 0,
-                borderLeftColor: isNew ? colors.primary : 'transparent',
-              }
-            ]}
-            onPress={() => onUserPress?.(user)}
-            activeOpacity={0.7}
-          >
+          <AnimatedRow key={user.id} index={index}>
+            <TouchableOpacity
+              style={[
+                styles.tableRow,
+                { 
+                  borderBottomColor: colors.border,
+                  backgroundColor: isNew 
+                    ? `${colors.primary}08` 
+                    : index % 2 === 0 ? 'transparent' : `${colors.primary}02`,
+                  borderLeftWidth: isNew ? 3 : 0,
+                  borderLeftColor: isNew ? colors.primary : 'transparent',
+                }
+              ]}
+              onPress={() => onUserPress?.(user)}
+              activeOpacity={0.7}
+            >
             <View style={[styles.tableCell, styles.tableCellName]}>
               <View style={styles.userNameCell}>
                 <View style={[styles.avatarContainer, styles.tableAvatarContainer, { backgroundColor: user?.avatarUrl ? 'transparent' : `${userTypeColor}20` }]}>
@@ -629,6 +677,7 @@ export function UsersTable({
               </View>
             </View>
           </TouchableOpacity>
+          </AnimatedRow>
         );
         })}
       </ScrollView>

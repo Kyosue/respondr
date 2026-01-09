@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
   Platform,
   ScrollView,
@@ -23,6 +24,144 @@ import { useLogin } from '@/hooks/useLogin';
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+}
+
+interface AnimatedNavItemProps {
+  tab: { id: string; icon: string; label?: string; title?: string };
+  isActive: boolean;
+  isCollapsed: boolean;
+  colors: any;
+  onPress: () => void;
+}
+
+function AnimatedNavItem({ tab, isActive, isCollapsed, colors, onPress }: AnimatedNavItemProps) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const backgroundColorAnim = useRef(new Animated.Value(0)).current;
+  const accentBarAnim = useRef(new Animated.Value(0)).current;
+  const iconScaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(backgroundColorAnim, {
+        toValue: isActive ? 1 : 0,
+        useNativeDriver: false,
+        tension: 300,
+        friction: 30,
+      }),
+      Animated.spring(accentBarAnim, {
+        toValue: isActive ? 1 : 0,
+        useNativeDriver: false,
+        tension: 300,
+        friction: 30,
+      }),
+      Animated.spring(iconScaleAnim, {
+        toValue: isActive ? 1.1 : 1,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 20,
+      }),
+    ]).start();
+  }, [isActive]);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 20,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 20,
+    }).start();
+  };
+
+  const backgroundColor = backgroundColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['transparent', `${colors.primary}25`],
+  });
+
+
+  const displayText = tab.id === 'sitrep' ? 'Situation Report' : (tab.label || tab.title);
+
+  const shadowStyle = isActive
+    ? Platform.select({
+        ios: {
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 6,
+        },
+        android: {
+          elevation: 4,
+        },
+      })
+    : {};
+
+  return (
+    <Animated.View
+      style={[
+        styles.menuItemContainer,
+        {
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <Animated.View
+      />
+      <Animated.View
+        style={[
+          styles.menuItem,
+          {
+            backgroundColor: backgroundColor,
+            ...shadowStyle,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.menuItemTouchable}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+        >
+          <Animated.View
+            style={{
+              transform: [{ scale: iconScaleAnim }],
+            }}
+          >
+            <Ionicons
+              name={
+                isActive
+                  ? tab.icon.replace('-outline', '') as any
+                  : tab.icon as any
+              }
+              size={22}
+              color={isActive ? colors.primary : colors.text}
+            />
+          </Animated.View>
+          {!isCollapsed && (
+            <ThemedText
+              style={[
+                styles.menuItemText,
+                {
+                  color: isActive ? colors.primary : colors.text,
+                  fontWeight: isActive ? '600' : '500',
+                },
+              ]}
+            >
+              {displayText}
+            </ThemedText>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
+  );
 }
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
@@ -140,44 +279,14 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           {BOTTOM_TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
-              <TouchableOpacity
+              <AnimatedNavItem
                 key={tab.id}
-                style={[
-                  styles.menuItem,
-                  isActive && [
-                    styles.activeMenuItem,
-                    {
-                      backgroundColor: `${colors.primary}15`,
-                      borderLeftColor: colors.primary,
-                    }
-                  ]
-                ]}
+                tab={tab}
+                isActive={isActive}
+                isCollapsed={isCollapsed}
+                colors={colors}
                 onPress={() => onTabChange(tab.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={
-                    isActive
-                      ? tab.icon.replace('-outline', '') as any
-                      : tab.icon as any
-                  }
-                  size={22}
-                  color={isActive ? colors.primary : colors.text}
-                />
-                {!isCollapsed && (
-                  <ThemedText
-                    style={[
-                      styles.menuItemText,
-                        {
-                        color: isActive ? colors.primary : colors.text,
-                        fontWeight: isActive ? '600' : '500'
-                      }
-                    ]}
-                  >
-                    {tab.id === 'sitrep' ? 'Situation Report' : tab.label}
-                  </ThemedText>
-                )}
-              </TouchableOpacity>
+              />
             );
           })}
         </View>
@@ -199,44 +308,14 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           {menuItems.filter(item => item.id !== 'logout').map((item) => {
             const isActive = activeTab === item.id;
             return (
-              <TouchableOpacity
+              <AnimatedNavItem
                 key={item.id}
-                style={[
-                  styles.menuItem,
-                  isActive && [
-                    styles.activeMenuItem,
-                    {
-                      backgroundColor: `${colors.primary}15`,
-                      borderLeftColor: colors.primary,
-                    }
-                  ]
-                ]}
+                tab={item}
+                isActive={isActive}
+                isCollapsed={isCollapsed}
+                colors={colors}
                 onPress={() => onTabChange(item.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={
-                    isActive
-                      ? item.icon.replace('-outline', '') as any
-                      : item.icon as any
-                  }
-                  size={22}
-                  color={isActive ? colors.primary : colors.text}
-                />
-                {!isCollapsed && (
-                  <ThemedText
-                    style={[
-                      styles.menuItemText,
-                      {
-                        color: isActive ? colors.primary : colors.text,
-                        fontWeight: isActive ? '600' : '500'
-                      }
-                    ]}
-                  >
-                    {item.title}
-                  </ThemedText>
-                )}
-              </TouchableOpacity>
+              />
             );
           })}
         </View>
@@ -331,17 +410,24 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 8,
   },
+  menuItemContainer: {
+    position: 'relative',
+    marginHorizontal: 12,
+    marginVertical: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   menuItem: {
+    borderRadius: 12,
+    minHeight: 44,
+    overflow: 'hidden',
+  },
+  menuItemTouchable: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    marginHorizontal: 12,
-    marginVertical: 2,
-    borderRadius: 12,
-  },
-  activeMenuItem: {
-    borderLeftWidth: 3,
+    flex: 1,
   },
   menuItemText: {
     marginLeft: 16,

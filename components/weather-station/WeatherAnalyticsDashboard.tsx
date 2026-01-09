@@ -247,8 +247,8 @@ export function WeatherAnalyticsDashboard({
       }
     }
 
-    // Return sampled data, sorted by newest first
-    return sampledData.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    // Return sampled data, sorted by oldest first (for left-to-right: past to current)
+    return sampledData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   };
 
   // Filter by time range first, then sample by interval
@@ -349,7 +349,9 @@ export function WeatherAnalyticsDashboard({
   // Render multi-line chart
   const renderCombinedChart = () => {
     // Use all historical data if filtered data is insufficient
-    const dataForChart = filteredData.length >= 2 ? filteredData : (historicalData.length >= 2 ? historicalData : []);
+    // Ensure data is sorted oldest first (left to right: past to current)
+    const rawDataForChart = filteredData.length >= 2 ? filteredData : (historicalData.length >= 2 ? historicalData : []);
+    const dataForChart = [...rawDataForChart].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     
     const tempData = generateChartData('temperature', dataForChart);
     const humidityData = generateChartData('humidity', dataForChart);

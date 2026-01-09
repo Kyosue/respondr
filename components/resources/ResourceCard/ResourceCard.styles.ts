@@ -32,6 +32,7 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     marginRight: 10,
     flexShrink: 0,
+    
   },
   resourceImage: {
     width: '100%',
