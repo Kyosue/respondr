@@ -6,26 +6,26 @@
 import { MemoDocument, MemoFilter, MemoUploadOptions } from '@/types/MemoDocument';
 import { generateUniqueId } from '@/utils/idGenerator';
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    DocumentSnapshot,
-    getDoc,
-    getDocs,
-    limit,
-    query,
-    QueryConstraint,
-    startAfter,
-    updateDoc,
-    where
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  DocumentSnapshot,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  QueryConstraint,
+  startAfter,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import {
-    deleteObject,
-    getDownloadURL,
-    ref,
-    uploadBytesResumable,
-    UploadTaskSnapshot
+  deleteObject,
+  getDownloadURL,
+  ref,
+  uploadBytesResumable,
+  UploadTaskSnapshot
 } from 'firebase/storage';
 import { db, storage } from './config';
 
@@ -450,14 +450,34 @@ export class MemoService {
           const converted = this.documentSnapshotToMemoDocument(doc);
           documents.push(converted);
         } catch (error) {
-          // Don't throw, just skip this document
+          // Log conversion errors for debugging, but don't throw to prevent blocking other documents
+          console.error(`Error converting document ${doc.id}:`, error);
+          if (process.env.NODE_ENV === 'production') {
+            console.error('Document conversion error details:', {
+              docId: doc.id,
+              docData: doc.data(),
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
         }
       }
 
       // Sort in memory by uploadedAt (most recent first)
       documents.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
 
-      const lastDocument = querySnapshot.docs[querySnapshot.docs.length - 1];
+      const lastDocument = querySnapshot.docs.length > 0 
+        ? querySnapshot.docs[querySnapshot.docs.length - 1] 
+        : undefined;
+
+      // Log query results for debugging in production
+      if (process.env.NODE_ENV === 'production' && querySnapshot.docs.length === 0 && documents.length === 0) {
+        console.warn('No documents found in query:', {
+          collection: this.collectionName,
+          filters,
+          limitCount,
+          hasLastDoc: !!lastDoc
+        });
+      }
 
       return {
         documents,

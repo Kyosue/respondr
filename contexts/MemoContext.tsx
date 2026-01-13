@@ -1,7 +1,7 @@
 import { auth } from '@/firebase/config';
 import { MemoService } from '@/firebase/memos';
 import { MemoDocument, MemoFilter, MemoUploadOptions } from '@/types/MemoDocument';
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 
 interface MemoContextType {
@@ -59,7 +59,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [lastDoc, setLastDoc] = useState<any>(null);
+  const lastDocRef = useRef<any>(null);
   const [currentFilters, setCurrentFilters] = useState<MemoFilter | undefined>();
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [uploadProgress, setUploadProgress] = useState<Map<string, number>>(new Map());
@@ -68,21 +68,14 @@ export function MemoProvider({ children }: MemoProviderProps) {
   const memoService = MemoService.getInstance();
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Fetch documents after authentication is ready
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      fetchDocuments();
-    }
-  }, [isLoading, isAuthenticated]);
-
-  const fetchDocuments = async (filters?: MemoFilter, refresh: boolean = false) => {
+  const fetchDocuments = useCallback(async (filters?: MemoFilter, refresh: boolean = false) => {
     try {
       // Guard: only attempt when authenticated
       if (!isAuthenticated) {
         setDocuments([]);
         setError(null);
         setHasMore(true);
-        setLastDoc(null);
+        lastDocRef.current = null;
         return;
       }
       setLoading(true);
@@ -92,29 +85,49 @@ export function MemoProvider({ children }: MemoProviderProps) {
       const { documents: newDocuments, lastDoc: newLastDoc } = await memoService.getMemoDocuments(
         filters,
         pageSize,
-        refresh ? undefined : lastDoc
+        refresh ? undefined : lastDocRef.current
       );
 
       if (refresh) {
         setDocuments(newDocuments);
-        setLastDoc(newLastDoc);
+        lastDocRef.current = newLastDoc;
       } else {
         setDocuments(prev => [...prev, ...newDocuments]);
-        setLastDoc(newLastDoc);
+        lastDocRef.current = newLastDoc;
       }
 
       setHasMore(newDocuments.length === pageSize);
       setCurrentFilters(filters);
     } catch (err) {
-      // Suppress noisy unauthenticated logs; surface other errors
-      if (!(err instanceof Error && err.message.includes('User must be authenticated'))) {
-        console.error('Error fetching documents:', err);
+      // Log all errors in production for debugging
+      console.error('Error fetching documents:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch documents';
+      setError(errorMessage);
+      // Don't suppress errors - log them for debugging production issues
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Document fetch error details:', {
+          error: errorMessage,
+          filters,
+          isAuthenticated,
+          isLoading
+        });
       }
-      setError(err instanceof Error ? err.message : 'Failed to fetch documents');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, memoService]);
+
+  // Fetch documents after authentication is ready
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      fetchDocuments();
+    } else if (!isLoading && !isAuthenticated) {
+      // Clear documents when not authenticated
+      setDocuments([]);
+      lastDocRef.current = null;
+      setHasMore(true);
+    }
+  }, [isLoading, isAuthenticated, fetchDocuments]);
 
   const loadMore = async () => {
     if (!loading && hasMore) {
@@ -123,7 +136,7 @@ export function MemoProvider({ children }: MemoProviderProps) {
   };
 
   const refresh = async () => {
-    setLastDoc(null);
+    lastDocRef.current = null;
     setHasMore(true);
     await fetchDocuments(currentFilters, true);
   };
