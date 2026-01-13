@@ -1,6 +1,7 @@
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigation } from '@/contexts/NavigationContext';
+import { Barangay, getBarangays } from '@/data/barangayGeoJsonData';
 import { Municipality } from '@/data/davaoOrientalData';
 import { OperationRecord, operationsService } from '@/firebase/operations';
 import { useBottomNavHeight } from '@/hooks/useBottomNavHeight';
@@ -8,7 +9,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, Platform, StyleSheet, View } from 'react-native';
+import { Dimensions, InteractionManager, Platform, StyleSheet, View } from 'react-native';
 import { DavaoOrientalMap } from './OperationsMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
 
@@ -20,11 +21,26 @@ const Operations = React.memo(() => {
   const bottomNavHeight = useBottomNavHeight();
   const { isDesktop } = useScreenSize();
   const [selectedMunicipality, setSelectedMunicipality] = useState<Municipality | null>(null);
+  const [selectedBarangay, setSelectedBarangay] = useState<Barangay | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showOperationsModal, setShowOperationsModal] = useState(false);
   const [editingOperation, setEditingOperation] = useState<any | null>(null);
   const [operationsByMunicipality, setOperationsByMunicipality] = useState<Record<string, any[]>>({});
   const [concludedOperationsByMunicipality, setConcludedOperationsByMunicipality] = useState<Record<string, any[]>>({});
+  const [operationsByBarangay, setOperationsByBarangay] = useState<Record<string, any[]>>({});
+  const [concludedOperationsByBarangay, setConcludedOperationsByBarangay] = useState<Record<string, any[]>>({});
+  const [isReady, setIsReady] = useState(false);
+  
+  // Defer heavy work until after navigation animation completes
+  useEffect(() => {
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      setIsReady(true);
+    });
+    
+    return () => {
+      interaction.cancel();
+    };
+  }, []);
   
   // Memoize screen dimensions to prevent unnecessary recalculations
   const screenDimensions = useMemo(() => {
@@ -56,10 +72,17 @@ const Operations = React.memo(() => {
     setShowModal(true);
   }, []);
 
+  const handleBarangayPress = useCallback((barangay: Barangay) => {
+    setSelectedBarangay(barangay);
+    setShowModal(true);
+  }, []);
+
   const closeModal = useCallback(() => {
     setShowModal(false);
+    setSelectedBarangay(null);
     setSelectedMunicipality(null);
   }, []);
+
 
   const handleAddOperation = useCallback(() => {
     setEditingOperation(null);
@@ -81,24 +104,67 @@ const Operations = React.memo(() => {
     setShowOperationsModal(false);
   }, []);
 
-  // Subscribe to operations and group by municipality for map and modal
+  // Get barangays list for matching
+  const barangays = useMemo(() => getBarangays(), []);
+
+  // Subscribe to operations and group by both municipality and barangay
+  // Defer subscription until after initial render to improve navigation performance
   useEffect(() => {
+    if (!isReady) return;
+    
+    let isMounted = true;
     const unsubscribe = operationsService.onAllOperations((ops: OperationRecord[]) => {
-      const grouped: Record<string, OperationRecord[]> = {};
-      const groupedConcluded: Record<string, OperationRecord[]> = {};
+      if (!isMounted) return;
+      
+      // Group by municipality
+      const groupedByMunicipality: Record<string, OperationRecord[]> = {};
+      const groupedConcludedByMunicipality: Record<string, OperationRecord[]> = {};
+      
+      // Group by barangay (for Mati)
+      const groupedByBarangay: Record<string, OperationRecord[]> = {};
+      const groupedConcludedByBarangay: Record<string, OperationRecord[]> = {};
+      
       for (const op of ops) {
-        const key = op.municipalityId;
-        const target = (op.status === 'concluded')
-          ? groupedConcluded
-          : grouped;
-        if (!target[key]) target[key] = [];
-        target[key].push(op);
+        // Group by municipality
+        const municipalityKey = op.municipalityId;
+        const municipalityTarget = (op.status === 'concluded')
+          ? groupedConcludedByMunicipality
+          : groupedByMunicipality;
+        if (!municipalityTarget[municipalityKey]) municipalityTarget[municipalityKey] = [];
+        municipalityTarget[municipalityKey].push(op);
+        
+        // Group by barangay name - match operations to barangays by name (for Mati)
+        const barangayName = op.exactLocation?.barangay;
+        if (barangayName) {
+          const matchingBarangay = barangays.find((b: Barangay) => 
+            b.name.toLowerCase() === barangayName.toLowerCase()
+          );
+          
+          if (matchingBarangay) {
+            const barangayKey = matchingBarangay.id.toString();
+            const barangayTarget = (op.status === 'concluded')
+              ? groupedConcludedByBarangay
+              : groupedByBarangay;
+            if (!barangayTarget[barangayKey]) barangayTarget[barangayKey] = [];
+            barangayTarget[barangayKey].push(op);
+          }
+        }
       }
-      setOperationsByMunicipality(grouped);
-      setConcludedOperationsByMunicipality(groupedConcluded);
+      
+      // Only update state if component is still mounted
+      if (isMounted) {
+        setOperationsByMunicipality(groupedByMunicipality);
+        setConcludedOperationsByMunicipality(groupedConcludedByMunicipality);
+        setOperationsByBarangay(groupedByBarangay);
+        setConcludedOperationsByBarangay(groupedConcludedByBarangay);
+      }
     });
-    return unsubscribe;
-  }, []);
+    
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [barangays, isReady]);
 
   // Handle municipality to open from navigation context
   useEffect(() => {
@@ -142,13 +208,18 @@ const Operations = React.memo(() => {
             style={[styles.mapContainer, styles.mapContainerDesktop]}
           >
             <View style={styles.oceanOverlay}>
-              <DavaoOrientalMap 
-                width={screenDimensions.width}
-                height={screenDimensions.height}
-                onMunicipalityPress={handleMunicipalityPress}
-                selectedMunicipality={selectedMunicipality}
-                operationsByMunicipality={operationsByMunicipality}
-              />
+              {isReady && (
+                <DavaoOrientalMap 
+                  width={screenDimensions.width}
+                  height={screenDimensions.height}
+                  onMunicipalityPress={handleMunicipalityPress}
+                  onBarangayPress={handleBarangayPress}
+                  selectedMunicipality={selectedMunicipality}
+                  selectedBarangay={selectedBarangay}
+                  operationsByMunicipality={operationsByMunicipality}
+                  operationsByBarangay={operationsByBarangay}
+                />
+              )}
             </View>
           </LinearGradient>
         </View>
@@ -168,13 +239,18 @@ const Operations = React.memo(() => {
             style={styles.mapContainer}
           >
             <View style={styles.oceanOverlay}>
-              <DavaoOrientalMap 
-                width={screenDimensions.width}
-                height={screenDimensions.height}
-                onMunicipalityPress={handleMunicipalityPress}
-                selectedMunicipality={selectedMunicipality}
-                operationsByMunicipality={operationsByMunicipality}
-              />
+              {isReady && (
+                <DavaoOrientalMap 
+                  width={screenDimensions.width}
+                  height={screenDimensions.height}
+                  onMunicipalityPress={handleMunicipalityPress}
+                  onBarangayPress={handleBarangayPress}
+                  selectedMunicipality={selectedMunicipality}
+                  selectedBarangay={selectedBarangay}
+                  operationsByMunicipality={operationsByMunicipality}
+                  operationsByBarangay={operationsByBarangay}
+                />
+              )}
             </View>
           </LinearGradient>
         </View>
@@ -182,18 +258,40 @@ const Operations = React.memo(() => {
 
       <MunicipalityDetailModal
         visible={showModal}
-        municipality={selectedMunicipality}
+        municipality={selectedBarangay ? {
+          id: selectedBarangay.municipalityId,
+          name: selectedBarangay.municipality,
+          type: 'City' as const,
+          area: 0,
+          coordinates: [],
+          center: selectedBarangay.center
+        } : selectedMunicipality}
         onClose={closeModal}
         onAddOperation={handleAddOperation}
-        recentOperations={selectedMunicipality ? (operationsByMunicipality[selectedMunicipality.id.toString()] ?? []) : []}
+        recentOperations={
+          selectedBarangay 
+            ? (operationsByBarangay[selectedBarangay.id.toString()] ?? [])
+            : (selectedMunicipality ? (operationsByMunicipality[selectedMunicipality.id.toString()] ?? []) : [])
+        }
         onConcludeOperation={handleConcludeOperation}
-        concludedOperations={selectedMunicipality ? (concludedOperationsByMunicipality[selectedMunicipality.id.toString()] ?? []) : []}
+        concludedOperations={
+          selectedBarangay 
+            ? (concludedOperationsByBarangay[selectedBarangay.id.toString()] ?? [])
+            : (selectedMunicipality ? (concludedOperationsByMunicipality[selectedMunicipality.id.toString()] ?? []) : [])
+        }
         onEditOperation={handleEditOperation}
       />
 
       <OperationsModal
         visible={showOperationsModal}
-        municipality={selectedMunicipality}
+        municipality={selectedBarangay ? {
+          id: selectedBarangay.municipalityId,
+          name: selectedBarangay.municipality,
+          type: 'City' as const,
+          area: 0,
+          coordinates: [],
+          center: selectedBarangay.center
+        } : selectedMunicipality}
         onClose={closeOperationsModal}
         onSubmit={handleOperationSubmit}
         existingOperation={editingOperation}
@@ -248,6 +346,27 @@ const styles = StyleSheet.create({
       },
       default: {},
     }),
+  },
+  backButtonContainer: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    zIndex: 1000,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 8,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
   },
 });
 

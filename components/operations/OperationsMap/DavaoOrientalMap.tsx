@@ -1,8 +1,9 @@
 import { Colors } from '@/constants/Colors';
+import { Barangay, getBarangayDataForMunicipality, getBarangaysForMunicipality } from '@/data/barangayGeoJsonData';
 import { davaoOrientalData, getMunicipalities, Municipality } from '@/data/davaoOrientalData';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -146,8 +147,11 @@ interface DavaoOrientalMapProps {
   width?: number;
   height?: number;
   onMunicipalityPress?: (municipality: Municipality) => void;
+  onBarangayPress?: (barangay: Barangay) => void;
   selectedMunicipality?: Municipality | null;
+  selectedBarangay?: Barangay | null;
   operationsByMunicipality?: Record<string, any[]>;
+  operationsByBarangay?: Record<string, any[]>;
 }
 
 // Enhanced function to convert GeoJSON coordinates to SVG path with error handling
@@ -232,12 +236,21 @@ const scaleCoordinates = (
   padding: number = 30
 ): number[][] => {
   try {
+    // Calculate scale to fit content with padding
     const scaleX = (width - padding * 2) / (bounds.maxX - bounds.minX);
     const scaleY = (height - padding * 2) / (bounds.maxY - bounds.minY);
     const scale = Math.min(scaleX, scaleY);
     
-    const offsetX = (width - (bounds.maxX - bounds.minX) * scale) / 2;
-    const offsetY = (height - (bounds.maxY - bounds.minY) * scale) / 2;
+    // Calculate actual scaled dimensions
+    const scaledWidth = (bounds.maxX - bounds.minX) * scale;
+    const scaledHeight = (bounds.maxY - bounds.minY) * scale;
+    
+    // Platform-specific horizontal adjustment for web
+    const horizontalAdjustment = Platform.OS === 'web' ? -100 : 0;
+    
+    // Center the content in the container with platform-specific adjustment
+    const offsetX = (width - scaledWidth) / 2 + horizontalAdjustment;
+    const offsetY = (height - scaledHeight) / 2;
     
     let coords: number[][];
     
@@ -304,7 +317,7 @@ const getLabelPosition = (
       'Governor Generoso': { x: center.x - 50, y: center.y - 20 }, 
       'Lupon': { x: center.x + 25, y: center.y - 50 }, 
       'Manay': { x: center.x - 10, y: center.y - 10}, 
-      'City of Mati': { x: center.x - 5, y: center.y - 78 }, // Alternative name
+      'City of Mati': { x: center.x + 60, y: center.y - 58 }, // Alternative name
       'San Isidro': { x: center.x - 35, y: center.y + 5 }, 
       'Tarragona': { x: center.x -5, y: center.y - 5 }, 
     };
@@ -332,14 +345,22 @@ const MunicipalityPath = memo<{
 }>(({ pathData, isSelected, colors, onPress, priorityColors }) => {
   return (
     <G>
+      {/* Main fill path - transparent for municipalities */}
       <Path
         d={pathData}
         fill={isSelected ? '#60A5FA' : priorityColors.fill}
-        fillOpacity={isSelected ? 0.7 : 0.95}
-        stroke={isSelected ? '#3B82F6' : priorityColors.stroke}
-        strokeWidth={isSelected ? 3 : 1.5}
+        fillOpacity={isSelected ? 0.3 : 0} // Transparent fill
+        onPress={onPress}
+      />
+      {/* Clear boundary stroke - always visible for separation */}
+      <Path
+        d={pathData}
+        fill="transparent"
+        stroke={isSelected ? '#3B82F6' : '#333333'}
+        strokeWidth={isSelected ? 3.5 : 2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeOpacity={isSelected ? 1 : 0.9}
         onPress={onPress}
       />
       {/* Invisible larger touch area for better tap accuracy */}
@@ -392,12 +413,147 @@ const MunicipalityLabel = memo<{
   );
 });
 
+// Function to transform barangay coordinates to fit within Mati's bounds in provincial map
+// Returns array of polygons (for MultiPolygon support)
+const transformBarangayCoordinates = (
+  barangayCoords: number[][][] | number[][][][],
+  matiBounds: Bounds,
+  barangayBounds: Bounds,
+  provincialBounds: Bounds,
+  width: number,
+  height: number
+): number[][][] => {
+  try {
+    // Calculate transformation: map barangay bounds to Mati bounds in provincial coordinates
+    const scaleX = (matiBounds.maxX - matiBounds.minX) / (barangayBounds.maxX - barangayBounds.minX);
+    const scaleY = (matiBounds.maxY - matiBounds.minY) / (barangayBounds.maxY - barangayBounds.minY);
+    
+    // Transform and scale to screen coordinates
+    const padding = 30; // Match the padding used in scaleCoordinates
+    const provincialScaleX = (width - padding * 2) / (provincialBounds.maxX - provincialBounds.minX);
+    const provincialScaleY = (height - padding * 2) / (provincialBounds.maxY - provincialBounds.minY);
+    const provincialScale = Math.min(provincialScaleX, provincialScaleY);
+    
+    // Calculate actual scaled dimensions
+    const scaledWidth = (provincialBounds.maxX - provincialBounds.minX) * provincialScale;
+    const scaledHeight = (provincialBounds.maxY - provincialBounds.minY) * provincialScale;
+    
+    // Platform-specific horizontal adjustment for web (must match scaleCoordinates)
+    const horizontalAdjustment = Platform.OS === 'web' ? -100 : 0;
+    
+    // Center the content in the container with platform-specific adjustment
+    const provincialOffsetX = (width - scaledWidth) / 2 + horizontalAdjustment;
+    const provincialOffsetY = (height - scaledHeight) / 2;
+    
+    const transformPoint = ([lng, lat]: number[]): number[] => {
+      // Transform from barangay coordinate system to Mati's position in provincial system
+      const relativeX = (lng - barangayBounds.minX) * scaleX + matiBounds.minX;
+      const relativeY = (lat - barangayBounds.minY) * scaleY + matiBounds.minY;
+      
+      // Scale to screen coordinates
+      const screenX = (relativeX - provincialBounds.minX) * provincialScale + provincialOffsetX;
+      const screenY = height - ((relativeY - provincialBounds.minY) * provincialScale + provincialOffsetY);
+      
+      return [screenX, screenY];
+    };
+    
+    // Handle MultiPolygon - process all polygons
+    if (Array.isArray(barangayCoords[0]?.[0]?.[0])) {
+      const multiPolygon = barangayCoords as number[][][][];
+      return multiPolygon.map((polygonGroup) => {
+        if (!polygonGroup || polygonGroup.length === 0) return [];
+        // Take the first ring (exterior ring) of each polygon
+        const polygon = polygonGroup[0] || [];
+        return polygon.map(transformPoint);
+      }).filter(poly => poly.length > 0);
+    } else {
+      // Handle Polygon - single polygon
+      const polygon = (barangayCoords as number[][][])[0] || [];
+      if (polygon.length === 0) return [];
+      return [polygon.map(transformPoint)];
+    }
+  } catch (error) {
+    console.warn('Error transforming barangay coordinates:', error);
+    return [];
+  }
+};
+
+// Memoized component for barangay paths (used within Mati)
+const BarangayPathInMap = memo<{
+  pathData: string;
+  isSelected: boolean;
+  onPress: () => void;
+  priorityColors: any;
+}>(({ pathData, isSelected, onPress, priorityColors }) => {
+  return (
+    <G>
+      <Path
+        d={pathData}
+        fill={isSelected ? '#60A5FA' : priorityColors.fill}
+        fillOpacity={isSelected ? 0.7 : 0.95}
+        stroke={isSelected ? '#3B82F6' : priorityColors.stroke}
+        strokeWidth={isSelected ? 2 : 1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        onPress={onPress}
+      />
+      {/* Invisible larger touch area for better tap accuracy */}
+      <Path
+        d={pathData}
+        fill="transparent"
+        stroke="transparent"
+        strokeWidth={15}
+        onPress={onPress}
+      />
+    </G>
+  );
+});
+
+// Memoized component for barangay labels (used within Mati)
+const BarangayLabelInMap = memo<{
+  labelPosition: { x: number; y: number };
+  labelText: string;
+  onPress: () => void;
+}>(({ labelPosition, labelText, onPress }) => {
+  return (
+    <G>
+      <SvgText
+        x={labelPosition.x + 0.5}
+        y={labelPosition.y + 0.5}
+        fontSize="8"
+        fill="rgba(0, 0, 0, 0.4)"
+        textAnchor="middle"
+        fontWeight="600"
+        fontFamily="Gabarito"
+        onPress={onPress}
+      >
+        {labelText}
+      </SvgText>
+      <SvgText
+        x={labelPosition.x}
+        y={labelPosition.y}
+        fontSize="8"
+        fill="#FFFFFF"
+        textAnchor="middle"
+        fontWeight="600"
+        fontFamily="Gabarito"
+        onPress={onPress}
+      >
+        {labelText}
+      </SvgText>
+    </G>
+  );
+});
+
 const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({ 
   width: propWidth = Dimensions.get('window').width - 32, 
   height: propHeight = Dimensions.get('window').height - 200, // Better default height
   onMunicipalityPress,
+  onBarangayPress,
   selectedMunicipality,
-  operationsByMunicipality
+  selectedBarangay,
+  operationsByMunicipality,
+  operationsByBarangay
 }) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -413,6 +569,8 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [resetKey, setResetKey] = useState(0);
   const [isReset, setIsReset] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [areBarangaysReady, setAreBarangaysReady] = useState(false);
   
   // Handle container layout to get actual dimensions
   const handleLayout = useCallback((event: any) => {
@@ -435,6 +593,9 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
   const minScale = 0.8;
   const maxScale = 3;
   
+  // Zoom threshold for showing barangay labels (150% = 1.5)
+  // const BARANGAY_LABEL_ZOOM_THRESHOLD = 1.5; // Disabled - barangay labels are no longer shown
+  
   // Memoize expensive calculations
   const bounds = useMemo(() => calculateOverallBounds(davaoOrientalData.features), []);
   const municipalities = useMemo(() => getMunicipalities(), []);
@@ -448,10 +609,74 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
     return map;
   }, [municipalities]);
   
+  // Helper function to calculate municipality bounds from feature
+  const calculateMunicipalityBounds = (feature: any): Bounds | null => {
+    if (!feature) return null;
+    const coords = feature.geometry.coordinates;
+    let polygon: number[][];
+    if (feature.geometry.type === 'MultiPolygon') {
+      const multiPolygon = coords as number[][][][];
+      polygon = multiPolygon[0]?.[0] || [];
+    } else {
+      const singlePolygon = coords as number[][][];
+      polygon = singlePolygon[0] || [];
+    }
+    
+    if (!polygon || polygon.length === 0) return null;
+    
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    polygon.forEach(([x, y]) => {
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    });
+    return { minX, minY, maxX, maxY };
+  };
+  
+  // Get all municipalities with barangay data
+  const municipalitiesWithBarangays = useMemo(() => {
+    return davaoOrientalData.features
+      .map(feature => {
+        const municipality = municipalityMap.get(String(feature.id));
+        if (!municipality) return null;
+        const barangayData = getBarangayDataForMunicipality(municipality.name);
+        if (!barangayData) return null;
+        return {
+          feature,
+          municipality,
+          barangayData,
+          municipalityBounds: calculateMunicipalityBounds(feature),
+          barangayBounds: calculateOverallBounds(barangayData.features)
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [municipalityMap]);
+  
+  // Memoize barangay lookup map for all municipalities
+  const barangayMap = useMemo(() => {
+    const map = new Map<string, Barangay>();
+    municipalitiesWithBarangays.forEach(({ municipality, barangayData }) => {
+      const barangays = getBarangaysForMunicipality(municipality.name);
+      barangays.forEach(barangay => {
+        map.set(String(barangay.id), barangay);
+      });
+    });
+    return map;
+  }, [municipalitiesWithBarangays]);
+  
   // Memoized handlers
   const handleMunicipalityPress = useCallback((municipality: Municipality) => {
     onMunicipalityPress?.(municipality);
   }, [onMunicipalityPress]);
+  
+  // When a barangay is clicked, select its municipality instead
+  const handleBarangayPress = useCallback((barangay: Barangay) => {
+    const municipality = municipalities.find(m => m.name === barangay.municipality);
+    if (municipality) {
+      onMunicipalityPress?.(municipality);
+    }
+  }, [municipalities, onMunicipalityPress]);
   
   const handleZoom = useCallback((zoom: number) => {
     setCurrentZoom(zoom);
@@ -562,69 +787,202 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
     };
   });
   
-  // Clear cache when dimensions change
+  // Clear cache when dimensions or platform changes
   useMemo(() => {
     featureCache.clear();
-  }, [width, height]);
+  }, [width, height, Platform.OS]);
   
-  // Memoize processed features for all municipalities
+  // Progressive loading: municipalities first (fast), then barangays (slower)
+  useEffect(() => {
+    // Load municipalities immediately (they're fast - only 11)
+    setIsMapReady(true);
+    
+    // Defer barangay processing to avoid blocking initial render
+    const barangayTimer = setTimeout(() => {
+      setAreBarangaysReady(true);
+    }, Platform.OS === 'web' ? 100 : 200); // Small delay to let municipalities render first
+    
+    return () => clearTimeout(barangayTimer);
+  }, []);
+  
+  // Memoize processed features for all municipalities (including Mati - it will show both municipality label and barangays)
   const processedFeatures = useMemo(() => {
+    if (!isMapReady) return [];
+    
     return davaoOrientalData.features.map((feature) => {
-      const municipality = municipalityMap.get(String(feature.id));
-      const isSelected = selectedMunicipality?.id === feature.id;
-      const cacheKey = `${feature.id}-${width}-${height}-${isSelected}`;
-      
-      let processed: ProcessedFeature;
-      if (featureCache.has(cacheKey)) {
-        processed = featureCache.get(cacheKey)!;
-      } else {
-        const coordinates = feature.geometry.coordinates;
-        const scaledCoords = scaleCoordinates(coordinates, bounds, width, height);
-        const pathData = coordinatesToPath([scaledCoords]);
-        const center = calculateCenter(scaledCoords);
-        const labelPosition = getLabelPosition(feature.properties.adm3_en, center);
+        const municipality = municipalityMap.get(String(feature.id));
+        const isSelected = selectedMunicipality?.id === feature.id;
+        const cacheKey = `${feature.id}-${width}-${height}-${isSelected}-${Platform.OS}`;
         
-        processed = {
-          id: String(feature.id),
-          pathData,
-          center,
+        let processed: ProcessedFeature;
+        if (featureCache.has(cacheKey)) {
+          processed = featureCache.get(cacheKey)!;
+        } else {
+          const coordinates = feature.geometry.coordinates;
+          const scaledCoords = scaleCoordinates(coordinates, bounds, width, height);
+          const pathData = coordinatesToPath([scaledCoords]);
+          const center = calculateCenter(scaledCoords);
+          const labelPosition = getLabelPosition(feature.properties.adm3_en, center);
+          
+          processed = {
+            id: String(feature.id),
+            pathData,
+            center,
+            municipality,
+            isSelected,
+            labelPosition
+          };
+          
+          featureCache.set(cacheKey, processed);
+        }
+        
+        // Check if municipality has operations
+        const municipalityOperations = municipality && operationsByMunicipality ? 
+          operationsByMunicipality[municipality.id.toString()] || [] : [];
+        const hasOps = hasOperations(municipalityOperations);
+        
+        // Use LGU-specific colors for default state, operation color for municipalities with operations
+        const priorityColors = !hasOps && municipality ? 
+          LGU_COLORS[municipality.name as keyof typeof LGU_COLORS] || LGU_COLORS['Baganga'] :
+          PRIORITY_COLORS['medium'];
+        
+        return {
+          feature,
           municipality,
           isSelected,
-          labelPosition
+          processed,
+          priorityColors
         };
-        
-        featureCache.set(cacheKey, processed);
-      }
-      
-      // Check if municipality has operations
-      const municipalityOperations = municipality && operationsByMunicipality ? 
-        operationsByMunicipality[municipality.id.toString()] || [] : [];
-      const hasOps = hasOperations(municipalityOperations);
-      
-      // Use LGU-specific colors for default state, operation color for municipalities with operations
-      const priorityColors = !hasOps && municipality ? 
-        LGU_COLORS[municipality.name as keyof typeof LGU_COLORS] || LGU_COLORS['Baganga'] :
-        PRIORITY_COLORS['medium']; // Use medium priority color as default for operations
-      
-      return {
-        feature,
-        municipality,
-        isSelected,
-        processed,
-        priorityColors
-      };
-    });
-  }, [davaoOrientalData.features, municipalityMap, bounds, width, height, selectedMunicipality, operationsByMunicipality]);
+      });
+  }, [davaoOrientalData.features, municipalityMap, bounds, width, height, selectedMunicipality, operationsByMunicipality, isMapReady]);
   
-  // Render SVG content - shared between platforms
-  // Render paths first, then labels in a separate group so labels are always on top
-  const svgContent = (
+  // Check if zoom level is high enough to show barangay labels
+  // currentZoom is updated for both web and mobile platforms
+  // const showBarangayLabels = currentZoom >= BARANGAY_LABEL_ZOOM_THRESHOLD; // Disabled - barangay labels are no longer shown
+  
+  // Process barangays for all municipalities with barangay data
+  // Defer this heavy computation until after municipalities are rendered
+  const processedBarangays = useMemo(() => {
+    if (!areBarangaysReady) return [];
+    
+    const allProcessedBarangays: Array<{
+      feature: any;
+      barangay: Barangay | undefined;
+      isSelected: boolean;
+      pathData: string;
+      center: { x: number; y: number };
+      priorityColors: { fill: string; stroke: string };
+    }> = [];
+    
+    municipalitiesWithBarangays.forEach(({ feature, municipality, barangayData, municipalityBounds, barangayBounds }) => {
+      if (!municipalityBounds) return;
+      
+      // Check if this municipality is selected
+      const isMunicipalitySelected = selectedMunicipality?.id === municipality.id;
+      
+      barangayData.features.forEach((barangayFeature) => {
+        const barangay = barangayMap.get(String(barangayFeature.id));
+        // Barangay is selected if it's individually selected OR if its municipality is selected
+        const isSelected = selectedBarangay?.id === barangayFeature.id || isMunicipalitySelected;
+        
+        // Transform barangay coordinates to fit within municipality's bounds
+        const transformedPolygons = transformBarangayCoordinates(
+          barangayFeature.geometry.coordinates,
+          municipalityBounds,
+          barangayBounds,
+          bounds,
+          width,
+          height
+        );
+        
+        // Create path data from all polygons (handles MultiPolygon)
+        const pathData = transformedPolygons.length > 0 
+          ? transformedPolygons.map(poly => {
+              if (poly.length === 0) return '';
+              const pathCommands = poly.map(([x, y], index) => 
+                index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`
+              );
+              return pathCommands.join(' ') + ' Z';
+            }).join(' ')
+          : '';
+        
+        // Calculate center from all polygons combined
+        const allCoords = transformedPolygons.flat();
+        const center = calculateCenter(allCoords);
+        
+        // Check if barangay has operations
+        const barangayOperations = barangay && operationsByBarangay ? 
+          operationsByBarangay[barangay.id.toString()] || [] : [];
+        const hasOps = hasOperations(barangayOperations);
+        
+        const priorityColors = !hasOps ? 
+          { fill: '#1b4a6b', stroke: '#4a9bc8' } :
+          PRIORITY_COLORS['medium'];
+        
+        allProcessedBarangays.push({
+          feature: barangayFeature,
+          barangay,
+          isSelected,
+          pathData,
+          center,
+          priorityColors
+        });
+      });
+    });
+    
+    return allProcessedBarangays;
+  }, [municipalitiesWithBarangays, bounds, width, height, selectedBarangay, selectedMunicipality, operationsByBarangay, barangayMap, areBarangaysReady]);
+  
+  // Memoize SVG content to prevent unnecessary re-renders on mobile
+  const svgContent = useMemo(() => (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      {/* Render all paths first */}
+      {/* Render barangay paths first (bottom layer) */}
       <G>
-        {processedFeatures.map(({ feature, municipality, isSelected, processed, priorityColors }) => (
-          <MunicipalityPath
-            key={`path-${feature.id}`}
+        {processedBarangays.map(({ feature, barangay, isSelected, pathData, priorityColors }) => (
+          <BarangayPathInMap
+            key={`barangay-path-${feature.id}`}
+            pathData={pathData}
+            isSelected={isSelected}
+            onPress={() => handleBarangayPress(barangay!)}
+            priorityColors={priorityColors}
+          />
+        ))}
+      </G>
+      {/* Render all municipality paths on top (top layer) */}
+      <G>
+        {processedFeatures.map(({ feature, municipality, isSelected, processed, priorityColors }) => {
+          // For municipalities with barangay data, render only the stroke boundary (transparent fill)
+          const hasBarangayData = municipality && getBarangayDataForMunicipality(municipality.name) !== null;
+          
+          if (hasBarangayData) {
+            // Render stroke-only boundary for municipalities with barangay data
+            return (
+              <G key={`path-${feature.id}`}>
+                <Path
+                  d={processed.pathData}
+                  fill="transparent"
+                  stroke={isSelected ? '#3B82F6' : '#50bdfa'}
+                  strokeWidth={isSelected ? 3.5 : 2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeOpacity={isSelected ? 1 : 0.9}
+                  onPress={() => handleMunicipalityPress(municipality!)}
+                />
+                {/* Invisible larger touch area for better tap accuracy */}
+                <Path
+                  d={processed.pathData}
+                  fill="transparent"
+                  stroke="transparent"
+                  strokeWidth={20}
+                  onPress={() => handleMunicipalityPress(municipality!)}
+                />
+              </G>
+            );
+          }
+          
+          return (
+            <MunicipalityPath
+              key={`path-${feature.id}`}
               feature={feature}
               bounds={bounds}
               width={width}
@@ -634,10 +992,11 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
               colors={colors}
               onPress={() => handleMunicipalityPress(municipality!)}
               operationsByMunicipality={operationsByMunicipality}
-            pathData={processed.pathData}
-            priorityColors={priorityColors}
+              pathData={processed.pathData}
+              priorityColors={priorityColors}
             />
-        ))}
+          );
+        })}
       </G>
       {/* Render all labels in a separate group on top */}
       <G>
@@ -649,9 +1008,29 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
             onPress={() => handleMunicipalityPress(municipality!)}
           />
         ))}
+        {/* Render barangay labels for Mati - only when zoomed in enough */}
+        {/* Barangay labels are disabled
+        {showBarangayLabels && processedBarangays.map(({ feature, barangay, center }) => (
+          <BarangayLabelInMap
+            key={`barangay-label-${feature.id}`}
+            labelPosition={center}
+            labelText={feature.properties.adm4_en}
+            onPress={() => handleBarangayPress(barangay!)}
+          />
+        ))}
+        */}
       </G>
     </Svg>
-  );
+  ), [processedFeatures, processedBarangays, width, height, colors, handleMunicipalityPress, handleBarangayPress, isMapReady]);
+
+  // Show placeholder while map is loading to improve perceived performance
+  if (!isMapReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
+        {/* Empty placeholder - map will render when ready */}
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -675,6 +1054,7 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
             canvasStyle={styles.canvas}
             enablePan={true}
             enableZoom={true}
+            preventPanOutside={false}
           >
             {svgContent}
           </SvgPanZoomWithChildren>
@@ -707,6 +1087,16 @@ const DavaoOrientalMap = memo<DavaoOrientalMapProps>(({
         </View>
       </View>
     </GestureHandlerRootView>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison function for better performance - prevents unnecessary re-renders
+  return (
+    prevProps.width === nextProps.width &&
+    prevProps.height === nextProps.height &&
+    prevProps.selectedMunicipality?.id === nextProps.selectedMunicipality?.id &&
+    prevProps.selectedBarangay?.id === nextProps.selectedBarangay?.id &&
+    prevProps.operationsByMunicipality === nextProps.operationsByMunicipality &&
+    prevProps.operationsByBarangay === nextProps.operationsByBarangay
   );
 });
 
