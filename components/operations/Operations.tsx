@@ -10,7 +10,6 @@ import { useScreenSize } from '@/hooks/useScreenSize';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, InteractionManager, LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
-// import { DavaoOrientalMap } from './OperationsMap'; // Temporarily disabled
 import { LeafletMap } from './LeafletMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
 
@@ -215,6 +214,9 @@ const Operations = React.memo(() => {
                 <LeafletMap
                   width={mapWidth}
                   height={mapHeight}
+                  onMunicipalityPress={handleMunicipalityPress}
+                  selectedMunicipality={selectedMunicipality}
+                  operationsByMunicipality={operationsByMunicipality}
                 />
               )}
             </View>
@@ -240,6 +242,9 @@ const Operations = React.memo(() => {
                 <LeafletMap
                   width={mapWidth}
                   height={mapHeight}
+                  onMunicipalityPress={handleMunicipalityPress}
+                  selectedMunicipality={selectedMunicipality}
+                  operationsByMunicipality={operationsByMunicipality}
                 />
               )}
             </View>
