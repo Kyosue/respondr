@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/network/ErrorBoundary';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MemoProvider } from '@/contexts/MemoContext';
@@ -185,21 +186,23 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppThemeProvider>
-        <NetworkProvider>
-          <AuthProvider>
-            <NavigationProvider>
-            <NotificationProvider>
-            <ResourceProvider>
-              <SitRepProvider>
-                <MemoProvider>
-                  <LayoutContent />
-                </MemoProvider>
-              </SitRepProvider>
-            </ResourceProvider>
-            </NotificationProvider>
-            </NavigationProvider>
-          </AuthProvider>
-        </NetworkProvider>
+        <ErrorBoundary>
+          <NetworkProvider>
+            <AuthProvider>
+              <NavigationProvider>
+                <NotificationProvider>
+                  <ResourceProvider>
+                    <SitRepProvider>
+                      <MemoProvider>
+                        <LayoutContent />
+                      </MemoProvider>
+                    </SitRepProvider>
+                  </ResourceProvider>
+                </NotificationProvider>
+              </NavigationProvider>
+            </AuthProvider>
+          </NetworkProvider>
+        </ErrorBoundary>
       </AppThemeProvider>
     </SafeAreaProvider>
   );
