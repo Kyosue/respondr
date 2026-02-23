@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CurrentOperationsTab } from './CurrentOperationsTab';
 import { HistoryOperationsTab } from './HistoryOperationsTab';
@@ -39,16 +39,23 @@ export function MunicipalityDetailModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const screenHeight = Dimensions.get('window').height;
+  const { width: windowWidth } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<TabType>('current');
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
   const scrollRef = useRef<ScrollView | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollBtnAnim = useRef(new Animated.Value(0)).current;
+  const isMobileView = !isWeb || windowWidth < 768;
+  const [weatherDetailsExpanded, setWeatherDetailsExpanded] = useState(false);
   
   // Weather data state
   const [weatherData, setWeatherData] = useState<WeatherApiResponse | null>(null);
   const [isLoadingWeather, setIsLoadingWeather] = useState(true);
   const municipalityRef = useRef(municipality);
+
+  useEffect(() => {
+    if (!isMobileView) setWeatherDetailsExpanded(true);
+  }, [isMobileView]);
 
   const handleScroll = useCallback((event: any) => {
     const y = event?.nativeEvent?.contentOffset?.y ?? 0;
@@ -242,89 +249,103 @@ export function MunicipalityDetailModal({
 
                     {/* Weather Content */}
                     <View style={styles.weatherContent}>
-                      {/* Weather Condition and Temperature */}
-                      <View style={styles.weatherMainInfo}>
-                        <View style={styles.weatherConditionContainer}>
-                          <View style={styles.weatherIconContainer}>
-                            <Ionicons 
-                              name={weatherIcon.name as any} 
-                              size={20} 
-                              color={weatherIcon.color} 
-                            />
-                          </View> 
-                          <View style={styles.weatherTextContainer}>
-                            <ThemedText style={styles.weatherCondition}>
-                              {isLoadingWeather ? 'Loading...' : weatherCondition}
-                            </ThemedText>
-                            <ThemedText style={styles.temperature}>
-                              {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°`}
-                            </ThemedText>
+                      {/* Weather Condition and Temperature - top row (tappable to expand on mobile) */}
+                      <TouchableOpacity
+                        style={[styles.weatherMainInfoRow, !isMobileView && styles.weatherMainInfoRowStatic]}
+                        onPress={() => isMobileView && setWeatherDetailsExpanded((e) => !e)}
+                        activeOpacity={isMobileView ? 0.7 : 1}
+                        disabled={!isMobileView}
+                      >
+                        <View style={styles.weatherMainInfo}>
+                          <View style={styles.weatherConditionContainer}>
+                            <View style={styles.weatherIconContainer}>
+                              <Ionicons 
+                                name={weatherIcon.name as any} 
+                                size={20} 
+                                color={weatherIcon.color} 
+                              />
+                            </View> 
+                            <View style={styles.weatherTextContainer}>
+                              <ThemedText style={styles.weatherCondition}>
+                                {isLoadingWeather ? 'Loading...' : weatherCondition}
+                              </ThemedText>
+                              <ThemedText style={styles.temperature}>
+                                {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°`}
+                              </ThemedText>
+                            </View>
                           </View>
                         </View>
-                      </View>
+                        {isMobileView && (
+                          <View style={styles.weatherExpandIcon}>
+                            <Ionicons name={weatherDetailsExpanded ? 'chevron-up' : 'chevron-down'} size={22} color="rgba(255,255,255,0.9)" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
 
-                      {/* Weather Details - 5 Data Points */}
+                      {/* Weather Details - 5 Data Points - bottom row (collapsible on mobile) */}
+                      {(weatherDetailsExpanded || !isMobileView) && (
                       <View style={styles.weatherDetailsContainer}>
                         <View style={styles.weatherDetailItem}>
                           <View style={styles.detailIconContainer}>
                             <Ionicons name="thermometer" size={12} color="white" />
                           </View>
-                          <ThemedText style={styles.weatherDetailLabel}>
-                            Temp
-                          </ThemedText>
-                          <ThemedText style={styles.weatherDetailValue}>
-                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°C`}
-                          </ThemedText>
+                          <View style={styles.weatherDetailTextWrap}>
+                            <ThemedText style={styles.weatherDetailLabel}>Temp</ThemedText>
+                            <ThemedText style={styles.weatherDetailValue}>
+                              {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°C`}
+                            </ThemedText>
+                          </View>
                         </View>
 
                         <View style={styles.weatherDetailItem}>
                           <View style={styles.detailIconContainer}>
                             <Ionicons name="water" size={12} color="white" />
                           </View>
-                          <ThemedText style={styles.weatherDetailLabel}>
-                            Humidity
-                          </ThemedText>
-                          <ThemedText style={styles.weatherDetailValue}>
-                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.humidity || 0)}%`}
-                          </ThemedText>
+                          <View style={styles.weatherDetailTextWrap}>
+                            <ThemedText style={styles.weatherDetailLabel}>Humidity</ThemedText>
+                            <ThemedText style={styles.weatherDetailValue}>
+                              {isLoadingWeather ? '--' : `${Math.round(weatherData?.humidity || 0)}%`}
+                            </ThemedText>
+                          </View>
                         </View>
 
                         <View style={styles.weatherDetailItem}>
                           <View style={styles.detailIconContainer}>
                             <Ionicons name="rainy" size={12} color="white" />
                           </View>
-                          <ThemedText style={styles.weatherDetailLabel}>
-                            Rainfall
-                          </ThemedText>
-                          <ThemedText style={styles.weatherDetailValue}>
-                            {isLoadingWeather ? '--' : `${(weatherData?.rainfall || 0).toFixed(1)} mm`}
-                          </ThemedText>
+                          <View style={styles.weatherDetailTextWrap}>
+                            <ThemedText style={styles.weatherDetailLabel}>Rainfall</ThemedText>
+                            <ThemedText style={styles.weatherDetailValue}>
+                              {isLoadingWeather ? '--' : `${(weatherData?.rainfall || 0).toFixed(1)} mm`}
+                            </ThemedText>
+                          </View>
                         </View>
 
                         <View style={styles.weatherDetailItem}>
                           <View style={styles.detailIconContainer}>
                             <Ionicons name="leaf" size={12} color="white" />
                           </View>
-                          <ThemedText style={styles.weatherDetailLabel}>
-                            Wind
-                          </ThemedText>
-                          <ThemedText style={styles.weatherDetailValue}>
-                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.windSpeed || 0)} km/h`}
-                          </ThemedText>
+                          <View style={styles.weatherDetailTextWrap}>
+                            <ThemedText style={styles.weatherDetailLabel}>Wind</ThemedText>
+                            <ThemedText style={styles.weatherDetailValue}>
+                              {isLoadingWeather ? '--' : `${Math.round(weatherData?.windSpeed || 0)} km/h`}
+                            </ThemedText>
+                          </View>
                         </View>
 
                         <View style={styles.weatherDetailItem}>
                           <View style={styles.detailIconContainer}>
                             <Ionicons name="compass" size={12} color="white" />
                           </View>
-                          <ThemedText style={styles.weatherDetailLabel}>
-                            Direction
-                          </ThemedText>
-                          <ThemedText style={styles.weatherDetailValue}>
-                            {isLoadingWeather ? '--' : getWindDirection(weatherData?.windDirection || 0)}
-                          </ThemedText>
+                          <View style={styles.weatherDetailTextWrap}>
+                            <ThemedText style={styles.weatherDetailLabel}>Direction</ThemedText>
+                            <ThemedText style={styles.weatherDetailValue}>
+                              {isLoadingWeather ? '--' : getWindDirection(weatherData?.windDirection || 0)}
+                            </ThemedText>
+                          </View>
                         </View>
                       </View>
+                      )}
                     </View>
                   </LinearGradient>
                 </View>
@@ -471,89 +492,103 @@ export function MunicipalityDetailModal({
 
                   {/* Weather Content */}
                   <View style={styles.weatherContent}>
-                    {/* Weather Condition and Temperature */}
-                    <View style={styles.weatherMainInfo}>
-                      <View style={styles.weatherConditionContainer}>
-                        <View style={styles.weatherIconContainer}>
-                          <Ionicons 
-                            name={weatherIcon.name as any} 
-                            size={20} 
-                            color={weatherIcon.color} 
-                          />
-                        </View> 
-                        <View style={styles.weatherTextContainer}>
-                          <ThemedText style={styles.weatherCondition}>
-                            {isLoadingWeather ? 'Loading...' : weatherCondition}
-                          </ThemedText>
-                          <ThemedText style={styles.temperature}>
-                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°`}
-                          </ThemedText>
+                    {/* Weather Condition and Temperature - top row (tappable to expand on mobile) */}
+                    <TouchableOpacity
+                      style={[styles.weatherMainInfoRow, !isMobileView && styles.weatherMainInfoRowStatic]}
+                      onPress={() => isMobileView && setWeatherDetailsExpanded((e) => !e)}
+                      activeOpacity={isMobileView ? 0.7 : 1}
+                      disabled={!isMobileView}
+                    >
+                      <View style={styles.weatherMainInfo}>
+                        <View style={styles.weatherConditionContainer}>
+                          <View style={styles.weatherIconContainer}>
+                            <Ionicons 
+                              name={weatherIcon.name as any} 
+                              size={20} 
+                              color={weatherIcon.color} 
+                            />
+                          </View> 
+                          <View style={styles.weatherTextContainer}>
+                            <ThemedText style={styles.weatherCondition}>
+                              {isLoadingWeather ? 'Loading...' : weatherCondition}
+                            </ThemedText>
+                            <ThemedText style={styles.temperature}>
+                              {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°`}
+                            </ThemedText>
+                          </View>
                         </View>
                       </View>
-                    </View>
+                      {isMobileView && (
+                        <View style={styles.weatherExpandIcon}>
+                          <Ionicons name={weatherDetailsExpanded ? 'chevron-up' : 'chevron-down'} size={22} color="rgba(255,255,255,0.9)" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
 
-                    {/* Weather Details - 5 Data Points */}
-                    <View style={styles.weatherDetailsContainer}>
-                      <View style={styles.weatherDetailItem}>
+                    {/* Weather Details - 5 Data Points - bottom row (collapsible on mobile) */}
+                    {(weatherDetailsExpanded || !isMobileView) && (
+                    <View style={[styles.weatherDetailsContainer, styles.weatherDetailsContainerMobile]}>
+                      <View style={[styles.weatherDetailItem, styles.weatherDetailItemMobile]}>
                         <View style={styles.detailIconContainer}>
                           <Ionicons name="thermometer" size={12} color="white" />
                         </View>
-                        <ThemedText style={styles.weatherDetailLabel}>
-                          Temp
-                        </ThemedText>
-                        <ThemedText style={styles.weatherDetailValue}>
-                          {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°C`}
-                        </ThemedText>
+                        <View style={styles.weatherDetailTextWrap}>
+                          <ThemedText style={styles.weatherDetailLabel}>Temp</ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.temperature || 0)}°C`}
+                          </ThemedText>
+                        </View>
                       </View>
 
-                      <View style={styles.weatherDetailItem}>
+                      <View style={[styles.weatherDetailItem, styles.weatherDetailItemMobile]}>
                         <View style={styles.detailIconContainer}>
                           <Ionicons name="water" size={12} color="white" />
                         </View>
-                        <ThemedText style={styles.weatherDetailLabel}>
-                          Humidity
-                        </ThemedText>
-                        <ThemedText style={styles.weatherDetailValue}>
-                          {isLoadingWeather ? '--' : `${Math.round(weatherData?.humidity || 0)}%`}
-                        </ThemedText>
+                        <View style={styles.weatherDetailTextWrap}>
+                          <ThemedText style={styles.weatherDetailLabel}>Humidity</ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.humidity || 0)}%`}
+                          </ThemedText>
+                        </View>
                       </View>
 
-                      <View style={styles.weatherDetailItem}>
+                      <View style={[styles.weatherDetailItem, styles.weatherDetailItemMobile]}>
                         <View style={styles.detailIconContainer}>
                           <Ionicons name="rainy" size={12} color="white" />
                         </View>
-                        <ThemedText style={styles.weatherDetailLabel}>
-                          Rainfall
-                        </ThemedText>
-                        <ThemedText style={styles.weatherDetailValue}>
-                          {isLoadingWeather ? '--' : `${(weatherData?.rainfall || 0).toFixed(1)} mm`}
-                        </ThemedText>
+                        <View style={styles.weatherDetailTextWrap}>
+                          <ThemedText style={styles.weatherDetailLabel}>Rainfall</ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : `${(weatherData?.rainfall || 0).toFixed(1)} mm`}
+                          </ThemedText>
+                        </View>
                       </View>
 
-                      <View style={styles.weatherDetailItem}>
+                      <View style={[styles.weatherDetailItem, styles.weatherDetailItemMobile]}>
                         <View style={styles.detailIconContainer}>
                           <Ionicons name="leaf" size={12} color="white" />
                         </View>
-                        <ThemedText style={styles.weatherDetailLabel}>
-                          Wind
-                        </ThemedText>
-                        <ThemedText style={styles.weatherDetailValue}>
-                          {isLoadingWeather ? '--' : `${Math.round(weatherData?.windSpeed || 0)} km/h`}
-                        </ThemedText>
+                        <View style={styles.weatherDetailTextWrap}>
+                          <ThemedText style={styles.weatherDetailLabel}>Wind</ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : `${Math.round(weatherData?.windSpeed || 0)} km/h`}
+                          </ThemedText>
+                        </View>
                       </View>
 
-                      <View style={styles.weatherDetailItem}>
+                      <View style={[styles.weatherDetailItem, styles.weatherDetailItemMobile, styles.weatherDetailItemFullWidth]}>
                         <View style={styles.detailIconContainer}>
                           <Ionicons name="compass" size={12} color="white" />
                         </View>
-                        <ThemedText style={styles.weatherDetailLabel}>
-                          Direction
-                        </ThemedText>
-                        <ThemedText style={styles.weatherDetailValue}>
-                          {isLoadingWeather ? '--' : getWindDirection(weatherData?.windDirection || 0)}
-                        </ThemedText>
+                        <View style={styles.weatherDetailTextWrap}>
+                          <ThemedText style={styles.weatherDetailLabel}>Direction</ThemedText>
+                          <ThemedText style={styles.weatherDetailValue}>
+                            {isLoadingWeather ? '--' : getWindDirection(weatherData?.windDirection || 0)}
+                          </ThemedText>
+                        </View>
                       </View>
                     </View>
+                    )}
                   </View>
                 </LinearGradient>
               </View>
@@ -815,12 +850,24 @@ const styles = StyleSheet.create({
   },
   weatherContent: {
     zIndex: 2,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  weatherMainInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  weatherMainInfoRowStatic: {
+    marginBottom: 12,
   },
   weatherMainInfo: {
-    flex: 0.6,
-    marginRight: 12,
+    flex: 1,
+  },
+  weatherExpandIcon: {
+    padding: 4,
+    marginLeft: 8,
   },
   weatherConditionContainer: {
     flexDirection: 'row',
@@ -851,38 +898,56 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   weatherDetailsContainer: {
-    flex: 1.4,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     justifyContent: 'space-between',
   },
+  weatherDetailsContainerMobile: {
+    gap: 6,
+  },
   weatherDetailItem: {
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 3,
-    marginHorizontal: 1,
+    minWidth: 64,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  weatherDetailItemMobile: {
+    flex: 0,
+    width: '47%',
+  },
+  weatherDetailItemFullWidth: {
+    width: '100%',
   },
   detailIconContainer: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
+  },
+  weatherDetailTextWrap: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 0,
+    flexShrink: 1,
   },
   weatherDetailLabel: {
     color: 'white',
     fontSize: 8,
     fontWeight: '500',
-    marginBottom: 1,
     opacity: 0.9,
   },
   weatherDetailValue: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   sectionTitle: {

@@ -50,15 +50,14 @@ const getLeafletHTML = (
     var bounds = L.latLngBounds([${south}, ${west}], [${north}, ${east}]);
     var map = L.map('map', {
       zoomControl: false,
+      attributionControl: false,
       maxBounds: bounds,
       maxBoundsViscosity: 1,
       minZoom: 7,
       maxZoom: 16
     }).setView([${lat}, ${lng}], ${zoom});
     L.control.zoom({ position: 'topright' }).addTo(map);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {}).addTo(map);
     var borderGeoJson = JSON.parse('${borderGeoJsonStr}');
     var operationsByMunicipality = JSON.parse('${operationsByMunicipalityStr}');
     var selectedMunicipalityId = ${selectedId};

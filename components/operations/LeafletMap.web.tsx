@@ -52,6 +52,7 @@ export function LeafletMap({
     const [[south, west], [north, east]] = DAVAO_ORIENTAL_MAX_BOUNDS;
     const map = L.map(containerRef.current, {
       zoomControl: false,
+      attributionControl: false,
       maxBounds: L.latLngBounds(L.latLng(south, west), L.latLng(north, east)),
       maxBoundsViscosity: 1,
       minZoom: 7,
@@ -59,9 +60,7 @@ export function LeafletMap({
     }).setView(center, zoom);
 
     L.control.zoom({ position: 'topright' }).addTo(map);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {}).addTo(map);
 
     const geoJsonLayer = L.geoJSON(davaoOrientalBorderGeoJson as any, {
       style: (feature: any) => getStyleForFeatureId(Number(feature?.id ?? 0)),
