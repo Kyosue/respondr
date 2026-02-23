@@ -1,6 +1,7 @@
 import { LoginForm } from '@/components/auth/LoginForm';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLogin } from '@/hooks/useLogin';
@@ -19,16 +20,23 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const { login, isLoading, error } = useLogin();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const colorScheme = useColorScheme();
   const { isDark } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  
-  // No animations - instant rendering
+
+  // If already logged in, go to app (persistent login)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const handleLogin = async (usernameOrEmail: string, password: string) => {
     try {

@@ -1,9 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View } from 'react-native';
-
-// Davao Oriental approximate center
-const DEFAULT_CENTER: [number, number] = [7.0731, 126.4358];
-const DEFAULT_ZOOM = 9;
+import { DAVAO_ORIENTAL_CENTER, DAVAO_ORIENTAL_DEFAULT_ZOOM } from '@/data/davaoOrientalData';
 
 export interface LeafletMapProps {
   width: number;
@@ -15,8 +12,8 @@ export interface LeafletMapProps {
 export function LeafletMap({
   width,
   height,
-  center = DEFAULT_CENTER,
-  zoom = DEFAULT_ZOOM,
+  center = DAVAO_ORIENTAL_CENTER,
+  zoom = DAVAO_ORIENTAL_DEFAULT_ZOOM,
 }: LeafletMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<import('leaflet').Map | null>(null);

@@ -50,20 +50,25 @@ export const getMunicipalities = (): Municipality[] => {
 // Helper function to calculate center point
 const calculateCenter = (coordinates: number[][][]): { latitude: number; longitude: number } => {
   if (!coordinates || coordinates.length === 0) return { latitude: 0, longitude: 0 };
-  
+
   const polygon = coordinates[0];
   if (!polygon || polygon.length === 0) return { latitude: 0, longitude: 0 };
-  
+
   let sumLat = 0;
   let sumLng = 0;
-  
+
   polygon.forEach(([lng, lat]) => {
     sumLat += lat;
     sumLng += lng;
   });
-  
+
   return {
     latitude: sumLat / polygon.length,
     longitude: sumLng / polygon.length
   };
 };
+
+/** Geographic center of Davao Oriental province (lat, lng) for map default view */
+export const DAVAO_ORIENTAL_CENTER: [number, number] = [7.14, 126.29];
+/** Default zoom level that fits the province border with padding */
+export const DAVAO_ORIENTAL_DEFAULT_ZOOM = 9;

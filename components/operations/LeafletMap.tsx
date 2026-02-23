@@ -1,11 +1,7 @@
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-
-// Davao Oriental approximate center
-const DEFAULT_LAT = 7.0731;
-const DEFAULT_LNG = 126.4358;
-const DEFAULT_ZOOM = 9;
+import { DAVAO_ORIENTAL_CENTER, DAVAO_ORIENTAL_DEFAULT_ZOOM } from '@/data/davaoOrientalData';
 
 export interface LeafletMapProps {
   width: number;
@@ -44,8 +40,8 @@ const getLeafletHTML = (lat: number, lng: number, zoom: number): string => `
 export function LeafletMap({
   width,
   height,
-  center = [DEFAULT_LAT, DEFAULT_LNG],
-  zoom = DEFAULT_ZOOM,
+  center = DAVAO_ORIENTAL_CENTER,
+  zoom = DAVAO_ORIENTAL_DEFAULT_ZOOM,
 }: LeafletMapProps) {
   const [lat, lng] = center;
   const html = useMemo(() => getLeafletHTML(lat, lng, zoom), [lat, lng, zoom]);

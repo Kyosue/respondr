@@ -1,9 +1,13 @@
+import {
+  AUTH_RESTORE_TIMEOUT_MS,
+  AUTH_RESTORE_TIMEOUT_WITH_CACHE_MS,
+} from '@/constants/authConstants';
 import { UserData } from '@/firebase/auth';
 import { auth } from '@/firebase/config';
 import { ResilientAuthService } from '@/firebase/resilientAuth';
 import * as SecureStore from 'expo-secure-store';
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useNetwork } from './NetworkContext';
 
@@ -76,72 +80,68 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const authService = ResilientAuthService.getInstance();
   const { isOnline } = useNetwork();
 
-  // Check for existing auth state on mount
+  // Check for existing auth state on mount (persistent login: wait for Firebase + cache).
+  // Single source of truth for loading: only this effect sets isLoading to false (on Firebase callback or timeout).
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    // Set initial loading state
     setIsLoading(true);
-    
     let authStateResolved = false;
-    
-    // Try to load user data from local storage immediately for faster initial render
-    const loadCachedUser = async () => {
+
+    const resolveLoading = () => {
+      if (!authStateResolved) {
+        authStateResolved = true;
+        setIsLoading(false);
+      }
+    };
+
+    // Load cached user first; then set a single timeout (longer if cache exists).
+    const loadCachedUser = async (): Promise<UserData | null> => {
       try {
         const cachedUser = await getUserData();
         if (cachedUser) {
-          // Optimistically set cached user data while Firebase verifies
           setUser(cachedUser);
-          // Still keep loading true until Firebase confirms
         }
+        return cachedUser;
       } catch (error) {
-        // Ignore cache errors, Firebase will handle auth state
+        return null;
       }
     };
-    
-    loadCachedUser();
-    
+
+    loadCachedUser().then((cachedUser) => {
+      const timeoutMs = cachedUser
+        ? AUTH_RESTORE_TIMEOUT_WITH_CACHE_MS
+        : AUTH_RESTORE_TIMEOUT_MS;
+      timeoutIdRef.current = setTimeout(resolveLoading, timeoutMs);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       try {
         if (fbUser) {
-          // User is signed in
           setFirebaseUser(fbUser);
-          
-          // Get user data with offline support
           const userData = await authService.getCurrentUserData(fbUser);
-          
           if (userData) {
             setUser(userData);
-            // Store user data using platform-specific storage
             await setUserData(userData);
           }
         } else {
           setFirebaseUser(null);
           setUser(null);
-          // Clear storage
           await clearUserData();
         }
       } catch (error) {
         console.error('Auth state change error:', error);
       } finally {
-        // Only set loading to false after Firebase auth state is determined
-        if (!authStateResolved) {
-          authStateResolved = true;
-          setIsLoading(false);
-        }
+        resolveLoading();
       }
     });
 
-    // Reduced timeout to 800ms for faster login screen appearance
-    const timeoutId = setTimeout(() => {
-      if (!authStateResolved) {
-        authStateResolved = true;
-        setIsLoading(false);
-      }
-    }, 800);
-
-    // Cleanup subscription on unmount
     return () => {
       unsubscribe();
-      clearTimeout(timeoutId);
+      if (timeoutIdRef.current !== null) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
     };
   }, []);
 

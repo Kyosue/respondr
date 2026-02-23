@@ -130,6 +130,7 @@ firestore-debug.log
 # Firebase Service Account credentials (NEVER commit these!)
 **/*firebase-adminsdk*.json
 firebase/*-firebase-adminsdk-*.json
+respondr-da5cb-firebase-adminsdk-fbsvc-193caa0607.json
 
 # Cloudinary
 cloudinary-debug.log

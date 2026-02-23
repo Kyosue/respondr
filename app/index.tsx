@@ -152,24 +152,12 @@ export default function IndexScreen() {
     }
   }, [activeTab]);
 
-  // Redirect to login if not authenticated (for native apps)
-  // Note: Web users are already redirected to /home above
+  // Redirect to login if not authenticated (native only). Single source of truth: rely on AuthContext isLoading.
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      // For native apps, redirect to login if not authenticated
-      if (!isLoading && !isAuthenticated) {
-        router.replace('/login');
-      }
-      else if (isLoading && !user) {
-        const redirectTimer = setTimeout(() => {
-          if (!isAuthenticated) {
-            router.replace('/login');
-          }
-        }, 300);
-        return () => clearTimeout(redirectTimer);
-      }
+    if (Platform.OS !== 'web' && !isLoading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [isLoading, isAuthenticated, router]);
 
   // On web, redirect to home page if not authenticated (home is the landing page)
   if (Platform.OS === 'web' && !isAuthenticated) {
