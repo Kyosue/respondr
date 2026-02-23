@@ -9,8 +9,9 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, InteractionManager, Platform, StyleSheet, View } from 'react-native';
-import { DavaoOrientalMap } from './OperationsMap';
+import { Dimensions, InteractionManager, LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
+// import { DavaoOrientalMap } from './OperationsMap'; // Temporarily disabled
+import { LeafletMap } from './LeafletMap';
 import { MunicipalityDetailModal, OperationsModal } from './modals';
 
 const Operations = React.memo(() => {
@@ -30,6 +31,8 @@ const Operations = React.memo(() => {
   const [operationsByBarangay, setOperationsByBarangay] = useState<Record<string, any[]>>({});
   const [concludedOperationsByBarangay, setConcludedOperationsByBarangay] = useState<Record<string, any[]>>({});
   const [isReady, setIsReady] = useState(false);
+  // Measured map container size so the map fills the actual space (avoids gap when sidebar expands/collapses)
+  const [mapLayout, setMapLayout] = useState({ width: 0, height: 0 });
   
   // Defer heavy work until after navigation animation completes
   useEffect(() => {
@@ -41,30 +44,30 @@ const Operations = React.memo(() => {
       interaction.cancel();
     };
   }, []);
-  
-  // Memoize screen dimensions to prevent unnecessary recalculations
+
+  const handleMapLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setMapLayout((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+  }, []);
+
+  // Fallback dimensions until onLayout runs (and when container has no size yet)
   const screenDimensions = useMemo(() => {
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-    
     if (isDesktop) {
-      // For desktop, use most of the available space with padding
-      const sidebarWidth = 250; // Approximate sidebar width
-      const headerHeight = 80; // Approximate header height
-      const padding = 10; // Total padding
-      
+      const headerHeight = 80;
+      const padding = 10;
       return {
-        width: screenWidth - sidebarWidth - padding,
-        height: screenHeight - headerHeight - padding
-      };
-    } else {
-      // For mobile, account for bottom nav
-      const mapHeight = screenHeight - bottomNavHeight - 20;
-      return {
-        width: screenWidth,
-        height: mapHeight
+        width: Math.max(0, screenWidth - 250 - padding),
+        height: Math.max(0, screenHeight - headerHeight - padding),
       };
     }
+    const mapHeight = Math.max(0, screenHeight - bottomNavHeight - 20);
+    return { width: screenWidth, height: mapHeight };
   }, [bottomNavHeight, isDesktop]);
+
+  // Use measured layout when available so map matches container (no gap with sidebar changes)
+  const mapWidth = mapLayout.width > 0 ? mapLayout.width : screenDimensions.width;
+  const mapHeight = mapLayout.height > 0 ? mapLayout.height : screenDimensions.height;
 
   // Memoized handlers to prevent unnecessary re-renders
   const handleMunicipalityPress = useCallback((municipality: Municipality) => {
@@ -207,17 +210,11 @@ const Operations = React.memo(() => {
             end={{ x: 0, y: 1 }}
             style={[styles.mapContainer, styles.mapContainerDesktop]}
           >
-            <View style={styles.oceanOverlay}>
+            <View style={styles.oceanOverlay} onLayout={handleMapLayout}>
               {isReady && (
-                <DavaoOrientalMap 
-                  width={screenDimensions.width}
-                  height={screenDimensions.height}
-                  onMunicipalityPress={handleMunicipalityPress}
-                  onBarangayPress={handleBarangayPress}
-                  selectedMunicipality={selectedMunicipality}
-                  selectedBarangay={selectedBarangay}
-                  operationsByMunicipality={operationsByMunicipality}
-                  operationsByBarangay={operationsByBarangay}
+                <LeafletMap
+                  width={mapWidth}
+                  height={mapHeight}
                 />
               )}
             </View>
@@ -238,17 +235,11 @@ const Operations = React.memo(() => {
             end={{ x: 0, y: 1 }}
             style={styles.mapContainer}
           >
-            <View style={styles.oceanOverlay}>
+            <View style={styles.oceanOverlay} onLayout={handleMapLayout}>
               {isReady && (
-                <DavaoOrientalMap 
-                  width={screenDimensions.width}
-                  height={screenDimensions.height}
-                  onMunicipalityPress={handleMunicipalityPress}
-                  onBarangayPress={handleBarangayPress}
-                  selectedMunicipality={selectedMunicipality}
-                  selectedBarangay={selectedBarangay}
-                  operationsByMunicipality={operationsByMunicipality}
-                  operationsByBarangay={operationsByBarangay}
+                <LeafletMap
+                  width={mapWidth}
+                  height={mapHeight}
                 />
               )}
             </View>

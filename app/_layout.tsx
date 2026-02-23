@@ -51,6 +51,12 @@ function LayoutContent() {
             href="https://fonts.googleapis.com/css2?family=Gabarito:wght@400..900&family=Luckiest+Guy&family=Patrick+Hand&display=swap"
             rel="stylesheet"
           />
+          <link
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+            rel="stylesheet"
+            integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+            crossOrigin=""
+          />
         </Head>
       )}
       <Stack screenOptions={{ headerShown: false }}>
