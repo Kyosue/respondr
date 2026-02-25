@@ -408,25 +408,6 @@ export function Resources() {
   }, [selectedCategory, selectedAgency, selectedResourceType, selectedStatus, selectedCondition, searchQuery, sortOption]);
 
   const renderResourceList = () => {
-    if (state.loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Loading resources...</ThemedText>
-        </View>
-      );
-    }
-
-    if (filteredResources.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ThemedText style={styles.emptyTitle}>No resources found</ThemedText>
-          <ThemedText style={styles.emptySubtitle}>
-            {searchQuery ? 'Try adjusting your search terms' : 'Add your first resource to get started'}
-          </ThemedText>
-        </View>
-      );
-    }
-
     if (isWeb) {
       return (
         <View style={{ flex: 1 }}>
@@ -439,6 +420,9 @@ export function Resources() {
             onDelete={canDeleteResources ? handleDelete : undefined}
             canEdit={canEditResources}
             canDelete={canDeleteResources}
+            paginatedByParent
+            loading={state.loading}
+            rowNumberStart={rangeStartWeb}
           />
           <View style={[styles.tablePaginationBar, { borderTopColor: colors.border }]}>
             <ThemedText style={[styles.tablePaginationInfo, { color: colors.text }]}>
@@ -483,6 +467,25 @@ export function Resources() {
               </View>
             </View>
           </View>
+        </View>
+      );
+    }
+
+    if (state.loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ThemedText style={styles.loadingText}>Loading resources...</ThemedText>
+        </View>
+      );
+    }
+
+    if (filteredResources.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ThemedText style={styles.emptyTitle}>No resources found</ThemedText>
+          <ThemedText style={styles.emptySubtitle}>
+            {searchQuery ? 'Try adjusting your search terms' : 'Add your first resource to get started'}
+          </ThemedText>
         </View>
       );
     }

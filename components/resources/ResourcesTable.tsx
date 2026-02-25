@@ -6,7 +6,7 @@ import { useScreenSize } from '@/hooks/useScreenSize';
 import { Resource, ResourceCategory } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface ResourcesTableProps {
   resources: Resource[];
@@ -17,6 +17,12 @@ interface ResourcesTableProps {
   onDelete?: (resource: Resource) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  /** When true, parent handles pagination (e.g. server-side); table shows all passed resources and hides its own page numbers */
+  paginatedByParent?: boolean;
+  /** When true and paginatedByParent, table shows header + loading in body (keeps shell visible) */
+  loading?: boolean;
+  /** Optional 1-based start for row numbers (e.g. 11 when showing page 2 "11-20 of 50") */
+  rowNumberStart?: number;
 }
 
 function getCategoryColor(category: ResourceCategory): string {
@@ -248,22 +254,25 @@ export function ResourcesTable({
   onEdit,
   onDelete,
   canEdit = false,
-  canDelete = false
+  canDelete = false,
+  paginatedByParent = false,
+  loading = false,
+  rowNumberStart
 }: ResourcesTableProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = paginatedByParent ? resources.length || 10 : 10;
   const mobileScrollRef = useRef<ScrollView>(null);
   const desktopScrollRef = useRef<ScrollView>(null);
 
-  // Calculate pagination
+  // When parent paginates (e.g. web Resources screen), show all passed resources and hide internal pagination
   const totalItems = resources.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = paginatedByParent ? 1 : Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedResources = resources.slice(startIndex, endIndex);
+  const paginatedResources = paginatedByParent ? resources : resources.slice(startIndex, endIndex);
   const showingCount = paginatedResources.length;
   const startCount = startIndex + 1;
   const endCount = startIndex + showingCount;
@@ -336,7 +345,10 @@ export function ResourcesTable({
     return pages;
   };
 
-  if (resources.length === 0) {
+  const isEmpty = resources.length === 0;
+  const showAsEmpty = isEmpty && !(paginatedByParent && loading);
+  const showTableShellWithMessage = paginatedByParent && isEmpty && !loading;
+  if (showAsEmpty && !showTableShellWithMessage) {
     return null;
   }
 
@@ -377,6 +389,11 @@ export function ResourcesTable({
                   activeOpacity={0.7}
                 >
                 <View style={styles.mobileItemHeader}>
+                  <View style={[styles.mobileRowNum, { backgroundColor: `${colors.primary}15` }]}>
+                    <ThemedText style={[styles.mobileRowNumText, { color: colors.primary }]}>
+                      {(rowNumberStart ?? 1) + index}
+                    </ThemedText>
+                  </View>
                   <View style={[styles.imageContainer, { backgroundColor: `${categoryColor}20` }]}>
                     {resource.images && resource.images.length > 0 ? (
                       <Image 
@@ -501,7 +518,7 @@ export function ResourcesTable({
         </ScrollView>
         
         {/* Pagination Footer for Mobile */}
-        {totalPages > 1 && (
+        {!paginatedByParent && totalPages > 1 && (
           <View style={[styles.paginationFooter, styles.paginationFooterMobile, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
             <View style={styles.paginationCounter}>
               <ThemedText style={[styles.paginationCounterText, { color: colors.text }]}>
@@ -596,6 +613,9 @@ export function ResourcesTable({
     <View style={[styles.tableContainer, { borderColor: colors.border }]}>
       {/* Sticky Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.border, backgroundColor: `${colors.primary}05` }]}>
+          <View style={[styles.tableHeaderCell, styles.tableHeaderCellNum]}>
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>#</ThemedText>
+          </View>
           <View style={[styles.tableHeaderCell, styles.tableHeaderCellName]}>
             <View style={styles.headerTitleContainer}>
               <Ionicons name="cube-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
@@ -653,7 +673,17 @@ export function ResourcesTable({
           contentContainerStyle={styles.tableBodyContent}
           showsVerticalScrollIndicator={true}
         >
-        {paginatedResources.map((resource, index) => {
+        {paginatedByParent && loading ? (
+          <View style={[styles.tableLoadingRow, { borderBottomColor: colors.border }]}>
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 10 }} />
+            <ThemedText style={[styles.tableLoadingText, { color: colors.text }]}>Loading resources…</ThemedText>
+          </View>
+        ) : showTableShellWithMessage ? (
+          <View style={[styles.tableLoadingRow, styles.tableEmptyRow, { borderBottomColor: colors.border }]}>
+            <ThemedText style={[styles.tableLoadingText, { color: colors.text, opacity: 0.7 }]}>No resources found</ThemedText>
+          </View>
+        ) : (
+        paginatedResources.map((resource, index) => {
           const categoryColor = getCategoryColor(resource.category);
           const conditionColor = getConditionColor(resource.condition);
           const statusColor = getStatusColor(resource.availableQuantity, resource.totalQuantity);
@@ -675,6 +705,11 @@ export function ResourcesTable({
                 onPress={() => onResourcePress?.(resource)}
                 activeOpacity={0.7}
               >
+              <View style={[styles.tableCell, styles.tableCellNum]}>
+                <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]}>
+                  {(rowNumberStart ?? 1) + index}
+                </ThemedText>
+              </View>
               <View style={[styles.tableCell, styles.tableCellName]}>
                 <View style={styles.resourceNameCell}>
                   <View style={[styles.imageContainer, styles.tableImageContainer, { backgroundColor: `${categoryColor}20` }]}>
@@ -810,11 +845,12 @@ export function ResourcesTable({
             </TouchableOpacity>
             </AnimatedRow>
           );
-        })}
+        })
+        )}
         </ScrollView>
 
-      {/* Sticky Pagination Footer */}
-      {totalPages > 1 && (
+      {/* Sticky Pagination Footer (hidden when parent handles pagination) */}
+      {!paginatedByParent && totalPages > 1 && (
         <View style={[styles.paginationFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           {/* Counter on the left */}
           <View style={styles.paginationCounter}>
@@ -991,6 +1027,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
   },
+  tableHeaderCellNum: {
+    flex: 0.2,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tableHeaderCellName: {
     flex: 2,
   },
@@ -1027,6 +1069,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     minWidth: 0,
     overflow: 'hidden',
+  },
+  tableCellNum: {
+    flex: 0.2,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tableCellName: {
     flex: 2,
@@ -1369,6 +1417,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Gabarito',
     opacity: 0.5,
+  },
+  tableLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  tableLoadingText: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  tableEmptyRow: {
+    paddingVertical: 40,
+  },
+  mobileRowNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  mobileRowNumText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 
