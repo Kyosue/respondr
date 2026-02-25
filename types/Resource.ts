@@ -194,3 +194,23 @@ export interface ResourceStats {
   maintenanceDue: number;
   categories: Record<ResourceCategory, number>;
 }
+
+/** Options for paginated resource list API */
+export interface GetResourcesPageOptions {
+  page: number;
+  limit: number;
+  sort?: 'name_asc' | 'name_desc' | 'createdAt_desc';
+  category?: ResourceCategory;
+  agencyId?: string;
+  status?: ResourceStatus;
+  condition?: ResourceCondition;
+  search?: string;
+}
+
+/** Response shape for paginated resource list API */
+export interface ResourceListPage {
+  data: Resource[];
+  total: number;
+  page: number;
+  limit: number;
+}

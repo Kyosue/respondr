@@ -1,4 +1,4 @@
-import { BorrowerProfile, MultiResourceTransaction, Resource, ResourceHistory, ResourceTransaction } from '@/types/Resource';
+import { BorrowerProfile, GetResourcesPageOptions, MultiResourceTransaction, Resource, ResourceHistory, ResourceListPage, ResourceTransaction } from '@/types/Resource';
 import {
     addDoc,
     collection,
@@ -95,6 +95,52 @@ export const resourceService = {
         return [];
       }
       console.error('Error getting resources:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get resources with server-side pagination.
+   * Returns a page of resources plus total count. Optional sort and filters (filters may require Firestore indexes).
+   */
+  async getResourcesPage(options: GetResourcesPageOptions): Promise<ResourceListPage> {
+    const { page, limit: pageSize, sort = 'name_asc' } = options;
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(100, Math.max(1, pageSize));
+
+    try {
+      const coll = collection(db, RESOURCES_COLLECTION);
+
+      // Build ordered query (required for limit/consistency)
+      const orderField = sort === 'createdAt_desc' ? 'createdAt' : 'name';
+      const orderDir = sort === 'name_desc' || sort === 'createdAt_desc' ? 'desc' : 'asc';
+      const baseQuery = query(coll, orderBy(orderField, orderDir));
+
+      // Total count (unfiltered for now; filters can be added with composite indexes)
+      const countSnap = await getCountFromServer(baseQuery);
+      const total = countSnap.data().count ?? 0;
+
+      if (total === 0) {
+        return { data: [], total: 0, page: safePage, limit: safeLimit };
+      }
+
+      // Fetch up to (page * limit) docs and take the slice for this page
+      const numToRead = safePage * safeLimit;
+      const q = query(baseQuery, limit(numToRead));
+      const querySnapshot = await getDocs(q);
+      const all = querySnapshot.docs.map(d =>
+        convertTimestamps({ id: d.id, ...d.data() }) as Resource
+      );
+      const start = (safePage - 1) * safeLimit;
+      const data = all.slice(start, start + safeLimit);
+
+      return { data, total, page: safePage, limit: safeLimit };
+    } catch (error: any) {
+      if (error?.message?.includes('index is currently building')) {
+        console.warn('Resources index is building, returning empty page. This is temporary.');
+        return { data: [], total: 0, page: safePage, limit: safeLimit };
+      }
+      console.error('Error getting resources page:', error);
       throw error;
     }
   },
