@@ -293,6 +293,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
   const syncManager = SyncManager.getInstance();
   const usePaginatedResourcesRef = useRef(state.usePaginatedResources);
   usePaginatedResourcesRef.current = state.usePaginatedResources;
+  const pageCacheRef = useRef(new Map<string, { data: Resource[]; total: number }>());
   const resilientAgencyService = ResilientAgencyService.getInstance();
   const resilientBorrowerService = ResilientBorrowerService.getInstance();
   const resilientTransactionService = ResilientTransactionService.getInstance();
@@ -1529,6 +1530,28 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>> & { replaceOnly?: boolean }
   ) => {
     const { replaceOnly, ...apiOptions } = options ?? {};
+    const cacheKey = [page, limit, apiOptions.sort ?? '', apiOptions.category ?? '', apiOptions.agencyId ?? '', apiOptions.status ?? '', apiOptions.condition ?? '', apiOptions.search ?? ''].join('|');
+
+    if (page === 1) {
+      pageCacheRef.current.clear();
+    }
+
+    const cached = pageCacheRef.current.get(cacheKey);
+    if (cached) {
+      dispatch({
+        type: 'SET_RESOURCES_PAGE',
+        payload: {
+          data: cached.data,
+          total: cached.total,
+          page,
+          append: !replaceOnly && page > 1,
+        },
+      });
+      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: 'SET_LAST_FETCH_FAILED_PAGE', payload: null });
+      return;
+    }
+
     try {
       if (page <= 1) {
         dispatch({ type: 'SET_LOADING', payload: true });
@@ -1540,6 +1563,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
         limit,
         ...apiOptions,
       });
+      pageCacheRef.current.set(cacheKey, { data: result.data, total: result.total });
       dispatch({
         type: 'SET_RESOURCES_PAGE',
         payload: {

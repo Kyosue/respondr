@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -90,6 +91,7 @@ export function Resources() {
   const WEB_PAGE_SIZE_OPTIONS = [10, 20, 50];
 
   const infiniteScrollTriggeredRef = useRef(false);
+  const isFirstFocusRef = useRef(true);
 
   // Confirmation modal hook
   const confirmationModal = useConfirmationModal();
@@ -232,12 +234,25 @@ export function Resources() {
     return () => setUsePaginatedResources(false);
   }, [setUsePaginatedResources]);
 
-  // Fetch page 1 on load and whenever filters/sort change (web: replace only; mobile: replace for page 1)
+  // Step 7: Filter/sort change resets to page 1 and refetches with new options (buildPageOptions deps: sort, category, agency, status, condition, search)
   const effectivePageSize = isWeb ? webPageSize : itemsPerPage;
   useEffect(() => {
     if (!usePaginatedResources) return;
     fetchResourcesPage(1, effectivePageSize, { ...buildPageOptions(), ...(isWeb && { replaceOnly: true }) });
   }, [usePaginatedResources, effectivePageSize, isWeb, fetchResourcesPage, buildPageOptions]);
+
+  // Step 8: Refetch current page when screen gains focus (skip first focus to avoid double fetch on mount)
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocusRef.current) {
+        isFirstFocusRef.current = false;
+        return;
+      }
+      if (!usePaginatedResources) return;
+      const page = resourcesCurrentPage >= 1 ? resourcesCurrentPage : 1;
+      fetchResourcesPage(page, effectivePageSize, { ...buildPageOptions(), ...(isWeb && { replaceOnly: true }) });
+    }, [usePaginatedResources, resourcesCurrentPage, effectivePageSize, isWeb, fetchResourcesPage, buildPageOptions])
+  );
 
   const handleClearFilters = () => {
     clearFilters();
