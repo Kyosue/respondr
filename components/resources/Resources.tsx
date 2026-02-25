@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -49,7 +49,13 @@ export function Resources() {
     refreshResources,
     getAllAgencies,
     addResource,
-    deleteResource
+    deleteResource,
+    fetchResourcesPage,
+    resourcesTotalCount,
+    resourcesCurrentPage,
+    loadingMore,
+    usePaginatedResources,
+    setUsePaginatedResources,
   } = useResources();
   
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
@@ -66,12 +72,26 @@ export function Resources() {
   const [agencies, setAgencies] = useState<any[]>([]);
   const [loadingAgencies, setLoadingAgencies] = useState(false);
   
-  // Pagination state for mobile
+  // Pagination state for mobile (client-side slice when not using server pagination)
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Number of resources to load per page
+  const itemsPerPage = 10; // Number of resources to load per page (kept in sync with API limit)
   
   // Confirmation modal hook
   const confirmationModal = useConfirmationModal();
+
+  // On mobile, use server-side pagination; turn off when leaving so subscription can update list elsewhere
+  useEffect(() => {
+    if (!isWeb) setUsePaginatedResources(true);
+    return () => {
+      if (!isWeb) setUsePaginatedResources(false);
+    };
+  }, [isWeb, setUsePaginatedResources]);
+
+  // When on mobile with server pagination, fetch page 1 on load and whenever filters/sort change
+  useEffect(() => {
+    if (isWeb || !usePaginatedResources) return;
+    fetchResourcesPage(1, itemsPerPage, buildPageOptions());
+  }, [isWeb, usePaginatedResources, itemsPerPage, fetchResourcesPage, buildPageOptions]);
 
   // Load agencies on component mount
   useEffect(() => {
@@ -178,6 +198,25 @@ export function Resources() {
 
   const [sortOption, setSortOption] = useState<ResourceSortOption>('default');
 
+  const mapSortToApi = useCallback((sort: ResourceSortOption): 'name_asc' | 'name_desc' | 'createdAt_desc' => {
+    switch (sort) {
+      case 'alphabetical-desc': return 'name_desc';
+      case 'recently-added': return 'createdAt_desc';
+      case 'default':
+      case 'alphabetical-asc':
+      default: return 'name_asc';
+    }
+  }, []);
+
+  const buildPageOptions = useCallback(() => ({
+    sort: mapSortToApi(sortOption),
+    ...(selectedCategory && { category: selectedCategory }),
+    ...(selectedAgency && { agencyId: selectedAgency }),
+    ...(selectedStatus && { status: selectedStatus }),
+    ...(selectedCondition && { condition: selectedCondition }),
+    ...(searchQuery?.trim() && { search: searchQuery.trim() }),
+  }), [mapSortToApi, sortOption, selectedCategory, selectedAgency, selectedStatus, selectedCondition, searchQuery]);
+
   const handleClearFilters = () => {
     clearFilters();
     setSortOption('default');
@@ -209,7 +248,11 @@ export function Resources() {
   };
 
   const handleSuccess = () => {
-    refreshResources();
+    if (!isWeb && usePaginatedResources) {
+      fetchResourcesPage(1, itemsPerPage, buildPageOptions());
+    } else {
+      refreshResources();
+    }
     handleModalClose();
   };
 
@@ -266,16 +309,20 @@ export function Resources() {
     });
   }, [getFilteredResources, sortOption]);
 
-  // Paginated resources for mobile
+  // Resources to show: on web or mobile (client-side slice) = filtered + slice; on mobile (server pagination) = filtered only (no slice)
   const paginatedResources = useMemo(() => {
     if (isWeb) return filteredResources;
+    if (usePaginatedResources) return filteredResources;
     return filteredResources.slice(0, currentPage * itemsPerPage);
-  }, [filteredResources, currentPage, itemsPerPage, isWeb]);
+  }, [filteredResources, currentPage, itemsPerPage, isWeb, usePaginatedResources]);
 
-  const hasMoreResources = !isWeb && filteredResources.length > paginatedResources.length;
-  const totalPages = Math.ceil(filteredResources.length / itemsPerPage);
+  const hasMoreResources = !isWeb && (
+    usePaginatedResources
+      ? state.resources.length < resourcesTotalCount
+      : filteredResources.length > paginatedResources.length
+  );
 
-  // Reset to page 1 when filters change
+  // Reset client-side page when filters change (only matters when not using server pagination)
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedCategory, selectedAgency, selectedResourceType, selectedStatus, selectedCondition, searchQuery, sortOption]);
@@ -336,20 +383,30 @@ export function Resources() {
           <View style={styles.loadMoreContainer}>
             <TouchableOpacity
               style={[styles.loadMoreButton, { backgroundColor: 'white', borderColor: colors.border }]}
-              onPress={() => setCurrentPage(prev => prev + 1)}
+              onPress={() => usePaginatedResources
+                ? fetchResourcesPage(resourcesCurrentPage + 1, itemsPerPage, buildPageOptions())
+                : setCurrentPage(prev => prev + 1)
+              }
               activeOpacity={0.7}
+              disabled={loadingMore}
             >
-              <Ionicons name="arrow-down" size={20} color="#black" />
-              <ThemedText style={styles.loadMoreText}>
-                Load More ({paginatedResources.length} of {filteredResources.length})
-              </ThemedText>
+              {loadingMore ? (
+                <ThemedText style={styles.loadMoreText}>Loading more...</ThemedText>
+              ) : (
+                <>
+                  <Ionicons name="arrow-down" size={20} color="#black" />
+                  <ThemedText style={styles.loadMoreText}>
+                    Load More ({state.resources.length} of {usePaginatedResources ? resourcesTotalCount : filteredResources.length})
+                  </ThemedText>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
         {!hasMoreResources && paginatedResources.length > 0 && (
           <View style={styles.endOfListContainer}>
             <ThemedText style={[styles.endOfListText, { color: colors.text }]}>
-              Showing all {filteredResources.length} resource{filteredResources.length !== 1 ? 's' : ''}
+              Showing all {usePaginatedResources ? resourcesTotalCount : filteredResources.length} resource{(usePaginatedResources ? resourcesTotalCount : filteredResources.length) !== 1 ? 's' : ''}
             </ThemedText>
           </View>
         )}
