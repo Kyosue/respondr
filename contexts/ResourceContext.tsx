@@ -3,12 +3,12 @@ import { ResilientAgencyService } from '@/firebase/resilientAgency';
 import { ResilientBorrowerService } from '@/firebase/resilientBorrower';
 import { ResilientTransactionService } from '@/firebase/resilientTransaction';
 import { resourceService } from '@/firebase/resources';
-import { Agency, BorrowerProfile, MultiResourceTransaction, Resource, ResourceCategory, ResourceCondition, ResourceFilters, ResourceHistory, ResourceStats, ResourceTransaction, TransactionStatus } from '@/types/Resource';
+import { Agency, BorrowerProfile, GetResourcesPageOptions, MultiResourceTransaction, Resource, ResourceCategory, ResourceCondition, ResourceFilters, ResourceHistory, ResourceStats, ResourceTransaction, TransactionStatus } from '@/types/Resource';
 import { CacheManager } from '@/utils/cacheManager';
 import { generateMultiItemId, generateUniqueId } from '@/utils/idGenerator';
 import { MaintenanceUtils } from '@/utils/maintenanceUtils';
 import { SyncManager } from '@/utils/syncManager';
-import React, { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useNetwork } from './NetworkContext';
 
@@ -21,15 +21,25 @@ interface ResourceState {
   agencies: Agency[];
   filters: ResourceFilters;
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   stats: ResourceStats | null;
   selectedResource: Resource | null;
+  /** Total count from last paginated fetch (for "X of Y" display) */
+  resourcesTotalCount: number;
+  /** Current page from last paginated fetch (1-based) */
+  resourcesCurrentPage: number;
+  /** When true, resources list uses paginated fetch instead of real-time subscription */
+  usePaginatedResources: boolean;
 }
 
 type ResourceAction =
   | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_LOADING_MORE'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_RESOURCES'; payload: Resource[] }
+  | { type: 'SET_RESOURCES_PAGE'; payload: { data: Resource[]; total: number; page: number; append: boolean } }
+  | { type: 'SET_USE_PAGINATED_RESOURCES'; payload: boolean }
   | { type: 'ADD_RESOURCE'; payload: Resource }
   | { type: 'UPDATE_RESOURCE'; payload: Resource }
   | { type: 'DELETE_RESOURCE'; payload: string }
@@ -153,6 +163,14 @@ interface ResourceContextType {
   refreshResources: () => Promise<void>;
   refreshAllTransactions: () => Promise<void>;
   syncBorrowerData: () => Promise<void>;
+
+  // Paginated resources (server-side)
+  fetchResourcesPage: (page: number, limit: number, options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>>) => Promise<void>;
+  resourcesTotalCount: number;
+  resourcesCurrentPage: number;
+  loadingMore: boolean;
+  usePaginatedResources: boolean;
+  setUsePaginatedResources: (use: boolean) => void;
 }
 
 const initialState: ResourceState = {
@@ -164,19 +182,37 @@ const initialState: ResourceState = {
   agencies: [],
   filters: {},
   loading: false,
+  loadingMore: false,
   error: null,
   stats: null,
   selectedResource: null,
+  resourcesTotalCount: 0,
+  resourcesCurrentPage: 0,
+  usePaginatedResources: false,
 };
 
 function resourceReducer(state: ResourceState, action: ResourceAction): ResourceState {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
+    case 'SET_LOADING_MORE':
+      return { ...state, loadingMore: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload };
     case 'SET_RESOURCES':
       return { ...state, resources: action.payload };
+    case 'SET_RESOURCES_PAGE': {
+      const { data, total, page, append } = action.payload;
+      const resources = append ? [...state.resources, ...data] : data;
+      return {
+        ...state,
+        resources,
+        resourcesTotalCount: total,
+        resourcesCurrentPage: page,
+      };
+    }
+    case 'SET_USE_PAGINATED_RESOURCES':
+      return { ...state, usePaginatedResources: action.payload };
     case 'ADD_RESOURCE':
       return { ...state, resources: [...state.resources, action.payload] };
     case 'UPDATE_RESOURCE':
@@ -248,6 +284,8 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
   const { isOnline } = useNetwork();
   const cacheManager = CacheManager.getInstance();
   const syncManager = SyncManager.getInstance();
+  const usePaginatedResourcesRef = useRef(state.usePaginatedResources);
+  usePaginatedResourcesRef.current = state.usePaginatedResources;
   const resilientAgencyService = ResilientAgencyService.getInstance();
   const resilientBorrowerService = ResilientBorrowerService.getInstance();
   const resilientTransactionService = ResilientTransactionService.getInstance();
@@ -396,8 +434,9 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
       cacheManager.set('multiTransactions', multiTransactions);
     });
 
-    // Set up resources listener
+    // Set up resources listener (skip when using paginated fetch so it doesn't overwrite state.resources)
     const unsubscribeResources = resourceService.subscribeToResources((resources) => {
+      if (usePaginatedResourcesRef.current) return;
       dispatch({ type: 'SET_RESOURCES', payload: resources });
       // Update cache
       cacheManager.set('resources', resources);
@@ -1473,6 +1512,47 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     await refreshStats();
   };
 
+  const setUsePaginatedResources = useCallback((use: boolean) => {
+    dispatch({ type: 'SET_USE_PAGINATED_RESOURCES', payload: use });
+  }, []);
+
+  const fetchResourcesPage = useCallback(async (
+    page: number,
+    limit: number,
+    options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>>
+  ) => {
+    try {
+      if (page <= 1) {
+        dispatch({ type: 'SET_LOADING', payload: true });
+      } else {
+        dispatch({ type: 'SET_LOADING_MORE', payload: true });
+      }
+      const result = await resourceService.getResourcesPage({
+        page,
+        limit,
+        ...options,
+      });
+      dispatch({
+        type: 'SET_RESOURCES_PAGE',
+        payload: {
+          data: result.data,
+          total: result.total,
+          page: result.page,
+          append: page > 1,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching resources page:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to load resources' });
+    } finally {
+      if (page <= 1) {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      } else {
+        dispatch({ type: 'SET_LOADING_MORE', payload: false });
+      }
+    }
+  }, []);
+
   // Refresh all transaction data from database
   const refreshAllTransactions = async () => {
     try {
@@ -1705,6 +1785,12 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     refreshResources,
     refreshAllTransactions,
     syncBorrowerData,
+    fetchResourcesPage,
+    resourcesTotalCount: state.resourcesTotalCount,
+    resourcesCurrentPage: state.resourcesCurrentPage,
+    loadingMore: state.loadingMore,
+    usePaginatedResources: state.usePaginatedResources,
+    setUsePaginatedResources,
   };
 
   return (
