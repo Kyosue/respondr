@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   ScrollView,
   TouchableOpacity,
   View
@@ -36,6 +38,11 @@ import { ResourceSortOption } from './ResourceHeader/ResourceFilterPopover';
 import { ResourceHeader } from './ResourceHeader/ResourceHeader';
 import { ResourcesTable } from './ResourcesTable';
 import { styles } from './styles/Resources.styles';
+
+/** When true, scrolling near the bottom loads the next page; when false, only the "Load more" button does. */
+const INFINITE_SCROLL_ENABLED = false;
+
+const INFINITE_SCROLL_THRESHOLD_PX = 200;
 
 export function Resources() {
   const colorScheme = useColorScheme();
@@ -75,7 +82,9 @@ export function Resources() {
   // Pagination state for mobile (client-side slice when not using server pagination)
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Number of resources to load per page (kept in sync with API limit)
-  
+
+  const infiniteScrollTriggeredRef = useRef(false);
+
   // Confirmation modal hook
   const confirmationModal = useConfirmationModal();
 
@@ -322,6 +331,31 @@ export function Resources() {
       : filteredResources.length > paginatedResources.length
   );
 
+  const handleLoadMore = useCallback(() => {
+    if (!hasMoreResources || loadingMore) return;
+    if (usePaginatedResources) {
+      fetchResourcesPage(resourcesCurrentPage + 1, itemsPerPage, buildPageOptions());
+    } else {
+      setCurrentPage(prev => prev + 1);
+    }
+  }, [hasMoreResources, loadingMore, usePaginatedResources, fetchResourcesPage, resourcesCurrentPage, itemsPerPage, buildPageOptions]);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!INFINITE_SCROLL_ENABLED || isWeb || !hasMoreResources || loadingMore || infiniteScrollTriggeredRef.current) return;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const isNearBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - INFINITE_SCROLL_THRESHOLD_PX;
+    if (!isNearBottom) return;
+    infiniteScrollTriggeredRef.current = true;
+    if (usePaginatedResources) {
+      fetchResourcesPage(resourcesCurrentPage + 1, itemsPerPage, buildPageOptions()).finally(() => {
+        infiniteScrollTriggeredRef.current = false;
+      });
+    } else {
+      setCurrentPage(prev => prev + 1);
+      infiniteScrollTriggeredRef.current = false;
+    }
+  }, [isWeb, hasMoreResources, loadingMore, usePaginatedResources, fetchResourcesPage, resourcesCurrentPage, itemsPerPage, buildPageOptions]);
+
   // Reset client-side page when filters change (only matters when not using server pagination)
   useEffect(() => {
     setCurrentPage(1);
@@ -383,10 +417,7 @@ export function Resources() {
           <View style={styles.loadMoreContainer}>
             <TouchableOpacity
               style={[styles.loadMoreButton, { backgroundColor: 'white', borderColor: colors.border }]}
-              onPress={() => usePaginatedResources
-                ? fetchResourcesPage(resourcesCurrentPage + 1, itemsPerPage, buildPageOptions())
-                : setCurrentPage(prev => prev + 1)
-              }
+              onPress={handleLoadMore}
               activeOpacity={0.7}
               disabled={loadingMore}
             >
@@ -452,6 +483,8 @@ export function Resources() {
             styles.contentContainer,
             { paddingBottom: bottomNavHeight + 20 }
           ]}
+          onScroll={handleScroll}
+          scrollEventThrottle={100}
         >
           {renderResourceList()}
         </ScrollView>
