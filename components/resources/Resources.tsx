@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -63,6 +64,7 @@ export function Resources() {
     loadingMore,
     usePaginatedResources,
     setUsePaginatedResources,
+    lastFetchFailedPage,
   } = useResources();
   
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
@@ -83,24 +85,14 @@ export function Resources() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Number of resources to load per page (kept in sync with API limit)
 
+  // Web table: page size options and current size
+  const [webPageSize, setWebPageSize] = useState(10);
+  const WEB_PAGE_SIZE_OPTIONS = [10, 20, 50];
+
   const infiniteScrollTriggeredRef = useRef(false);
 
   // Confirmation modal hook
   const confirmationModal = useConfirmationModal();
-
-  // On mobile, use server-side pagination; turn off when leaving so subscription can update list elsewhere
-  useEffect(() => {
-    if (!isWeb) setUsePaginatedResources(true);
-    return () => {
-      if (!isWeb) setUsePaginatedResources(false);
-    };
-  }, [isWeb, setUsePaginatedResources]);
-
-  // When on mobile with server pagination, fetch page 1 on load and whenever filters/sort change
-  useEffect(() => {
-    if (isWeb || !usePaginatedResources) return;
-    fetchResourcesPage(1, itemsPerPage, buildPageOptions());
-  }, [isWeb, usePaginatedResources, itemsPerPage, fetchResourcesPage, buildPageOptions]);
 
   // Load agencies on component mount
   useEffect(() => {
@@ -207,6 +199,14 @@ export function Resources() {
 
   const [sortOption, setSortOption] = useState<ResourceSortOption>('default');
 
+  const {
+    searchQuery,
+    showSearch,
+    handleSearch,
+    handleSearchToggle,
+    handleClearSearch,
+  } = useResourceSearch();
+
   const mapSortToApi = useCallback((sort: ResourceSortOption): 'name_asc' | 'name_desc' | 'createdAt_desc' => {
     switch (sort) {
       case 'alphabetical-desc': return 'name_desc';
@@ -226,18 +226,23 @@ export function Resources() {
     ...(searchQuery?.trim() && { search: searchQuery.trim() }),
   }), [mapSortToApi, sortOption, selectedCategory, selectedAgency, selectedStatus, selectedCondition, searchQuery]);
 
+  // Use server-side pagination on this screen (both web and mobile); turn off when leaving
+  useEffect(() => {
+    setUsePaginatedResources(true);
+    return () => setUsePaginatedResources(false);
+  }, [setUsePaginatedResources]);
+
+  // Fetch page 1 on load and whenever filters/sort change (web: replace only; mobile: replace for page 1)
+  const effectivePageSize = isWeb ? webPageSize : itemsPerPage;
+  useEffect(() => {
+    if (!usePaginatedResources) return;
+    fetchResourcesPage(1, effectivePageSize, { ...buildPageOptions(), ...(isWeb && { replaceOnly: true }) });
+  }, [usePaginatedResources, effectivePageSize, isWeb, fetchResourcesPage, buildPageOptions]);
+
   const handleClearFilters = () => {
     clearFilters();
     setSortOption('default');
   };
-
-  const {
-    searchQuery,
-    showSearch,
-    handleSearch,
-    handleSearchToggle,
-    handleClearSearch,
-  } = useResourceSearch();
 
   const handleResourcePress = (resource: Resource) => {
     setSelectedResource(resource);
@@ -257,13 +262,39 @@ export function Resources() {
   };
 
   const handleSuccess = () => {
-    if (!isWeb && usePaginatedResources) {
-      fetchResourcesPage(1, itemsPerPage, buildPageOptions());
+    if (usePaginatedResources) {
+      const size = isWeb ? webPageSize : itemsPerPage;
+      fetchResourcesPage(1, size, { ...buildPageOptions(), ...(isWeb && { replaceOnly: true }) });
     } else {
       refreshResources();
     }
     handleModalClose();
   };
+
+  const totalPagesWeb = resourcesTotalCount <= 0 ? 1 : Math.ceil(resourcesTotalCount / webPageSize);
+  const rangeStartWeb = resourcesTotalCount <= 0 ? 0 : (resourcesCurrentPage - 1) * webPageSize + 1;
+  const rangeEndWeb = Math.min(resourcesCurrentPage * webPageSize, resourcesTotalCount);
+
+  const handleWebPrev = useCallback(() => {
+    if (resourcesCurrentPage <= 1 || state.loading) return;
+    fetchResourcesPage(resourcesCurrentPage - 1, webPageSize, { ...buildPageOptions(), replaceOnly: true });
+  }, [resourcesCurrentPage, state.loading, fetchResourcesPage, webPageSize, buildPageOptions]);
+
+  const handleWebNext = useCallback(() => {
+    if (resourcesCurrentPage >= totalPagesWeb || state.loading) return;
+    fetchResourcesPage(resourcesCurrentPage + 1, webPageSize, { ...buildPageOptions(), replaceOnly: true });
+  }, [resourcesCurrentPage, totalPagesWeb, state.loading, fetchResourcesPage, webPageSize, buildPageOptions]);
+
+  const handleWebPageSizeChange = useCallback((size: number) => {
+    setWebPageSize(size);
+    fetchResourcesPage(1, size, { ...buildPageOptions(), replaceOnly: true });
+  }, [fetchResourcesPage, buildPageOptions]);
+
+  const handleRetryPagination = useCallback(() => {
+    const page = lastFetchFailedPage ?? 1;
+    const size = isWeb ? webPageSize : itemsPerPage;
+    fetchResourcesPage(page, size, { ...buildPageOptions(), ...(isWeb && { replaceOnly: true }) });
+  }, [lastFetchFailedPage, isWeb, webPageSize, itemsPerPage, fetchResourcesPage, buildPageOptions]);
 
   const handleMultiBorrow = () => {
     setShowSmartBorrowModal(true);
@@ -383,16 +414,61 @@ export function Resources() {
 
     if (isWeb) {
       return (
-        <ResourcesTable
-          resources={filteredResources}
-          onResourcePress={handleResourcePress}
-          onBorrow={handleBorrowResource}
-          onReturn={handleReturnResource}
-          onEdit={canEditResources ? handleEditResource : undefined}
-          onDelete={canDeleteResources ? handleDelete : undefined}
-          canEdit={canEditResources}
-          canDelete={canDeleteResources}
-        />
+        <View style={{ flex: 1 }}>
+          <ResourcesTable
+            resources={filteredResources}
+            onResourcePress={handleResourcePress}
+            onBorrow={handleBorrowResource}
+            onReturn={handleReturnResource}
+            onEdit={canEditResources ? handleEditResource : undefined}
+            onDelete={canDeleteResources ? handleDelete : undefined}
+            canEdit={canEditResources}
+            canDelete={canDeleteResources}
+          />
+          <View style={[styles.tablePaginationBar, { borderTopColor: colors.border }]}>
+            <ThemedText style={[styles.tablePaginationInfo, { color: colors.text }]}>
+              {loadingMore ? (
+                'Loading…'
+              ) : (
+                `Showing ${rangeStartWeb}–${rangeEndWeb} of ${resourcesTotalCount}`
+              )}
+            </ThemedText>
+            <View style={styles.tablePaginationControls}>
+              <TouchableOpacity
+                style={[styles.tablePaginationButton, { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }]}
+                onPress={handleWebPrev}
+                disabled={resourcesCurrentPage <= 1 || state.loading}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-back" size={20} color={colors.text} style={resourcesCurrentPage <= 1 || state.loading ? { opacity: 0.5 } : undefined} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tablePaginationButton, { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }]}
+                onPress={handleWebNext}
+                disabled={resourcesCurrentPage >= totalPagesWeb || state.loading}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-forward" size={20} color={colors.text} style={resourcesCurrentPage >= totalPagesWeb || state.loading ? { opacity: 0.5 } : undefined} />
+              </TouchableOpacity>
+              <View style={styles.tablePaginationPageSize}>
+                <ThemedText style={[styles.tablePaginationInfo, { color: colors.text, marginRight: 4 }]}>Per page:</ThemedText>
+                {WEB_PAGE_SIZE_OPTIONS.map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.tablePaginationPageSizeOption,
+                      { backgroundColor: webPageSize === size ? colors.tint : 'transparent', borderWidth: 1, borderColor: colors.border }
+                    ]}
+                    onPress={() => handleWebPageSizeChange(size)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText style={{ fontSize: 14, color: webPageSize === size ? '#fff' : colors.text }}>{size}</ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </View>
       );
     }
 
@@ -413,6 +489,12 @@ export function Resources() {
             />
           ))}
         </View>
+        {loadingMore && (
+          <View style={styles.loadingMoreRow}>
+            <ActivityIndicator size="small" color={colors.tint} />
+            <ThemedText style={[styles.loadingMoreRowText, { color: colors.text }]}>Loading more…</ThemedText>
+          </View>
+        )}
         {hasMoreResources && (
           <View style={styles.loadMoreContainer}>
             <TouchableOpacity
@@ -472,6 +554,21 @@ export function Resources() {
         onClearFilters={handleClearFilters}
         agencies={agencies}
       />
+
+      {state.error && usePaginatedResources && (
+        <View style={[styles.errorBanner, { backgroundColor: colors.error + '20', borderWidth: 1, borderColor: colors.error + '40' }]}>
+          <ThemedText style={[styles.errorBannerText, { color: colors.text }]} numberOfLines={2}>
+            {state.error}
+          </ThemedText>
+          <TouchableOpacity
+            style={[styles.errorBannerRetry, { backgroundColor: colors.tint }]}
+            onPress={handleRetryPagination}
+            activeOpacity={0.8}
+          >
+            <ThemedText style={[styles.errorBannerRetryText, { color: '#fff' }]}>Retry</ThemedText>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {isWeb ? (
         renderResourceList()

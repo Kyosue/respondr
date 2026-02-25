@@ -31,6 +31,8 @@ interface ResourceState {
   resourcesCurrentPage: number;
   /** When true, resources list uses paginated fetch instead of real-time subscription */
   usePaginatedResources: boolean;
+  /** Page number that failed to load (for retry); null when no failure or after success */
+  lastFetchFailedPage: number | null;
 }
 
 type ResourceAction =
@@ -40,6 +42,7 @@ type ResourceAction =
   | { type: 'SET_RESOURCES'; payload: Resource[] }
   | { type: 'SET_RESOURCES_PAGE'; payload: { data: Resource[]; total: number; page: number; append: boolean } }
   | { type: 'SET_USE_PAGINATED_RESOURCES'; payload: boolean }
+  | { type: 'SET_LAST_FETCH_FAILED_PAGE'; payload: number | null }
   | { type: 'ADD_RESOURCE'; payload: Resource }
   | { type: 'UPDATE_RESOURCE'; payload: Resource }
   | { type: 'DELETE_RESOURCE'; payload: string }
@@ -165,12 +168,13 @@ interface ResourceContextType {
   syncBorrowerData: () => Promise<void>;
 
   // Paginated resources (server-side)
-  fetchResourcesPage: (page: number, limit: number, options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>>) => Promise<void>;
+  fetchResourcesPage: (page: number, limit: number, options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>> & { replaceOnly?: boolean }) => Promise<void>;
   resourcesTotalCount: number;
   resourcesCurrentPage: number;
   loadingMore: boolean;
   usePaginatedResources: boolean;
   setUsePaginatedResources: (use: boolean) => void;
+  lastFetchFailedPage: number | null;
 }
 
 const initialState: ResourceState = {
@@ -189,6 +193,7 @@ const initialState: ResourceState = {
   resourcesTotalCount: 0,
   resourcesCurrentPage: 0,
   usePaginatedResources: false,
+  lastFetchFailedPage: null,
 };
 
 function resourceReducer(state: ResourceState, action: ResourceAction): ResourceState {
@@ -213,6 +218,8 @@ function resourceReducer(state: ResourceState, action: ResourceAction): Resource
     }
     case 'SET_USE_PAGINATED_RESOURCES':
       return { ...state, usePaginatedResources: action.payload };
+    case 'SET_LAST_FETCH_FAILED_PAGE':
+      return { ...state, lastFetchFailedPage: action.payload };
     case 'ADD_RESOURCE':
       return { ...state, resources: [...state.resources, action.payload] };
     case 'UPDATE_RESOURCE':
@@ -1519,8 +1526,9 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
   const fetchResourcesPage = useCallback(async (
     page: number,
     limit: number,
-    options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>>
+    options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>> & { replaceOnly?: boolean }
   ) => {
+    const { replaceOnly, ...apiOptions } = options ?? {};
     try {
       if (page <= 1) {
         dispatch({ type: 'SET_LOADING', payload: true });
@@ -1530,7 +1538,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
       const result = await resourceService.getResourcesPage({
         page,
         limit,
-        ...options,
+        ...apiOptions,
       });
       dispatch({
         type: 'SET_RESOURCES_PAGE',
@@ -1538,12 +1546,15 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
           data: result.data,
           total: result.total,
           page: result.page,
-          append: page > 1,
+          append: !replaceOnly && page > 1,
         },
       });
+      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: 'SET_LAST_FETCH_FAILED_PAGE', payload: null });
     } catch (error) {
       console.error('Error fetching resources page:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load resources' });
+      dispatch({ type: 'SET_LAST_FETCH_FAILED_PAGE', payload: page });
     } finally {
       if (page <= 1) {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -1791,6 +1802,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     loadingMore: state.loadingMore,
     usePaginatedResources: state.usePaginatedResources,
     setUsePaginatedResources,
+    lastFetchFailedPage: state.lastFetchFailedPage,
   };
 
   return (
