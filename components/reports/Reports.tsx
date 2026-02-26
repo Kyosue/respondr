@@ -23,8 +23,7 @@ const Reports: React.FC = () => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
-  const isWeb = Platform.OS === 'web';
-  const { isMobile, isTablet, isDesktop, width: screenWidth } = useScreenSize();
+  const { isMobile, isTablet, isDesktop } = useScreenSize();
   const { 
     documents, 
     loading, 
@@ -192,21 +191,6 @@ const Reports: React.FC = () => {
     return doc.acknowledgments.some((ack) => ack.userId === user?.id);
   };
 
-  // Calculate grid columns based on screen size
-  const getColumnsPerRow = () => {
-    if (isMobile) return 1;
-    if (isTablet) return 2;
-    if (isDesktop) {
-      // Desktop: 3-5 columns depending on screen width
-      if (screenWidth >= 1600) return 5;
-      if (screenWidth >= 1200) return 4;
-      return 2;
-    }
-    return 2; // Default
-  };
-
-  const columnsPerRow = getColumnsPerRow();
-
   // Memoize unique documents list
   const uniqueDocuments = React.useMemo(() => {
     return documents.filter((doc, index, self) => index === self.findIndex(d => d.id === doc.id));
@@ -272,12 +256,22 @@ const Reports: React.FC = () => {
     return groupDocumentsByDate(filteredDocuments).map(([title, data]) => ({ title, data }));
   }, [filteredDocuments]);
 
+  const getPriorityColors = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return { bg: '#FF3B3020', fg: '#FF3B30' };
+      case 'high': return { bg: '#FF950020', fg: '#FF9500' };
+      case 'normal': return { bg: '#34C75920', fg: '#34C759' };
+      default: return { bg: '#8E8E9320', fg: '#8E8E93' };
+    }
+  };
+
   const renderItem = useCallback(({ item: doc }: { item: MemoDocument }) => {
     const isAssigned = isAssignedToMe(doc);
     const hasAck = hasAcknowledged(doc);
     const needsAcknowledgment = doc.acknowledgmentRequired && !hasAck;
     const isSelected = selectedDocuments.has(doc.id);
-    
+    const priorityColors = getPriorityColors(doc.priority);
+
     const handlePress = () => {
       if (isMultiSelectMode) {
         handleDocumentSelect(doc.id, !isSelected);
@@ -287,203 +281,78 @@ const Reports: React.FC = () => {
     };
 
     const handleLongPress = () => {
-      if (!isMultiSelectMode) {
-        // Enter multi-select mode and select this document
-        handleDocumentSelect(doc.id, true);
-      }
+      if (!isMultiSelectMode) handleDocumentSelect(doc.id, true);
     };
-    
+
+    const metaLine = [
+      doc.issuingAgency,
+      doc.agencyLevel || null,
+      new Date(doc.uploadedAt).toLocaleDateString(),
+    ].filter(Boolean).join(' · ');
+
     return (
       <TouchableOpacity
-        key={doc.id}
         style={[
-          styles.documentItem,
-          { backgroundColor: colors.surface },
-          isWeb && styles.documentCard,
-          isSelected && styles.documentItemSelected,
+          styles.docCard,
+          {
+            backgroundColor: isSelected ? `${colors.tint}12` : colors.surface,
+            borderColor: isSelected ? colors.success ?? '#4CAF50' : colors.border,
+          },
         ]}
         onPress={handlePress}
         onLongPress={handleLongPress}
+        activeOpacity={0.7}
       >
         {isSelected && (
-          <View style={styles.selectedIndicator}>
-            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+          <View style={[styles.selectedIndicator, { top: 8, right: 8 }]}>
+            <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
           </View>
         )}
-        {isWeb ? (
-          <>
-            {/* Top Row: Icon and Title */}
-            <View style={styles.cardTopRow}>
-              <View style={[styles.documentIcon, { backgroundColor: `${colors.tint}20` }]}>
-                <Ionicons name="document-text" size={24} color={colors.tint} />
-              </View>
-              <View style={styles.titleContainer}>
-                <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
-                  {doc.title}
-                </Text>
-                <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]} numberOfLines={1}>
-                  {doc.issuingAgency}
-                </Text>
-              </View>
-              {canAssignDocuments && !isMultiSelectMode && (
-                <TouchableOpacity
-                  style={styles.moreButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setDocumentToDistribute(doc);
-                    setDistributionModalVisible(true);
-                  }}
-                >
-                  <Ionicons name="people" size={18} color={colors.tabIconDefault} />
-                </TouchableOpacity>
-              )}
+        <View style={[styles.docCardIcon, { backgroundColor: `${colors.tint}18` }]}>
+          <Ionicons name="document-text" size={22} color={colors.tint} />
+        </View>
+        <View style={styles.docCardBody}>
+          <Text style={[styles.docCardFileName, { color: colors.text }]} numberOfLines={1}>
+            {doc.title}
+          </Text>
+          <Text style={[styles.docCardMetaLine, { color: colors.tabIconDefault }]} numberOfLines={1}>
+            {metaLine}
+          </Text>
+        </View>
+        <View style={[styles.docCardRight, isMobile && { width: '100%', marginLeft: 0, marginTop: 8 }]}>
+          <View style={styles.docCardPills}>
+            <View style={[styles.docCardPill, { backgroundColor: priorityColors.bg }]}>
+              <Text style={[styles.docCardPillText, styles.badgeText, { color: priorityColors.fg }]}>{doc.priority}</Text>
             </View>
-            
-            {/* Bottom Row: Badges and Date */}
-            <View style={[styles.cardBottomRow, { borderTopColor: colors.border }]}>
-              <View style={styles.badgeContainer}>
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor:
-                        doc.priority === 'urgent'
-                          ? '#FF3B3020'
-                          : doc.priority === 'high'
-                          ? '#FF950020'
-                          : doc.priority === 'normal'
-                          ? '#34C75920'
-                          : '#8E8E9320',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      {
-                        color:
-                      doc.priority === 'urgent'
-                        ? '#FF3B30'
-                        : doc.priority === 'high'
-                        ? '#FF9500'
-                        : doc.priority === 'normal'
-                        ? '#34C759'
-                        : '#8E8E93',
-                  },
-                ]}
-              >
-                    {doc.priority}
-                  </Text>
+            {isAssigned && (
+              <View style={[styles.docCardPill, styles.badge, { backgroundColor: 'rgba(52,199,89,0.2)' }]}>
+                <Ionicons name="checkmark-circle" size={10} color="#34C759" />
+                <Text style={[styles.docCardPillText, styles.badgeText, { color: '#34C759' }]}>Assigned</Text>
               </View>
-              {isAssigned && (
-                  <View style={[styles.badge, { backgroundColor: '#34C75920' }]}> 
-                    <Ionicons name="checkmark-circle" size={11} color="#34C759" />
-                    <Text style={[styles.badgeText, { color: '#34C759' }]}>Assigned</Text>
-                </View>
-              )}
-              {needsAcknowledgment && (
-                  <View style={[styles.badge, { backgroundColor: '#FF950020' }]}> 
-                    <Ionicons name="alert-circle" size={11} color="#FF9500" />
-                    <Text style={[styles.badgeText, { color: '#FF9500' }]}>Acknowledge</Text>
-                </View>
-              )}
-            </View>
-              <View style={styles.metaRow}>
-                <Ionicons name="calendar-outline" size={11} color={colors.tabIconDefault} />
-              <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}> 
-                {new Date(doc.uploadedAt).toLocaleDateString()}
-              </Text>
-              </View>
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={[styles.documentIcon, { backgroundColor: `${colors.tint}20` }]}>
-              <Ionicons name="document-text" size={32} color={colors.tint} />
-            </View>
-            <View style={styles.documentInfo}>
-              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={2}>
-                {doc.title}
-              </Text>
-              <Text style={[styles.documentMeta, { color: colors.tabIconDefault }]}>
-                {doc.issuingAgency} • {doc.agencyLevel}
-              </Text>
-              <View style={styles.documentBadges}>
-                <View
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor:
-                        doc.priority === 'urgent'
-                          ? '#FF3B3020'
-                          : doc.priority === 'high'
-                          ? '#FF950020'
-                          : doc.priority === 'normal'
-                          ? '#34C75920'
-                          : '#8E8E9320',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      {
-                        color:
-                          doc.priority === 'urgent'
-                            ? '#FF3B30'
-                            : doc.priority === 'high'
-                            ? '#FF9500'
-                            : doc.priority === 'normal'
-                            ? '#34C759'
-                            : '#8E8E93',
-                      },
-                    ]}
-                  >
-                    {doc.priority}
-                  </Text>
-                </View>
-                {isAssigned && (
-                  <View style={[styles.badge, { backgroundColor: '#34C75920' }]}> 
-                    <Ionicons name="checkmark-circle" size={11} color="#34C759" />
-                    <Text style={[styles.badgeText, { color: '#34C759' }]}>Assigned</Text>
-                  </View>
-                )}
-                {needsAcknowledgment && (
-                  <View style={[styles.badge, { backgroundColor: '#FF950020' }]}> 
-                    <Ionicons name="alert-circle" size={11} color="#FF9500" />
-                    <Text style={[styles.badgeText, { color: '#FF9500' }]}>Acknowledge</Text>
-                  </View>
-                )}
-                <View style={styles.dateContainer}>
-                  <Ionicons name="calendar-outline" size={11} color={colors.tabIconDefault} />
-                <Text style={[styles.documentDate, { color: colors.tabIconDefault }]}>
-                  {new Date(doc.uploadedAt).toLocaleDateString()}
-                </Text>
-                </View>
-              </View>
-            </View>
-            {canAssignDocuments && !isMultiSelectMode && (
-              <TouchableOpacity
-                style={styles.moreButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  setDocumentToDistribute(doc);
-                  setDistributionModalVisible(true);
-                }}
-              >
-                <Ionicons name="people" size={20} color={colors.tabIconDefault} />
-              </TouchableOpacity>
             )}
-            {!isMultiSelectMode && (
-              <TouchableOpacity style={styles.moreButton}>
-                <Ionicons name="chevron-forward" size={20} color={colors.tabIconDefault} />
-              </TouchableOpacity>
+            {needsAcknowledgment && (
+              <View style={[styles.docCardPill, styles.badge, { backgroundColor: 'rgba(255,149,0,0.2)' }]}>
+                <Ionicons name="alert-circle" size={10} color="#FF9500" />
+                <Text style={[styles.docCardPillText, styles.badgeText, { color: '#FF9500' }]}>Ack</Text>
+              </View>
             )}
-          </>
-        )}
+          </View>
+          {canAssignDocuments && !isMultiSelectMode && (
+            <TouchableOpacity
+              style={[styles.docCardAction, { backgroundColor: `${colors.border}80` }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                setDocumentToDistribute(doc);
+                setDistributionModalVisible(true);
+              }}
+            >
+              <Ionicons name="people-outline" size={18} color={colors.tabIconDefault} />
+            </TouchableOpacity>
+          )}
+        </View>
       </TouchableOpacity>
     );
-  }, [colors, isWeb, canAssignDocuments, isMultiSelectMode, selectedDocuments, handleDocumentSelect, handleDocumentPress]);
+  }, [colors, canAssignDocuments, isMultiSelectMode, selectedDocuments, isMobile, handleDocumentSelect, handleDocumentPress]);
 
   // Show loading spinner when initially loading documents (similar to SitRep)
   if (loading && documents.length === 0) {
@@ -609,124 +478,92 @@ const Reports: React.FC = () => {
         />
       </View>
 
-      {/* Content Area */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={[styles.documentsList]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          Platform.OS !== 'web' ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.tint]}
-              tintColor={colors.tint}
-            />
-          ) : undefined
-        }
-        onScroll={(event) => {
-          // Handle infinite scroll for web
-          if (Platform.OS === 'web' && hasMore && !loading) {
-            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 400;
-            if (isCloseToBottom) {
-              loadMore();
-            }
+      {/* Document list */}
+      <View style={styles.listContainer}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[styles.fileList, styles.documentsList]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            Platform.OS !== 'web' ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.tint]}
+                tintColor={colors.tint}
+              />
+            ) : undefined
           }
-        }}
-        scrollEventThrottle={400}
-      >
-        {/* Multi-select bar */}
-        {isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) && (
-          <View style={styles.multiSelectBar}>
-            <View style={styles.multiSelectContent}>
-              <Text style={[styles.selectedCount, { color: colors.text }]}>
-                {selectedDocuments.size} selected
-              </Text>
-              <View style={styles.multiSelectActions}>
-                <TouchableOpacity
-                  style={[styles.deleteButton, { backgroundColor: colors.error }]}
-                  onPress={handleBulkDelete}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.cancelButton, { borderColor: colors.border }]}
-                  onPress={handleMultiSelectToggle}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
-                </TouchableOpacity>
+          onScroll={(event) => {
+            if (Platform.OS === 'web' && hasMore && !loading) {
+              const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+              const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 400;
+              if (isCloseToBottom) loadMore();
+            }
+          }}
+          scrollEventThrottle={400}
+        >
+          {isMultiSelectMode && (canDeleteSitRep || isAdminOrSupervisor) && (
+            <View style={[styles.multiSelectBar, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+              <View style={styles.multiSelectContent}>
+                <Text style={[styles.selectedCount, { color: colors.text }]}>
+                  {selectedDocuments.size} selected
+                </Text>
+                <View style={styles.multiSelectActions}>
+                  <TouchableOpacity
+                    style={[styles.deleteButton, { backgroundColor: colors.error }]}
+                    onPress={handleBulkDelete}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { borderColor: colors.border }]}
+                    onPress={handleMultiSelectToggle}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* Render sections with grid layout */}
-        {sections.length > 0 ? (
-          sections.map((section) => (
-            <View key={section.title} style={styles.sectionContainer}>
-              <View style={styles.documentGroup}>
-                <Text style={[styles.groupHeader, { color: colors.text }]}>
+          {sections.length > 0 ? (
+            sections.map((section) => (
+              <View key={section.title} style={styles.sectionContainer}>
+                <Text style={[styles.sectionTitle, { color: colors.tabIconDefault }]}>
                   {section.title}
                 </Text>
+                <View style={styles.documentGroup}>
+                  {section.data.map((doc) => (
+                    <View key={doc.id}>{renderItem({ item: doc })}</View>
+                  ))}
+                </View>
               </View>
-              <View style={[
-                styles.documentsGrid,
-                {
-                  paddingHorizontal: isMobile ? 16 : isDesktop ? 20 : 16,
-                }
-              ]}>
-                {section.data.map((doc) => {
-                  // Calculate width percentage accounting for gaps
-                  const widthPercent = isMobile 
-                    ? 100 
-                    : (100 / columnsPerRow) - (columnsPerRow > 1 ? 1.5 : 0);
-                  
-                  return (
-                    <View
-                      key={doc.id}
-                      style={[
-                        styles.gridItem,
-                        isMobile ? styles.gridItemMobile : [
-                          styles.gridItemDesktop,
-                          {
-                            width: `${widthPercent}%`,
-                            minWidth: 200,
-                          }
-                        ]
-                      ]}
-                    >
-                      {renderItem({ item: doc })}
-                    </View>
-                  );
-                })}
+            ))
+          ) : (
+            !loading && (
+              <View style={styles.centerContent}>
+                <Ionicons name="folder-open-outline" size={56} color={colors.tabIconDefault} />
+                <Text style={[styles.emptyText, { color: colors.text }]}>No documents</Text>
+                <Text style={[styles.emptySubtext, { color: colors.tabIconDefault }]}>
+                  Upload memos and local issuances to get started
+                </Text>
               </View>
-            </View>
-          ))
-        ) : (
-          !loading && (
-            <View style={styles.centerContent}>
-              <Ionicons name="folder-open" size={64} color={colors.tabIconDefault} />
-              <Text style={[styles.emptyText, { color: colors.text }]}>No documents yet</Text>
-              <Text style={[styles.emptySubtext, { color: colors.tabIconDefault }]}>
-                Upload memos and local issuances to get started
+            )
+          )}
+
+          {loading && documents.length > 0 && (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.tint} />
+              <Text style={{ marginTop: 8, color: colors.tabIconDefault, fontSize: 12 }}>
+                Loading more...
               </Text>
             </View>
-          )
-        )}
-
-        {/* Loading more indicator */}
-        {loading && documents.length > 0 && (
-          <View style={{ padding: 20, alignItems: 'center' }}>
-            <ActivityIndicator size="small" color={colors.tint} />
-            <Text style={{ marginTop: 8, color: colors.tabIconDefault, fontSize: 12 }}>
-              Loading more documents...
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+      </View>
 
       {/* Upload Modal */}
       <MemoUploadModal

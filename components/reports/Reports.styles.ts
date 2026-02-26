@@ -61,20 +61,118 @@ export const styles = StyleSheet.create({
   filterButtonWrapper: {
     marginLeft: -8,
   },
+  // List container – minimal chrome
+  listContainer: {
+    flex: 1,
+  },
   sectionContainer: {
     marginBottom: 24,
   },
-  documentGroup: {
-    marginBottom: 8,
-    alignItems: 'flex-start',
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
-  groupHeader: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
+  documentGroup: {
+    gap: 10,
+  },
+  fileList: {
+    paddingBottom: 24,
     paddingHorizontal: 16,
-    opacity: 0.8,
-    textAlign: 'left',
+  },
+  // File-style document row — tap anywhere to open; modern, organized layout
+  docCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    minHeight: 68,
+    gap: 14,
+    ...Platform.select({
+      web: {
+        flexWrap: 'nowrap',
+      },
+      default: {
+        flexWrap: 'wrap',
+      },
+    }),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 1,
+      },
+      web: {
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)',
+      },
+    }),
+  },
+  docCardIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  docCardBody: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    paddingRight: 4,
+  },
+  docCardFileName: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
+    marginBottom: 3,
+    ...Platform.select({
+      web: {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
+    }),
+  },
+  docCardMetaLine: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.85,
+  },
+  docCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 0,
+  },
+  docCardPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  docCardPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  docCardPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  docCardAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   documentsSectionContainer: {
     ...Platform.select({
@@ -314,9 +412,8 @@ export const styles = StyleSheet.create({
   },
   multiSelectBar: {
     backgroundColor: 'transparent',
-    paddingHorizontal: 20,
     paddingVertical: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   multiSelectContent: {
     flexDirection: 'row',

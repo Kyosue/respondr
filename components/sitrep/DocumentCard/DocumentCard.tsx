@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useState } from 'react';
 import {
-  Animated,
-  Platform,
-  Text,
-  TouchableOpacity,
-  View
+    Animated,
+    Platform,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
