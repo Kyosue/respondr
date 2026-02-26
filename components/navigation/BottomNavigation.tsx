@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    Dimensions,
     Platform,
     StyleSheet,
     TouchableOpacity,
@@ -45,42 +44,50 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
         }
       ]}>
         <View style={styles.tabsContainer}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={styles.tab}
-              onPress={() => onTabChange(tab.id)}
-              activeOpacity={0.7}
-            >
-              <View style={[
-                styles.tabContent
-              ]}>
-                <Ionicons
-                  name={activeTab === tab.id 
-                    ? tab.icon.replace('-outline', '') // Remove -outline to get filled version
-                    : tab.icon as any}
-                  size={22}
-                  color={activeTab === tab.id ? colors.primary : colors.tabIconDefault}
-                />
-                <ThemedText
-                  style={[
-                    styles.tabLabel,
-                    { color: activeTab === tab.id ? colors.primary : colors.text }
-                  ]}
-                >
-                  {tab.label}
-                </ThemedText>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={styles.tab}
+                onPress={() => onTabChange(tab.id)}
+                activeOpacity={0.7}
+              >
+                <View style={[
+                  styles.tabContent,
+                  isActive && [
+                    styles.tabContentActive,
+                    {
+                      backgroundColor: colors.background,
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: colors.border,
+                    },
+                  ],
+                ]}>
+                  <Ionicons
+                    name={isActive
+                      ? tab.icon.replace('-outline', '') as any
+                      : tab.icon as any}
+                    size={22}
+                    color={isActive ? colors.primary : colors.tabIconDefault}
+                  />
+                  {isActive && (
+                    <ThemedText
+                      style={[styles.tabLabel, { color: colors.primary }]}
+                      numberOfLines={1}
+                    >
+                      {tab.label}
+                    </ThemedText>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
     </View>
   );
 }
-
-const { width } = Dimensions.get('window');
-const tabWidth = Math.min(width / 5, 80);
 
 const styles = StyleSheet.create({
   outerContainer: {
@@ -101,31 +108,32 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly', // Even spacing
+    justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
+    gap: 4,
   },
   tab: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabContent: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16, // Rounded active tab background
-    minWidth: 60, // Ensure minimum width
-  },
-  activeTabContent: {
     paddingHorizontal: 6,
-    paddingVertical: 8,
-    borderRadius: '20%',
+    borderRadius: 16,
+    minWidth: 40,
+  },
+  tabContentActive: {
+    gap: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
   },
   tabLabel: {
     fontSize: 12,
-    marginTop: 0,
-    fontWeight: '500',
+    fontWeight: '600',
+    maxWidth: 72,
   },
 });
