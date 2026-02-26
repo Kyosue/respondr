@@ -26,22 +26,21 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
     <View style={styles.outerContainer}>
       <View style={[
         styles.container,
-        { 
-          backgroundColor: Platform.OS === 'ios' ? 
-            `${colors.surface}F0` : // Semi-transparent for iOS
-            colors.surface,
+        {
+          backgroundColor: Platform.OS === 'ios' ? `${colors.surface}F5` : colors.surface,
+          borderColor: colors.border,
           ...Platform.select({
             ios: {
-              shadowColor: colors.shadow,
-              shadowOffset: { width: 0, height: -3 },
-              shadowOpacity: 0.2,
-              shadowRadius: 6,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
             },
             android: {
-              elevation: 8,
+              elevation: 6,
             },
           }),
-        }
+        },
       ]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab) => {
@@ -51,24 +50,32 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
                 key={tab.id}
                 style={styles.tab}
                 onPress={() => onTabChange(tab.id)}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={tab.label}
               >
-                <View style={[
-                  styles.tabContent,
-                  isActive && [
-                    styles.tabContentActive,
-                    {
-                      backgroundColor: colors.background,
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: colors.border,
-                    },
-                  ],
-                ]}>
+                <View
+                  style={[
+                    styles.tabContent,
+                    isActive && [
+                      styles.tabContentActive,
+                      {
+                        backgroundColor: colorScheme === 'dark'
+                          ? 'rgba(76, 201, 240, 0.14)'
+                          : 'rgba(67, 97, 238, 0.1)',
+                        borderColor: colors.border,
+                      },
+                    ],
+                  ]}
+                >
                   <Ionicons
-                    name={isActive
-                      ? tab.icon.replace('-outline', '') as any
-                      : tab.icon as any}
-                    size={22}
+                    name={
+                      isActive
+                        ? (tab.icon.replace('-outline', '') as any)
+                        : (tab.icon as any)
+                    }
+                    size={24}
                     color={isActive ? colors.primary : colors.tabIconDefault}
                   />
                   {isActive && (
@@ -91,27 +98,24 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
 
 const styles = StyleSheet.create({
   outerContainer: {
-    position: 'relative',
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 16 : 8,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
+    paddingTop: 8,
     alignItems: 'center',
   },
   container: {
-    borderRadius: 150, // Rounded corners
-    paddingVertical: 5,
-    paddingHorizontal: 2,
-    width: '90%', // Not full width
-    maxWidth: 500,
-    marginBottom: Platform.OS === 'ios' ? 10 : 8, // Space from bottom
-    borderWidth: 0.5,
-    borderColor: 'rgba(200, 200, 200, 0.3)', // Subtle border
+    borderRadius: 28,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    width: '92%',
+    maxWidth: 480,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   tabsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
-    gap: 4,
+    gap: 6,
   },
   tab: {
     alignItems: 'center',
@@ -121,19 +125,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 16,
-    minWidth: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 18,
+    minWidth: 44,
+    minHeight: 44,
   },
   tabContentActive: {
-    gap: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    maxWidth: 72,
+    maxWidth: 76,
+    letterSpacing: 0.2,
   },
 });
