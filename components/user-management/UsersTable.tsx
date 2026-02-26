@@ -6,7 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface UsersTableProps {
   users: UserData[];
@@ -17,6 +17,12 @@ interface UsersTableProps {
   canEdit?: boolean;
   canDelete?: boolean;
   canToggleStatus?: boolean;
+  /** When true, parent controls pagination; table shows all users and hides its own footer */
+  paginatedByParent?: boolean;
+  /** When true (with paginatedByParent), show header + loading row in body */
+  loading?: boolean;
+  /** Optional 1-based start for row numbers (e.g. 11 for page 2) */
+  rowNumberStart?: number;
 }
 
 function getUserTypeColor(userType: UserType): string {
@@ -192,13 +198,16 @@ export function UsersTable({
   onToggleStatus,
   canEdit = false,
   canDelete = false,
-  canToggleStatus = false
+  canToggleStatus = false,
+  paginatedByParent = false,
+  loading = false,
+  rowNumberStart
 }: UsersTableProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = paginatedByParent ? users.length || 10 : 10;
 
   // Sort users: new users first, then by status (active first), then by role within each status group
   const sortedUsers = useMemo(() => {
@@ -236,15 +245,17 @@ export function UsersTable({
     });
   }, [users]);
 
-  // Calculate pagination
   const totalItems = sortedUsers.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = paginatedByParent ? 1 : Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedUsers = sortedUsers.slice(startIndex, endIndex);
+  const paginatedUsers = paginatedByParent ? sortedUsers : sortedUsers.slice(startIndex, endIndex);
   const showingCount = paginatedUsers.length;
   const startCount = startIndex + 1;
   const endCount = startIndex + showingCount;
+
+  const isEmpty = users.length === 0;
+  const showTableShellWithMessage = paginatedByParent && isEmpty && !loading;
 
   // Reset to page 1 if current page is out of bounds or when users list changes
   React.useEffect(() => {
@@ -304,7 +315,8 @@ export function UsersTable({
     return pages;
   };
 
-  if (users.length === 0) {
+  const showAsEmpty = isEmpty && !(paginatedByParent && loading) && !showTableShellWithMessage;
+  if (showAsEmpty) {
     return null;
   }
 
@@ -325,7 +337,13 @@ export function UsersTable({
           </ThemedText>
         </View>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {users.map((user, index) => {
+          {paginatedByParent && loading ? (
+            <View style={[styles.tableLoadingRow, { borderBottomColor: colors.border }]}>
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 10 }} />
+              <ThemedText style={[styles.tableLoadingText, { color: colors.text }]}>Loading users…</ThemedText>
+            </View>
+          ) : (
+          paginatedUsers.map((user, index) => {
             const userTypeColor = getUserTypeColor(user.userType);
             const statusColor = getStatusColor(user.status);
             const statusText = getStatusText(user.status);
@@ -346,6 +364,11 @@ export function UsersTable({
                   activeOpacity={0.7}
                 >
                 <View style={styles.mobileItemHeader}>
+                  <View style={[styles.mobileRowNum, { backgroundColor: `${colors.primary}15` }]}>
+                    <ThemedText style={[styles.mobileRowNumText, { color: colors.primary }]}>
+                      {(rowNumberStart ?? 1) + index}
+                    </ThemedText>
+                  </View>
                   <View style={[styles.avatarContainer, { backgroundColor: user?.avatarUrl ? 'transparent' : `${userTypeColor}20` }]}>
                     {user?.avatarUrl ? (
                       <Image 
@@ -469,7 +492,8 @@ export function UsersTable({
               </TouchableOpacity>
               </AnimatedRow>
             );
-          })}
+          })
+          )}
         </ScrollView>
       </ThemedView>
     );
@@ -479,6 +503,9 @@ export function UsersTable({
     <View style={[styles.tableContainer, { borderColor: colors.border }]}>
       {/* Sticky Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.border, backgroundColor: `${colors.primary}05` }]}>
+        <View style={[styles.tableHeaderCell, styles.tableHeaderCellNum]}>
+          <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>#</ThemedText>
+        </View>
         <View style={[styles.tableHeaderCell, styles.tableHeaderCellName]}>
           <View style={styles.headerTitleContainer}>
             <Ionicons name="person-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
@@ -527,7 +554,17 @@ export function UsersTable({
         contentContainerStyle={styles.tableBodyContent}
         showsVerticalScrollIndicator={true}
       >
-        {paginatedUsers.map((user, index) => {
+        {paginatedByParent && loading ? (
+          <View style={[styles.tableLoadingRow, { borderBottomColor: colors.border }]}>
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 10 }} />
+            <ThemedText style={[styles.tableLoadingText, { color: colors.text }]}>Loading users…</ThemedText>
+          </View>
+        ) : showTableShellWithMessage ? (
+          <View style={[styles.tableLoadingRow, styles.tableEmptyRow, { borderBottomColor: colors.border }]}>
+            <ThemedText style={[styles.tableLoadingText, { color: colors.text, opacity: 0.7 }]}>No users found</ThemedText>
+          </View>
+        ) : (
+        paginatedUsers.map((user, index) => {
         const userTypeColor = getUserTypeColor(user.userType);
         const statusColor = getStatusColor(user.status);
         const statusText = getStatusText(user.status);
@@ -550,6 +587,11 @@ export function UsersTable({
               onPress={() => onUserPress?.(user)}
               activeOpacity={0.7}
             >
+            <View style={[styles.tableCell, styles.tableCellNum]}>
+              <ThemedText style={[styles.tableCellText, { color: colors.text, opacity: 0.8 }]}>
+                {(rowNumberStart ?? 1) + index}
+              </ThemedText>
+            </View>
             <View style={[styles.tableCell, styles.tableCellName]}>
               <View style={styles.userNameCell}>
                 <View style={[styles.avatarContainer, styles.tableAvatarContainer, { backgroundColor: user?.avatarUrl ? 'transparent' : `${userTypeColor}20` }]}>
@@ -679,11 +721,12 @@ export function UsersTable({
           </TouchableOpacity>
           </AnimatedRow>
         );
-        })}
+        })
+        )}
       </ScrollView>
 
-      {/* Sticky Pagination Footer */}
-      {totalPages > 1 && (
+      {/* Sticky Pagination Footer (hidden when parent handles pagination) */}
+      {!paginatedByParent && totalPages > 1 && (
         <View style={[styles.paginationFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           {/* Counter on the left */}
           <View style={styles.paginationCounter}>
@@ -855,6 +898,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
   },
+  tableHeaderCellNum: {
+    flex: 0.2,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tableHeaderCellName: {
     flex: 1.5,
   },
@@ -886,6 +935,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-start',
+  },
+  tableCellNum: {
+    flex: 0.2,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tableCellName: {
     flex: 1.5,
@@ -1138,6 +1193,33 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Gabarito',
     letterSpacing: 0.5,
+  },
+  tableLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  tableLoadingText: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  tableEmptyRow: {
+    paddingVertical: 40,
+  },
+  mobileRowNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  mobileRowNumText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 

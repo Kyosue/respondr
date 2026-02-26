@@ -20,6 +20,8 @@ interface UserCardProps {
   onDelete?: (user: UserData) => void;
   onToggleStatus?: (user: UserData) => void;
   colors: any;
+  /** Optional row number to display (e.g. 1, 2, 3) */
+  rowNumber?: number;
 }
 
 export const UserCard = memo(function UserCard({ 
@@ -28,7 +30,8 @@ export const UserCard = memo(function UserCard({
   onEdit,
   onDelete,
   onToggleStatus,
-  colors
+  colors,
+  rowNumber
 }: UserCardProps) {
   const getUserTypeColor = (userType: UserType) => {
     switch (userType) {
@@ -98,6 +101,11 @@ export const UserCard = memo(function UserCard({
         activeOpacity={0.7}
       >
         <View style={styles.leftSection}>
+          {rowNumber != null && (
+            <View style={[styles.rowNumBadge, { backgroundColor: userTypeColor + '25' }]}>
+              <ThemedText style={[styles.rowNumText, { color: userTypeColor }]}>{rowNumber}</ThemedText>
+            </View>
+          )}
           <View style={styles.avatarContainer}>
             <View style={[styles.userAvatar, { backgroundColor: user?.avatarUrl ? 'transparent' : userTypeColor }]}>
               {user?.avatarUrl ? (

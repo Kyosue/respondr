@@ -348,6 +348,9 @@ const UserManagement: React.FC = () => {
             canEdit={canEditUsers}
             canDelete={canDeleteUsers}
             canToggleStatus={canToggleUserStatus}
+            paginatedByParent={isWeb}
+            loading={isLoading}
+            rowNumberStart={1}
           />
         </View>
       );
@@ -379,7 +382,9 @@ const UserManagement: React.FC = () => {
                   gap: isTablet ? 12 : 0,
                 }
               ]}>
-                {group.users.map((user: UserData) => (
+                {group.users.map((user: UserData, indexInGroup: number) => {
+                  const globalIndex = groupedUsers.slice(0, groupIndex).reduce((sum, g) => sum + g.users.length, 0) + indexInGroup;
+                  return (
                   <View 
                     key={user.id}
                     style={[
@@ -397,9 +402,10 @@ const UserManagement: React.FC = () => {
                       onDelete={canDeleteUsers ? handleDeleteUser : undefined}
                       onToggleStatus={canToggleUserStatus ? handleToggleUserStatus : undefined}
                       colors={colors}
+                      rowNumber={globalIndex + 1}
                     />
                   </View>
-                ))}
+                );})}
               </View>
 
               {/* Divider between role groups (except for the last group) */}

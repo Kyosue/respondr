@@ -20,6 +20,18 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  rowNumBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  rowNumText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   avatarContainer: {
     marginRight: 12,
     position: 'relative',
