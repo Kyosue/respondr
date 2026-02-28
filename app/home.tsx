@@ -444,8 +444,8 @@ export default function HomeScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Top Navigation Bar - glass style */}
         <View style={[styles.navBar, { 
-          backgroundColor: isDark ? 'rgba(18,18,26,0.85)' : 'rgba(255,255,255,0.82)', 
-          borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' 
+          backgroundColor: isDark ? 'rgba(18,18,26,0.88)' : 'rgba(255,255,255,0.88)', 
+          borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' 
         }]}>
           <View style={[styles.navContent, isMobile && styles.navContentMobile]}>
             {/* Logo and App Name */}
@@ -456,11 +456,14 @@ export default function HomeScreen() {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               <View style={[
                 styles.navLogoContainer, 
-                { backgroundColor: `${colors.primary}10` },
+                { 
+                  backgroundColor: isDark ? `${colors.primary}18` : `${colors.primary}12`,
+                  borderColor: isDark ? `${colors.primary}35` : `${colors.primary}25`,
+                },
                 isMobile && styles.navLogoContainerMobile
               ]}>
                 <Image
@@ -474,14 +477,14 @@ export default function HomeScreen() {
                   <ThemedText type="title" style={[styles.navTitle, { color: colors.text }]}>
                     Respondr
                   </ThemedText>
-                  <ThemedText style={[styles.navSubtitle, { color: colors.text }]}>
-                    Weather Monitoring
+                  <ThemedText style={[styles.navSubtitle, { color: colors.text, opacity: 0.65 }]}>
+                    Weather & Alerts
                   </ThemedText>
                 </View>
               )}
             </TouchableOpacity>
 
-            {/* Sign In and Sign Up Buttons */}
+            {/* Sign In and Sign Up */}
             <View style={[styles.navRight, isMobile && styles.navRightMobile]}>
               {isMobile ? (
                 <>
@@ -490,20 +493,20 @@ export default function HomeScreen() {
                     onPress={() => router.push('/login')}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="log-in-outline" size={16} color={colors.primary} />
+                    <Ionicons name="log-in-outline" size={18} color={colors.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.navSignUpButton, { backgroundColor: colors.primary }, styles.navButtonMobile]}
                     onPress={() => router.push('/signup')}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
+                    <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   <TouchableOpacity 
-                    style={[styles.navSignInButton, { borderColor: colors.primary }]}
+                    style={[styles.navSignInButton, { borderColor: colors.primary, backgroundColor: isDark ? 'transparent' : `${colors.primary}06` }]}
                     onPress={() => router.push('/login')}
                     activeOpacity={0.7}
                   >
@@ -517,10 +520,10 @@ export default function HomeScreen() {
                     onPress={() => router.push('/signup')}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
                     <ThemedText style={styles.navSignUpText}>
                       Sign Up
                     </ThemedText>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                   </TouchableOpacity>
                 </>
               )}
@@ -837,21 +840,21 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   navBar: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
       },
       android: {
         elevation: 2,
       },
       web: {
-        boxShadow: '0 1px 0 rgba(0,0,0,0.04)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        boxShadow: '0 1px 0 rgba(0,0,0,0.05), 0 4px 24px rgba(0,0,0,0.04)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
       },
     }),
   },
@@ -860,14 +863,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     maxWidth: 1400,
     alignSelf: 'center',
     width: '100%',
     ...Platform.select({
       web: {
-        paddingHorizontal: 32,
-        paddingVertical: 18,
+        paddingHorizontal: 40,
+        paddingVertical: 16,
       },
     }),
   },
@@ -889,23 +892,25 @@ const styles = StyleSheet.create({
   navLogoContainer: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
+    overflow: 'hidden',
     ...Platform.select({
       web: {
-        width: 52,
-        height: 52,
-        borderRadius: 14,
-        marginRight: 14,
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+        marginRight: 16,
       },
     }),
   },
   navLogoContainerMobile: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     marginRight: 0,
   },
   navLogo: {
@@ -922,105 +927,112 @@ const styles = StyleSheet.create({
   },
   navTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontFamily: 'Gabarito',
+    letterSpacing: -0.3,
     lineHeight: 24,
     ...Platform.select({
       web: {
-        fontSize: 26,
+        fontSize: 24,
         lineHeight: 28,
+        letterSpacing: -0.4,
       },
     }),
   },
   navSubtitle: {
     fontSize: 11,
-    opacity: 0.6,
     fontWeight: '500',
-    marginTop: -2,
+    marginTop: 2,
     ...Platform.select({
       web: {
-        fontSize: 12,
-        marginTop: -1,
+        fontSize: 13,
+        marginTop: 2,
       },
     }),
   },
   navRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    ...Platform.select({
+      web: {
+        gap: 12,
+      },
+    }),
   },
   navRightMobile: {
-    gap: 8,
+    gap: 10,
   },
   navSignInButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1.5,
-    minHeight: 44,
-    marginRight: 10,
+    minHeight: 46,
+    gap: 8,
     ...Platform.select({
       web: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
+        paddingHorizontal: 22,
+        paddingVertical: 13,
         minHeight: 48,
-        marginRight: 12,
+        borderRadius: 14,
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        transition: 'transform 0.15s ease, background-color 0.2s ease',
       } as any,
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowColor: 'transparent',
       },
     }),
   },
   navButtonMobile: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     paddingHorizontal: 0,
     paddingVertical: 0,
-    minHeight: 40,
-    marginRight: 0,
+    minHeight: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   navSignInText: {
     fontSize: 15,
     fontWeight: '600',
-    marginLeft: 6,
     ...Platform.select({
       web: {
-        fontSize: 16,
-        marginLeft: 8,
+        fontSize: 15,
       },
     }),
   },
   navSignUpButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 24,
-    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minHeight: 46,
+    gap: 8,
     ...Platform.select({
       web: {
         paddingHorizontal: 24,
-        paddingVertical: 12,
+        paddingVertical: 13,
         minHeight: 48,
+        borderRadius: 14,
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        transition: 'transform 0.15s ease, box-shadow 0.2s ease',
+        boxShadow: '0 2px 12px rgba(67, 97, 238, 0.35)',
       } as any,
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
+        shadowColor: '#4361EE',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
@@ -1028,11 +1040,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-    marginLeft: 6,
     ...Platform.select({
       web: {
-        fontSize: 16,
-        marginLeft: 8,
+        fontSize: 15,
       },
     }),
   },
