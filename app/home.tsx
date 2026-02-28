@@ -428,20 +428,25 @@ export default function HomeScreen() {
       {/* Background gradient */}
       <LinearGradient
         colors={isDark ? 
-          ['#121212', '#1E1E1E', '#121212'] : 
-          [colors.background, '#f5f7fa', colors.background]}
+          ['#0a0a0f', '#12121a', '#0d0d14', '#121212'] : 
+          ['#f8faff', '#f0f4ff', '#e8eeff', '#f5f7fa']}
+        locations={[0, 0.35, 0.7, 1]}
         style={styles.backgroundGradient}
       />
       
-      {/* Decorative elements */}
+      {/* Decorative elements - modern blur orbs */}
       <View style={styles.decorationContainer}>
-        <View style={[styles.decorationCircle, { backgroundColor: `${colors.primary}15` }]} />
-        <View style={[styles.decorationCircle, styles.decorationCircle2, { backgroundColor: `${colors.secondary}10` }]} />
+        <View style={[styles.decorationCircle, { backgroundColor: isDark ? `${colors.primary}18` : `${colors.primary}12` }]} />
+        <View style={[styles.decorationCircle, styles.decorationCircle2, { backgroundColor: isDark ? `${colors.secondary}12` : `${colors.secondary}08` }]} />
+        <View style={[styles.decorationCircle, styles.decorationCircle3, { backgroundColor: isDark ? `${colors.accent}08` : `${colors.accent}06` }]} />
       </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Top Navigation Bar */}
-        <View style={[styles.navBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        {/* Top Navigation Bar - glass style */}
+        <View style={[styles.navBar, { 
+          backgroundColor: isDark ? 'rgba(18,18,26,0.85)' : 'rgba(255,255,255,0.82)', 
+          borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' 
+        }]}>
           <View style={[styles.navContent, isMobile && styles.navContentMobile]}>
             {/* Logo and App Name */}
             <TouchableOpacity 
@@ -537,15 +542,34 @@ export default function HomeScreen() {
           <View style={styles.container}>
             {/* Hero Section */}
             <View style={[styles.heroSection, isMobile && styles.heroSectionMobile]}>
-              <View style={[styles.heroIconContainer, { backgroundColor: `${colors.primary}15` }, isMobile && styles.heroIconContainerMobile]}>
-                <Ionicons name="partly-sunny" size={isMobile ? 48 : 64} color={colors.primary} />
+              <View style={[styles.heroBadge, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}30` }]}>
+                <Ionicons name="partly-sunny-outline" size={14} color={colors.primary} />
+                <ThemedText style={[styles.heroBadgeText, { color: colors.primary }]}>PDRRMO · Davao Oriental</ThemedText>
               </View>
               <ThemedText type="title" style={[styles.heroTitle, { color: colors.text }, isMobile && styles.heroTitleMobile]}>
-                PDRRMO Real-time Weather Monitoring
+                Real-time weather.{'\n'}
+                <ThemedText style={{ color: colors.primary }}>Every municipality.</ThemedText>
               </ThemedText>
               <ThemedText style={[styles.heroSubtitle, { color: colors.text }, isMobile && styles.heroSubtitleMobile]}>
-                Track weather conditions across all municipalities in Davao Oriental. Get instant access to temperature, humidity, rainfall, and wind data to stay informed and prepared.
+                Track temperature, humidity, rainfall, and wind across Davao Oriental. Live updates, 7-day analytics, and PAGASA advisories—all in one place.
               </ThemedText>
+              <View style={styles.heroCtaRow}>
+                <TouchableOpacity
+                  style={[styles.heroCtaPrimary, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push('/signup')}
+                  activeOpacity={0.85}
+                >
+                  <ThemedText style={styles.heroCtaPrimaryText}>Get started</ThemedText>
+                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.heroCtaSecondary, { borderColor: colors.border }]}
+                  onPress={() => router.push('/login')}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText style={[styles.heroCtaSecondaryText, { color: colors.text }]}>Sign in</ThemedText>
+                </TouchableOpacity>
+              </View>
               
               {/* Feature Highlights */}
               {isMobile ? (
@@ -555,8 +579,10 @@ export default function HomeScreen() {
                   contentContainerStyle={styles.featureGridMobile}
                   style={{ width: '100%' }}
                 >
-                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="time-outline" size={20} color={colors.primary} />
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, styles.featureIconWrapMobile, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="time-outline" size={20} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
                       Real-time Data
                     </ThemedText>
@@ -564,8 +590,10 @@ export default function HomeScreen() {
                       Live updates every hour
                     </ThemedText>
                   </View>
-                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="location-outline" size={20} color={colors.primary} />
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, styles.featureIconWrapMobile, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="location-outline" size={20} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
                       All Municipalities
                     </ThemedText>
@@ -573,8 +601,10 @@ export default function HomeScreen() {
                       Coverage across Davao Oriental
                     </ThemedText>
                   </View>
-                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, styles.featureIconWrapMobile, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
                       Historical Analytics
                     </ThemedText>
@@ -582,8 +612,10 @@ export default function HomeScreen() {
                       7-day trends and patterns
                     </ThemedText>
                   </View>
-                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+                  <View style={[styles.featureCard, styles.featureCardMobile, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, styles.featureIconWrapMobile, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }, styles.featureTitleMobile]}>
                       PAGASA Alerts
                     </ThemedText>
@@ -594,8 +626,10 @@ export default function HomeScreen() {
                 </ScrollView>
               ) : (
                 <View style={styles.featureGrid}>
-                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="time-outline" size={24} color={colors.primary} />
+                  <View style={[styles.featureCard, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="time-outline" size={24} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
                       Real-time Data
                     </ThemedText>
@@ -603,8 +637,10 @@ export default function HomeScreen() {
                       Live updates every hour
                     </ThemedText>
                   </View>
-                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="location-outline" size={24} color={colors.primary} />
+                  <View style={[styles.featureCard, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="location-outline" size={24} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
                       All Municipalities
                     </ThemedText>
@@ -612,8 +648,10 @@ export default function HomeScreen() {
                       Coverage across Davao Oriental
                     </ThemedText>
                   </View>
-                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="analytics-outline" size={24} color={colors.primary} />
+                  <View style={[styles.featureCard, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="analytics-outline" size={24} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
                       Historical Analytics
                     </ThemedText>
@@ -621,8 +659,10 @@ export default function HomeScreen() {
                       7-day trends and patterns
                     </ThemedText>
                   </View>
-                  <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="shield-checkmark-outline" size={24} color={colors.primary} />
+                  <View style={[styles.featureCard, { backgroundColor: isDark ? 'rgba(30,30,38,0.6)' : 'rgba(255,255,255,0.85)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: `${colors.primary}18` }]}>
+                      <Ionicons name="shield-checkmark-outline" size={24} color={colors.primary} />
+                    </View>
                     <ThemedText style={[styles.featureTitle, { color: colors.text }]}>
                       PAGASA Alerts
                     </ThemedText>
@@ -788,22 +828,30 @@ const styles = StyleSheet.create({
     left: -width * 0.3,
     opacity: 0.6,
   },
+  decorationCircle3: {
+    width: width * 0.5,
+    height: width * 0.5,
+    top: height * 0.25,
+    left: '50%',
+    marginLeft: -width * 0.25,
+    opacity: 0.5,
+  },
   navBar: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 4,
+        elevation: 2,
       },
       web: {
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 1px 0 rgba(0,0,0,0.04)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
       },
     }),
   },
@@ -1013,6 +1061,113 @@ const styles = StyleSheet.create({
   heroSectionMobile: {
     marginBottom: 32,
   },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+    marginBottom: 20,
+    gap: 8,
+    ...Platform.select({
+      web: {
+        marginBottom: 24,
+      },
+    }),
+  },
+  heroBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    ...Platform.select({
+      web: {
+        fontSize: 13,
+      },
+    }),
+  },
+  heroCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 16,
+    ...Platform.select({
+      web: {
+        gap: 16,
+        marginTop: 12,
+        marginBottom: 24,
+      },
+    }),
+  },
+  heroCtaPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    minHeight: 48,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 28,
+        paddingVertical: 16,
+        borderRadius: 16,
+        minHeight: 52,
+        cursor: 'pointer',
+        transition: 'transform 0.15s ease, box-shadow 0.2s ease',
+        boxShadow: '0 4px 14px rgba(67, 97, 238, 0.35)',
+      } as any,
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  heroCtaPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    ...Platform.select({
+      web: {
+        fontSize: 17,
+      },
+    }),
+  },
+  heroCtaSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    minHeight: 48,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 26,
+        paddingVertical: 16,
+        borderRadius: 16,
+        minHeight: 52,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      } as any,
+    }),
+  },
+  heroCtaSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    ...Platform.select({
+      web: {
+        fontSize: 17,
+      },
+    }),
+  },
   heroIconContainer: {
     width: 120,
     height: 120,
@@ -1035,15 +1190,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heroTitle: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 14,
     textAlign: 'center',
     fontFamily: 'Gabarito',
+    lineHeight: 38,
     ...Platform.select({
       web: {
-        fontSize: 52,
-        marginBottom: 20,
+        fontSize: 48,
+        lineHeight: 56,
+        marginBottom: 18,
       },
     }),
   },
@@ -1053,17 +1210,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   heroSubtitle: {
-    fontSize: 16,
-    opacity: 0.75,
+    fontSize: 15,
+    opacity: 0.8,
     textAlign: 'center',
-    maxWidth: 700,
-    lineHeight: 26,
-    marginBottom: 40,
+    maxWidth: 600,
+    lineHeight: 24,
+    marginBottom: 24,
     ...Platform.select({
       web: {
-        fontSize: 20,
-        lineHeight: 30,
-        marginBottom: 48,
+        fontSize: 18,
+        lineHeight: 28,
+        marginBottom: 28,
       },
     }),
   },
@@ -1089,12 +1246,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  featureIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 0,
+  },
   featureCard: {
     flex: 1,
     minWidth: '45%',
     padding: 20,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     marginHorizontal: 8,
     marginBottom: 16,
@@ -1104,6 +1269,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 12,
         padding: 24,
         borderRadius: 20,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
       },
     }),
   },
@@ -1115,10 +1281,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     marginBottom: 0,
   },
+  featureIconWrapMobile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+  },
   featureTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 12,
+    marginTop: 14,
     marginBottom: 6,
     textAlign: 'center',
     fontFamily: 'Gabarito',
