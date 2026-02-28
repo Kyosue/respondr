@@ -404,6 +404,7 @@ interface FormButtonProps {
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
+  style?: object;
 }
 
 export function FormButton({
@@ -413,6 +414,7 @@ export function FormButton({
   disabled = false,
   loading = false,
   fullWidth = false,
+  style,
 }: FormButtonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -437,6 +439,7 @@ export function FormButton({
           opacity: disabled || loading ? 0.6 : 1,
           width: fullWidth ? '100%' : 'auto',
         },
+        style,
       ]}
       onPress={onPress}
       disabled={disabled || loading}

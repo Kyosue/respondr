@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -12,6 +11,7 @@ import {
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 interface LocationInputProps {
     value: string;
@@ -39,7 +39,6 @@ export function LocationInput({
     const [showDropdown, setShowDropdown] = useState(false);
     const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
     const inputRef = useRef<TextInput>(null);
-    const wrapperRef = useRef<View>(null);
 
     // Filter suggestions based on current input
     useEffect(() => {
@@ -85,108 +84,113 @@ export function LocationInput({
         setShowDropdown(!showDropdown);
     };
 
+    const hasSuggestions = filteredSuggestions.length > 0 || suggestions.length > 0;
+    const list = value.trim().length >= 1 ? filteredSuggestions : suggestions;
 
     return (
-        <View style={[styles.container, style]} ref={wrapperRef}>
-            <View style={styles.inputWrapper}>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        ref={inputRef}
-                        style={[
-                            styles.input,
-                            {
-                                borderColor: error ? colors.error : (colors.inputBorder || colors.border),
-                                backgroundColor: disabled ? colors.background + '50' : colors.background,
-                                color: colors.text,
-                            },
-                            disabled && styles.disabled,
-                        ]}
-                        value={value}
-                        onChangeText={handleInputChange}
-                        placeholder={placeholder}
-                        placeholderTextColor={colors.text + '50'}
-                        editable={!disabled}
-                        autoCapitalize="words"
-                        autoCorrect={false}
-                    />
-                    {value.length > 0 && !disabled && (
-                        <TouchableOpacity
-                            style={styles.clearButton}
-                            onPress={() => {
-                                onChangeText('');
-                                setShowDropdown(false);
-                            }}
-                        >
-                            <Ionicons name="close-circle" size={20} color={colors.text + '70'} />
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                        style={styles.chevronButton}
-                        onPress={toggleDropdown}
-                        disabled={disabled}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons 
-                            name={showDropdown ? 'chevron-up' : 'chevron-down'} 
-                            size={20} 
-                            color={colors.text} 
-                        />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {showDropdown && (
-                <>
-                    {Platform.OS === 'web' && (
-                        <TouchableOpacity
-                            style={styles.dropdownBackdrop}
-                            activeOpacity={1}
-                            onPress={() => setShowDropdown(false)}
-                        />
-                    )}
-                    {(filteredSuggestions.length > 0 || suggestions.length > 0) ? (
-                        <View style={[styles.dropdown, { backgroundColor: colors.surface || colors.background, borderColor: colors.border }]}>
-                            <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-                                {(value.trim().length >= 1 ? filteredSuggestions : suggestions).map((item, index) => {
-                                    const isExactMatch = value.trim().length > 0 && item.toLowerCase().startsWith(value.toLowerCase().trim());
-                                    return (
-                                        <TouchableOpacity
-                                            key={`${item}-${index}`}
-                                            style={[
-                                                styles.dropdownItem,
-                                                isExactMatch && { backgroundColor: colors.primary + '20' }
-                                            ]}
-                                            onPress={() => handleSuggestionPress(item)}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Ionicons 
-                                                name="location-outline" 
-                                                size={16} 
-                                                color={isExactMatch ? colors.primary : colors.text + '70'} 
-                                                style={styles.dropdownIcon}
-                                            />
-                                            <ThemedText 
-                                                style={[
-                                                    styles.dropdownItemText,
-                                                    isExactMatch && { color: colors.primary, fontWeight: '600' }
-                                                ]}
-                                            >
-                                                {item}
-                                            </ThemedText>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
+        <View style={[styles.container, style]}>
+            <Dropdown
+                open={showDropdown}
+                onOpenChange={setShowDropdown}
+                placement="bottom"
+                align="start"
+                maxHeight={300}
+                constrainToViewport
+                closeOnEscape
+                closeOnBackdropPress
+                renderInPortal
+                trigger={
+                    <View style={styles.inputWrapper}>
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                ref={inputRef}
+                                style={[
+                                    styles.input,
+                                    {
+                                        borderColor: error ? colors.error : (colors.inputBorder || colors.border),
+                                        backgroundColor: disabled ? colors.background + '50' : colors.background,
+                                        color: colors.text,
+                                    },
+                                    disabled && styles.disabled,
+                                ]}
+                                value={value}
+                                onChangeText={handleInputChange}
+                                placeholder={placeholder}
+                                placeholderTextColor={colors.text + '50'}
+                                editable={!disabled}
+                                autoCapitalize="words"
+                                autoCorrect={false}
+                                onFocus={() => {
+                                    if (value.trim().length >= 1 || suggestions.length > 0) setShowDropdown(true);
+                                }}
+                            />
+                            {value.length > 0 && !disabled && (
+                                <TouchableOpacity
+                                    style={styles.clearButton}
+                                    onPress={() => {
+                                        onChangeText('');
+                                        setShowDropdown(false);
+                                    }}
+                                >
+                                    <Ionicons name="close-circle" size={20} color={colors.text + '70'} />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                                style={styles.chevronButton}
+                                onPress={toggleDropdown}
+                                disabled={disabled}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons
+                                    name={showDropdown ? 'chevron-up' : 'chevron-down'}
+                                    size={20}
+                                    color={colors.text}
+                                />
+                            </TouchableOpacity>
                         </View>
-                    ) : (
-                        <View style={[styles.dropdown, { backgroundColor: colors.surface || colors.background, borderColor: colors.border }]}>
-                            <ThemedText style={[styles.dropdownEmpty, { color: colors.text + '80' }]}>
-                                No locations available
-                            </ThemedText>
-                        </View>
-                    )}
-                </>
-            )}
+                    </View>
+                }
+                dropdownStyle={{
+                    borderWidth: 1.5,
+                    borderRadius: 10,
+                    backgroundColor: colors.surface || colors.background,
+                    borderColor: colors.border,
+                }}
+            >
+                {hasSuggestions ? (
+                    <ScrollView style={styles.dropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                        {list.map((item, index) => {
+                            const isExactMatch = value.trim().length > 0 && item.toLowerCase().startsWith(value.toLowerCase().trim());
+                            return (
+                                <TouchableOpacity
+                                    key={`${item}-${index}`}
+                                    style={[styles.dropdownItem, isExactMatch && { backgroundColor: colors.primary + '20' }]}
+                                    onPress={() => handleSuggestionPress(item)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name="location-outline"
+                                        size={16}
+                                        color={isExactMatch ? colors.primary : colors.text + '70'}
+                                        style={styles.dropdownIcon}
+                                    />
+                                    <ThemedText
+                                        style={[styles.dropdownItemText, isExactMatch && { color: colors.primary, fontWeight: '600' }]}
+                                    >
+                                        {item}
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                ) : (
+                    <View style={styles.dropdownEmptyWrap}>
+                        <ThemedText style={[styles.dropdownEmpty, { color: colors.text + '80' }]}>
+                            No locations available
+                        </ThemedText>
+                    </View>
+                )}
+            </Dropdown>
 
             {error && (
                 <ThemedText style={[styles.errorText, { color: colors.error }]}>{error}</ThemedText>
@@ -199,22 +203,14 @@ export function LocationInput({
             )}
         </View>
     );
-    }
+}
 
-    const styles = StyleSheet.create({
-        container: {
+const styles = StyleSheet.create({
+    container: {
             marginBottom: 0,
-            position: 'relative',
-            zIndex: 10000,
-            elevation: 10000,
-            ...(Platform.OS === 'web' && {
-                isolation: 'isolate',
-            } as any),
         },
         inputWrapper: {
             position: 'relative',
-            zIndex: 10000,
-            elevation: 10000,
         },
         inputContainer: {
             position: 'relative',
@@ -246,33 +242,14 @@ export function LocationInput({
             padding: 4,
             zIndex: 1,
         },
-        dropdownBackdrop: {
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            backgroundColor: 'transparent',
-        },
         dropdown: {
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            marginTop: -20,
-            borderWidth: 1.5,
-            borderRadius: 10,
-            maxHeight: 300,
-            zIndex: 10001,
-            elevation: 10001,
-            ...(Platform.OS === 'web' && {
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                position: 'absolute',
-            } as any),
+            overflow: 'hidden',
         },
         dropdownScroll: {
             maxHeight: 300,
+        },
+        dropdownEmptyWrap: {
+            padding: 16,
         },
         dropdownItem: {
             flexDirection: 'row',
@@ -299,9 +276,9 @@ export function LocationInput({
             fontSize: 12,
             marginTop: 4,
         },
-        helperText: {
-            fontSize: 12,
-            marginTop: 4,
-            lineHeight: 16,
-        },
-    });
+    helperText: {
+        fontSize: 12,
+        marginTop: 4,
+        lineHeight: 16,
+    },
+});
