@@ -43,7 +43,7 @@ export function ResourceCardActions({
         >
           <Ionicons 
             name={resource.availableQuantity > 0 ? "cart-outline" : "return-down-back-outline"} 
-            size={14} 
+            size={12} 
             color="#fff" 
           />
         </TouchableOpacity>
@@ -51,7 +51,7 @@ export function ResourceCardActions({
       
       {isExternalResource && (
         <View style={[styles.externalIndicator, { backgroundColor: '#FFB74D' + '20' }]}>
-          <Ionicons name="business-outline" size={14} color="#FF8F00" />
+          <Ionicons name="business-outline" size={12} color="#FF8F00" />
         </View>
       )}
       
@@ -67,7 +67,7 @@ export function ResourceCardActions({
         >
           <Ionicons 
             name="ellipsis-horizontal" 
-            size={14} 
+            size={12} 
             color={isActionsMenuOpen ? colors.primary : colors.text} 
           />
         </TouchableOpacity>
