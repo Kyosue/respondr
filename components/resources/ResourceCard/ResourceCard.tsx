@@ -1,10 +1,10 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import {
-  Animated,
-  Image,
-  Platform,
-  TouchableOpacity,
-  View,
+    Animated,
+    Image,
+    Platform,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
