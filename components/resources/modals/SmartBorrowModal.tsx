@@ -49,7 +49,7 @@ export function SmartBorrowModal({
 }: SmartBorrowModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { borrowResource, returnResource, borrowMultipleResources, getActiveTransactions, getUserTransactions, getFilteredResources } = useResources();
+  const { borrowResource, returnResource, borrowMultipleResources, getActiveTransactions, getUserTransactions, getFilteredResources, getBorrowableResourcesForModal, usePaginatedResources } = useResources();
   const { user } = useAuth();
   
   // Constants
@@ -72,6 +72,10 @@ export function SmartBorrowModal({
   // Step state: 1 = borrower form, 2 = select resources, 3 = review selected resources (only for borrow mode)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   
+  // Full borrowable list (used when pagination is on so step 2 shows all resources, not just current page)
+  const [borrowableResourcesList, setBorrowableResourcesList] = useState<Resource[]>([]);
+  const [borrowableResourcesLoading, setBorrowableResourcesLoading] = useState(false);
+
   // Search and filtering state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -142,6 +146,22 @@ export function SmartBorrowModal({
     }
   }, [visible]);
 
+  // When modal opens in borrow mode, fetch full borrowable list so step 2 is complete (avoids pagination showing only current page)
+  useEffect(() => {
+    if (!visible || mode !== 'borrow') return;
+    let cancelled = false;
+    setBorrowableResourcesLoading(true);
+    getBorrowableResourcesForModal()
+      .then((list) => {
+        if (!cancelled) setBorrowableResourcesList(list);
+      })
+      .finally(() => {
+        if (!cancelled) setBorrowableResourcesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, mode, getBorrowableResourcesForModal]);
 
   // Handle return mode - find active transaction
   useEffect(() => {
@@ -309,6 +329,7 @@ export function SmartBorrowModal({
   // Reset all form state
   const resetFormState = () => {
     setResourceItems([]);
+    setBorrowableResourcesList([]);
     setBorrowerInfo({
       borrowerName: '',
       borrowerContact: '',
@@ -359,10 +380,13 @@ export function SmartBorrowModal({
     setResourceItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const getAvailableResources = () => {
-    return getFilteredResources().filter(r => 
-      r.availableQuantity > 0 && 
-      r.resourceType !== 'external' && 
+  const getAvailableResources = (): Resource[] => {
+    if (usePaginatedResources) {
+      return borrowableResourcesList;
+    }
+    return getFilteredResources().filter(r =>
+      r.availableQuantity > 0 &&
+      r.resourceType !== 'external' &&
       r.isBorrowable !== false
     );
   };
@@ -402,11 +426,14 @@ export function SmartBorrowModal({
     return resources;
   };
 
-  // Get unique categories for filtering
+  // Get unique categories for filtering (recompute when borrowable list loads in paginated mode)
   const availableCategories = useMemo(() => {
-    const categories = getAvailableResources().map(r => r.category);
+    const list = usePaginatedResources ? borrowableResourcesList : getFilteredResources().filter(r =>
+      r.availableQuantity > 0 && r.resourceType !== 'external' && r.isBorrowable !== false
+    );
+    const categories = list.map(r => r.category);
     return ['all', ...Array.from(new Set(categories))];
-  }, [getAvailableResources]);
+  }, [usePaginatedResources, borrowableResourcesList, getFilteredResources]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -702,13 +729,21 @@ export function SmartBorrowModal({
                       const availableResources = getFilteredAvailableResources()
                         .filter(r => !resourceItems.some((item: ResourceItem) => item.resource.id === r.id));
                       
+                      if (usePaginatedResources && borrowableResourcesLoading && borrowableResourcesList.length === 0) {
+                        return (
+                          <View style={styles.noResourcesContainer}>
+                            <Ionicons name="hourglass-outline" size={48} color={colors.text} style={{ opacity: 0.5 }} />
+                            <ThemedText style={styles.noResourcesText}>Loading available resources...</ThemedText>
+                          </View>
+                        );
+                      }
                       if (availableResources.length === 0) {
                         return (
                           <View style={styles.noResourcesContainer}>
                             <Ionicons name="cube-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
                             <ThemedText style={styles.noResourcesText}>
-                              {searchQuery || selectedCategory !== 'all' 
-                                ? 'No resources match your filters' 
+                              {searchQuery || selectedCategory !== 'all'
+                                ? 'No resources match your filters'
                                 : 'No available resources'
                               }
                             </ThemedText>

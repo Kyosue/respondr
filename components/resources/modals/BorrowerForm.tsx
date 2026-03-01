@@ -1,16 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ImageSelectionModal } from '@/components/resources/modals/ImageSelectionModal';
 import { ThemedText } from '@/components/ThemedText';
 import { BorrowerNameInput } from '@/components/ui/BorrowerNameInput';
-import { FormInput } from '@/components/ui/FormComponents';
 import { Colors } from '@/constants/Colors';
 import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
 
 export interface BorrowerInfo {
   borrowerName: string;
@@ -128,131 +126,127 @@ export function BorrowerForm({
 
   return (
     <View style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <View style={[styles.sectionIconContainer, { backgroundColor: colors.primary + '15' }]}>
-          <Ionicons name="person-outline" size={20} color={colors.primary} />
-        </View>
-        <ThemedText style={styles.sectionTitle}>Borrower Information</ThemedText>
+      {/* Borrower Name - flat fieldBlock + labelTop (matches AddResourceModal) */}
+      <View style={[styles.fieldBlock, styles.fieldBlockOverlay]}>
+        <ThemedText style={[styles.labelTop, { color: colors.text }]}>Borrower Name *</ThemedText>
+        <BorrowerNameInput
+          value={borrowerInfo.borrowerName}
+          onChangeText={handleBorrowerNameChange}
+          placeholder="Enter borrower's full name"
+          suggestions={getBorrowerNameSuggestions(borrowerInfo.borrowerName)}
+          error={errors.borrowerName}
+          helperText={isLoadingBorrower ? 'Loading borrower info...' : 'Select from existing borrowers or type a new name'}
+        />
       </View>
-      
-      <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Primary Information Section */}
-        <View style={styles.primarySection}>
-          <View style={styles.inputGroup}>
-            <ThemedText style={[styles.label, { color: colors.text }]}>
-              Borrower Name
-              <ThemedText style={[styles.required, { color: colors.error }]}> *</ThemedText>
-            </ThemedText>
-            <BorrowerNameInput
-              value={borrowerInfo.borrowerName}
-              onChangeText={handleBorrowerNameChange}
-              placeholder="Enter borrower's full name"
-              suggestions={getBorrowerNameSuggestions(borrowerInfo.borrowerName)}
-              error={errors.borrowerName}
-              helperText={isLoadingBorrower ? "Loading borrower info..." : "Select from existing borrowers or type a new name"}
-            />
-          </View>
-        </View>
 
-        {/* Secondary Information Section */}
-        <View style={styles.secondarySection}>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          
-          <View style={styles.inputGroup}>
-            <FormInput
-              label="Contact Information"
-              value={borrowerInfo.borrowerContact}
-              onChangeText={(text) => updateBorrowerInfo('borrowerContact', text)}
-              placeholder="Phone or email"
-              keyboardType="email-address"
-              helperText="Optional contact information"
-            />
-          </View>
+      {/* Contact - labelTop + inputRounded */}
+      <View style={styles.fieldBlock}>
+        <ThemedText style={[styles.labelTop, { color: colors.text }]}>Contact Information</ThemedText>
+        <TextInput
+          style={[
+            styles.inputRounded,
+            {
+              backgroundColor: colors.surface,
+              borderColor: errors.borrowerContact ? colors.error : colors.border,
+              color: colors.text,
+            },
+          ]}
+          value={borrowerInfo.borrowerContact}
+          onChangeText={(text) => updateBorrowerInfo('borrowerContact', text)}
+          placeholder="Phone or email"
+          placeholderTextColor={colors.text + '80'}
+          keyboardType="email-address"
+        />
+        {errors.borrowerContact ? (
+          <ThemedText style={[styles.errorText, { color: colors.error }]}>{errors.borrowerContact}</ThemedText>
+        ) : (
+          <ThemedText style={[styles.helperText, { color: colors.text + '80' }]}>Optional contact information</ThemedText>
+        )}
+      </View>
 
-          <View style={styles.inputGroup}>
-            <FormInput
-              label="Department"
-              value={borrowerInfo.borrowerDepartment}
-              onChangeText={(text) => updateBorrowerInfo('borrowerDepartment', text)}
-              placeholder="Department or team"
-              helperText="Optional department or team name"
-            />
-          </View>
-        </View>
+      {/* Department - labelTop + inputRounded */}
+      <View style={styles.fieldBlock}>
+        <ThemedText style={[styles.labelTop, { color: colors.text }]}>Department</ThemedText>
+        <TextInput
+          style={[
+            styles.inputRounded,
+            {
+              backgroundColor: colors.surface,
+              borderColor: errors.borrowerDepartment ? colors.error : colors.border,
+              color: colors.text,
+            },
+          ]}
+          value={borrowerInfo.borrowerDepartment}
+          onChangeText={(text) => updateBorrowerInfo('borrowerDepartment', text)}
+          placeholder="Department or team"
+          placeholderTextColor={colors.text + '80'}
+        />
+        {errors.borrowerDepartment ? (
+          <ThemedText style={[styles.errorText, { color: colors.error }]}>{errors.borrowerDepartment}</ThemedText>
+        ) : (
+          <ThemedText style={[styles.helperText, { color: colors.text + '80' }]}>Optional department or team name</ThemedText>
+        )}
+      </View>
 
-        {/* Optional Photo Section */}
-        {showImagePicker && (
-          <View style={styles.photoSection}>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.inputGroup}>
-              <ThemedText style={[styles.label, { color: colors.text }]}>
-                Borrower Photo
-              </ThemedText>
-              <ThemedText style={[styles.helperText, { color: colors.text + '80' }]}>
-                Optional - Add a photo to help identify the borrower
-              </ThemedText>
-              
-              <View style={styles.photoContainer}>
-                {borrowerInfo.borrowerPicture ? (
-                  <View style={styles.photoWrapper}>
-                    <Image 
-                      source={{ uri: borrowerInfo.borrowerPicture }} 
-                      style={[styles.photoImage, { borderColor: colors.border }]}
-                    />
-                    <View style={styles.photoActionButtons}>
-                      <TouchableOpacity
-                        style={[styles.photoActionButton, { backgroundColor: colors.primary }]}
-                        onPress={() => setShowImageModal(true)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="camera" size={16} color="#fff" />
-                        <ThemedText style={styles.photoActionText}>Change</ThemedText>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.photoActionButton, { backgroundColor: colors.error }]}
-                        onPress={handleRemovePhoto}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="trash-outline" size={16} color="#fff" />
-                        <ThemedText style={styles.photoActionText}>Remove</ThemedText>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
+      {/* Optional Photo - labelTop + helper + photo UI with pill buttons */}
+      {showImagePicker && (
+        <View style={styles.fieldBlock}>
+          <ThemedText style={[styles.labelTop, { color: colors.text }]}>Borrower Photo</ThemedText>
+          <ThemedText style={[styles.helperText, { color: colors.text + '80' }]}>
+            Optional – Add a photo to help identify the borrower
+          </ThemedText>
+          <View style={styles.photoContainer}>
+            {borrowerInfo.borrowerPicture ? (
+              <View style={styles.photoWrapper}>
+                <Image
+                  source={{ uri: borrowerInfo.borrowerPicture }}
+                  style={[styles.photoImage, { borderColor: colors.border }]}
+                />
+                <View style={styles.photoActionButtons}>
                   <TouchableOpacity
-                    style={[
-                      styles.photoButton,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
+                    style={[styles.photoActionPill, { backgroundColor: colors.primary }]}
                     onPress={() => setShowImageModal(true)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.photoPlaceholder}>
-                      <View style={[styles.photoIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                        <Ionicons name="camera-outline" size={32} color={colors.primary} />
-                      </View>
-                      <ThemedText style={[styles.photoPlaceholderText, { color: colors.text + '80' }]}>
-                        Tap to add photo
-                      </ThemedText>
-                    </View>
+                    <Ionicons name="camera" size={16} color="#fff" />
+                    <ThemedText style={styles.photoActionText}>Change</ThemedText>
                   </TouchableOpacity>
-                )}
+                  <TouchableOpacity
+                    style={[styles.photoActionPill, { backgroundColor: colors.error + '15', borderWidth: 1, borderColor: colors.error + '40' }]}
+                    onPress={handleRemovePhoto}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                    <ThemedText style={[styles.photoActionTextSecondary, { color: colors.error }]}>Remove</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-            
-            <ImageSelectionModal
-              visible={showImageModal}
-              onClose={() => setShowImageModal(false)}
-              onCameraPress={takePhoto}
-              onLibraryPress={pickImage}
-              maxImages={1}
-            />
+            ) : (
+              <TouchableOpacity
+                style={[styles.photoButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => setShowImageModal(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.photoPlaceholder}>
+                  <View style={[styles.photoIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                    <Ionicons name="camera-outline" size={32} color={colors.primary} />
+                  </View>
+                  <ThemedText style={[styles.photoPlaceholderText, { color: colors.text + '80' }]}>
+                    Tap to add photo
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
-      </View>
+          <ImageSelectionModal
+            visible={showImageModal}
+            onClose={() => setShowImageModal(false)}
+            onCameraPress={takePhoto}
+            onLibraryPress={pickImage}
+            maxImages={1}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -261,63 +255,33 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+  fieldBlock: {
+    marginBottom: 20,
   },
-  sectionIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  fieldBlockOverlay: {
+    position: 'relative',
+    zIndex: 10,
+    overflow: 'visible',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    flex: 1,
-  },
-  formCard: {
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-  },
-  primarySection: {
-    marginBottom: 0,
-  },
-  secondarySection: {
-    marginTop: 0,
-  },
-  photoSection: {
-    marginTop: 0,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginTop: 0,
-    marginBottom: 16,
-    marginHorizontal: -4,
-    opacity: 0.3,
-  },
-  inputGroup: {
-    marginBottom: 16,
-    overflow: 'visible', // Allow suggestions to extend beyond the input group
-    zIndex: 1000, // Ensure the input group has a high z-index
-  },
-  label: {
+  labelTop: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 8,
-    letterSpacing: 0.2,
   },
-  required: {
-    // Color applied via style prop for dark mode support
+  inputRounded: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 6,
   },
   helperText: {
     fontSize: 12,
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: 6,
   },
   photoContainer: {
     alignItems: 'center',
@@ -345,20 +309,24 @@ const styles = StyleSheet.create({
   photoActionButtons: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
+    marginTop: 8,
   },
-  photoActionButton: {
+  photoActionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    gap: 6,
   },
   photoActionText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  photoActionTextSecondary: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   photoPlaceholder: {
     alignItems: 'center',

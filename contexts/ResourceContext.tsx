@@ -138,6 +138,8 @@ interface ResourceContextType {
   // Filtering and search
   setFilters: (filters: ResourceFilters) => void;
   getFilteredResources: () => Resource[];
+  /** Fetches all borrowable resources for the borrow modal (full list even when using pagination). */
+  getBorrowableResourcesForModal: () => Promise<Resource[]>;
   searchResources: (query: string) => Resource[];
   
   // Stats and analytics
@@ -1382,6 +1384,18 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     return filtered;
   }, [state.resources, state.filters.category, state.filters.status, state.filters.condition, state.filters.available, state.filters.agencyId, state.filters.resourceType, state.filters.search]);
 
+  const getBorrowableResourcesForModal = useCallback(async (): Promise<Resource[]> => {
+    const isBorrowable = (r: Resource) =>
+      r.availableQuantity > 0 &&
+      r.resourceType !== 'external' &&
+      r.isBorrowable !== false;
+    if (!state.usePaginatedResources) {
+      return getFilteredResources().filter(isBorrowable);
+    }
+    const all = await resourceService.getAllResources();
+    return all.filter(isBorrowable);
+  }, [state.usePaginatedResources, getFilteredResources]);
+
   const searchResources = (query: string) => {
     const searchLower = query.toLowerCase();
     return state.resources.filter(r => 
@@ -1806,6 +1820,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     getAgency,
     setFilters,
     getFilteredResources,
+    getBorrowableResourcesForModal,
     searchResources,
     getStats,
     refreshStats,
