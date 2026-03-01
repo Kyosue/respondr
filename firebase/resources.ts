@@ -100,40 +100,74 @@ export const resourceService = {
   },
 
   /**
-   * Get resources with server-side pagination.
-   * Returns a page of resources plus total count. Optional sort and filters (filters may require Firestore indexes).
+   * Get resources with pagination. When any filter or search is applied, we fetch a batch
+   * with a simple orderBy (no Firestore where clauses) and filter in memory so pagination
+   * and total reflect the filtered set without requiring composite indexes.
    */
   async getResourcesPage(options: GetResourcesPageOptions): Promise<ResourceListPage> {
-    const { page, limit: pageSize, sort = 'name_asc' } = options;
+    const { page, limit: pageSize, sort = 'name_asc', category, agencyId, status, condition, resourceType, search } = options;
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(100, Math.max(1, pageSize));
 
+    const hasFilters =
+      category != null ||
+      (agencyId != null && agencyId !== '') ||
+      status != null ||
+      condition != null ||
+      resourceType != null ||
+      (search != null && search.trim() !== '');
+
     try {
       const coll = collection(db, RESOURCES_COLLECTION);
-
-      // Build ordered query (required for limit/consistency)
       const orderField = sort === 'createdAt_desc' ? 'createdAt' : 'name';
       const orderDir = sort === 'name_desc' || sort === 'createdAt_desc' ? 'desc' : 'asc';
-      const baseQuery = query(coll, orderBy(orderField, orderDir));
 
-      // Total count (unfiltered for now; filters can be added with composite indexes)
-      const countSnap = await getCountFromServer(baseQuery);
-      const total = countSnap.data().count ?? 0;
-
-      if (total === 0) {
-        return { data: [], total: 0, page: safePage, limit: safeLimit };
+      if (!hasFilters) {
+        // No filters: simple paginated query (no composite index needed)
+        const baseQuery = query(coll, orderBy(orderField, orderDir));
+        const countSnap = await getCountFromServer(baseQuery);
+        const total = countSnap.data().count ?? 0;
+        if (total === 0) {
+          return { data: [], total: 0, page: safePage, limit: safeLimit };
+        }
+        const numToRead = safePage * safeLimit;
+        const dataQuery = query(coll, orderBy(orderField, orderDir), limit(numToRead));
+        const querySnapshot = await getDocs(dataQuery);
+        const all = querySnapshot.docs.map(d =>
+          convertTimestamps({ id: d.id, ...d.data() }) as Resource
+        );
+        const start = (safePage - 1) * safeLimit;
+        const data = all.slice(start, start + safeLimit);
+        return { data, total, page: safePage, limit: safeLimit };
       }
 
-      // Fetch up to (page * limit) docs and take the slice for this page
-      const numToRead = safePage * safeLimit;
-      const q = query(baseQuery, limit(numToRead));
-      const querySnapshot = await getDocs(q);
-      const all = querySnapshot.docs.map(d =>
+      // Has filters or search: fetch up to 500 with simple query, filter in memory, then paginate
+      const fetchLimit = 500;
+      const simpleQuery = query(coll, orderBy(orderField, orderDir), limit(fetchLimit));
+      const querySnapshot = await getDocs(simpleQuery);
+      let list = querySnapshot.docs.map(d =>
         convertTimestamps({ id: d.id, ...d.data() }) as Resource
       );
-      const start = (safePage - 1) * safeLimit;
-      const data = all.slice(start, start + safeLimit);
 
+      if (category != null) list = list.filter((r) => r.category === category);
+      if (agencyId != null && agencyId !== '') list = list.filter((r) => r.agencyId === agencyId);
+      if (status != null) list = list.filter((r) => r.status === status);
+      if (condition != null) list = list.filter((r) => r.condition === condition);
+      if (resourceType != null) list = list.filter((r) => (r.resourceType ?? 'pdrrmo') === resourceType);
+      if (search != null && search.trim() !== '') {
+        const searchLower = search.toLowerCase().trim();
+        list = list.filter(
+          (r) =>
+            r.name.toLowerCase().includes(searchLower) ||
+            (r.description ?? '').toLowerCase().includes(searchLower) ||
+            (r.tags ?? []).some((tag: string) => tag.toLowerCase().includes(searchLower)) ||
+            (r.agencyName ?? '').toLowerCase().includes(searchLower)
+        );
+      }
+
+      const total = list.length;
+      const start = (safePage - 1) * safeLimit;
+      const data = list.slice(start, start + safeLimit);
       return { data, total, page: safePage, limit: safeLimit };
     } catch (error: any) {
       if (error?.message?.includes('index is currently building')) {

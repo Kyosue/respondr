@@ -204,6 +204,7 @@ export interface GetResourcesPageOptions {
   agencyId?: string;
   status?: ResourceStatus;
   condition?: ResourceCondition;
+  resourceType?: 'pdrrmo' | 'external';
   search?: string;
 }
 

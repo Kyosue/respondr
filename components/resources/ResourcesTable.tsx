@@ -23,6 +23,10 @@ interface ResourcesTableProps {
   loading?: boolean;
   /** Optional 1-based start for row numbers (e.g. 11 when showing page 2 "11-20 of 50") */
   rowNumberStart?: number;
+  /** When true, empty state shows filter-specific message and optional clear action */
+  hasActiveFilters?: boolean;
+  /** Called when user taps "Clear filters" in empty state */
+  onClearFilters?: () => void;
 }
 
 function getCategoryColor(category: ResourceCategory): string {
@@ -257,7 +261,9 @@ export function ResourcesTable({
   canDelete = false,
   paginatedByParent = false,
   loading = false,
-  rowNumberStart
+  rowNumberStart,
+  hasActiveFilters = false,
+  onClearFilters,
 }: ResourcesTableProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -679,8 +685,19 @@ export function ResourcesTable({
             <ThemedText style={[styles.tableLoadingText, { color: colors.text }]}>Loading resources…</ThemedText>
           </View>
         ) : showTableShellWithMessage ? (
-          <View style={[styles.tableLoadingRow, styles.tableEmptyRow, { borderBottomColor: colors.border }]}>
-            <ThemedText style={[styles.tableLoadingText, { color: colors.text, opacity: 0.7 }]}>No resources found</ThemedText>
+          <View style={[styles.tableLoadingRow, styles.tableEmptyRow, styles.tableEmptyRowColumn, { borderBottomColor: colors.border }]}>
+            <ThemedText style={[styles.tableLoadingText, { color: colors.text, opacity: 0.7 }]}>
+              {hasActiveFilters ? 'No resources match your filters' : 'No resources found'}
+            </ThemedText>
+            {hasActiveFilters && onClearFilters && (
+              <TouchableOpacity
+                style={[styles.tableEmptyClearButton, { backgroundColor: colors.primary }]}
+                onPress={onClearFilters}
+                activeOpacity={0.7}
+              >
+                <ThemedText style={styles.tableEmptyClearButtonText}>Clear filters</ThemedText>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
         paginatedResources.map((resource, index) => {
@@ -1432,6 +1449,20 @@ const styles = StyleSheet.create({
   },
   tableEmptyRow: {
     paddingVertical: 40,
+  },
+  tableEmptyRowColumn: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  tableEmptyClearButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tableEmptyClearButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   mobileRowNum: {
     width: 28,

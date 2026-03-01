@@ -50,6 +50,17 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  emptyClearFiltersButton: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  emptyClearFiltersButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   loadMoreContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,

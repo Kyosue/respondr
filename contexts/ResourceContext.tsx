@@ -1544,7 +1544,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     options?: Partial<Omit<GetResourcesPageOptions, 'page' | 'limit'>> & { replaceOnly?: boolean }
   ) => {
     const { replaceOnly, ...apiOptions } = options ?? {};
-    const cacheKey = [page, limit, apiOptions.sort ?? '', apiOptions.category ?? '', apiOptions.agencyId ?? '', apiOptions.status ?? '', apiOptions.condition ?? '', apiOptions.search ?? ''].join('|');
+    const cacheKey = [page, limit, apiOptions.sort ?? '', apiOptions.category ?? '', apiOptions.agencyId ?? '', apiOptions.status ?? '', apiOptions.condition ?? '', apiOptions.resourceType ?? '', apiOptions.search ?? ''].join('|');
 
     if (page === 1) {
       pageCacheRef.current.clear();

@@ -225,8 +225,9 @@ export function Resources() {
     ...(selectedAgency && { agencyId: selectedAgency }),
     ...(selectedStatus && { status: selectedStatus }),
     ...(selectedCondition && { condition: selectedCondition }),
+    ...(selectedResourceType && { resourceType: selectedResourceType }),
     ...(searchQuery?.trim() && { search: searchQuery.trim() }),
-  }), [mapSortToApi, sortOption, selectedCategory, selectedAgency, selectedStatus, selectedCondition, searchQuery]);
+  }), [mapSortToApi, sortOption, selectedCategory, selectedAgency, selectedStatus, selectedCondition, selectedResourceType, searchQuery]);
 
   // Use server-side pagination on this screen (both web and mobile); turn off when leaving
   useEffect(() => {
@@ -407,6 +408,15 @@ export function Resources() {
     setCurrentPage(1);
   }, [selectedCategory, selectedAgency, selectedResourceType, selectedStatus, selectedCondition, searchQuery, sortOption]);
 
+  const hasActiveFilters = !!(
+    selectedCategory ||
+    selectedAgency ||
+    selectedStatus ||
+    selectedCondition ||
+    selectedResourceType ||
+    (searchQuery != null && searchQuery.trim() !== '')
+  );
+
   const renderResourceList = () => {
     if (isWeb) {
       return (
@@ -423,6 +433,8 @@ export function Resources() {
             paginatedByParent
             loading={state.loading}
             rowNumberStart={rangeStartWeb}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={handleClearFilters}
           />
           <View style={[styles.tablePaginationBar, { borderTopColor: colors.border }]}>
             <ThemedText style={[styles.tablePaginationInfo, { color: colors.text }]}>
@@ -482,10 +494,25 @@ export function Resources() {
     if (filteredResources.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <ThemedText style={styles.emptyTitle}>No resources found</ThemedText>
-          <ThemedText style={styles.emptySubtitle}>
-            {searchQuery ? 'Try adjusting your search terms' : 'Add your first resource to get started'}
+          <ThemedText style={styles.emptyTitle}>
+            {hasActiveFilters ? 'No resources match your filters' : 'No resources found'}
           </ThemedText>
+          <ThemedText style={styles.emptySubtitle}>
+            {hasActiveFilters
+              ? 'Try clearing or changing filters to see more resources.'
+              : searchQuery
+                ? 'Try adjusting your search terms'
+                : 'Add your first resource to get started'}
+          </ThemedText>
+          {hasActiveFilters && (
+            <TouchableOpacity
+              style={[styles.emptyClearFiltersButton, { backgroundColor: colors.primary }]}
+              onPress={handleClearFilters}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={styles.emptyClearFiltersButtonText}>Clear filters</ThemedText>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
