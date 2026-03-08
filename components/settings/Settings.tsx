@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -20,7 +21,7 @@ const Settings: React.FC = () => {
   const { isDark, setColorScheme } = useTheme();
   const { pushNotificationsEnabled, setPushNotificationsEnabled } = useNotifications();
   const colors = Colors[isDark ? 'dark' : 'light'];
-  
+
   // Settings state
   const [showTerms, setShowTerms] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -29,14 +30,21 @@ const Settings: React.FC = () => {
     setColorScheme(value ? 'dark' : 'light');
   };
 
+  const getIconColor = (icon: string) => {
+    if (icon === 'sunny') return isDark ? '#FFB347' : '#F59E0B';
+    if (icon === 'moon') return '#6366F1';
+    if (icon === 'notifications-outline') return '#EC4899';
+    return colors.primary;
+  };
 
-  const SettingItem = ({ 
-    icon, 
-    title, 
-    subtitle, 
-    onPress, 
+  const SettingItem = ({
+    icon,
+    title,
+    subtitle,
+    onPress,
     rightComponent,
-    showArrow = true 
+    showArrow = true,
+    isLast = false,
   }: {
     icon: string;
     title: string;
@@ -44,24 +52,26 @@ const Settings: React.FC = () => {
     onPress?: () => void;
     rightComponent?: React.ReactNode;
     showArrow?: boolean;
+    isLast?: boolean;
   }) => (
     <TouchableOpacity
-      style={[styles.settingItem, { borderBottomColor: colors.border }]}
+      style={[
+        styles.settingItem,
+        { borderBottomColor: colors.border },
+        isLast && styles.settingItemLast,
+      ]}
       onPress={onPress}
       disabled={!onPress}
+      activeOpacity={onPress ? 0.6 : 1}
     >
       <View style={styles.settingLeft}>
-        <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons 
-            name={icon as any} 
-            size={20} 
-            color={icon === 'sunny' ? '#FFA500' : icon === 'moon' ? '#4A90E2' : colors.primary} 
-          />
+        <View style={[styles.iconContainer, { backgroundColor: getIconColor(icon) + '22' }]}>
+          <Ionicons name={icon as any} size={22} color={getIconColor(icon)} />
         </View>
         <View style={styles.settingText}>
           <ThemedText style={styles.settingTitle}>{title}</ThemedText>
           {subtitle && (
-            <ThemedText style={[styles.settingSubtitle, { color: colors.text + '80' }]}>
+            <ThemedText style={[styles.settingSubtitle, { color: colors.text + '99' }]}>
               {subtitle}
             </ThemedText>
           )}
@@ -70,7 +80,7 @@ const Settings: React.FC = () => {
       <View style={styles.settingRight}>
         {rightComponent}
         {showArrow && onPress && (
-          <Ionicons name="chevron-forward" size={16} color={colors.icon} />
+          <Ionicons name="chevron-forward" size={18} color={colors.icon} />
         )}
       </View>
     </TouchableOpacity>
@@ -78,86 +88,136 @@ const Settings: React.FC = () => {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       >
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Settings</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: colors.text + '80' }]}>
-            Manage your app preferences
+          <ThemedText type="title" style={styles.title}>
+            Settings
+          </ThemedText>
+          <ThemedText style={[styles.headerSubtitle, { color: colors.text + '99' }]}>
+            Manage your app preferences and account
           </ThemedText>
         </View>
 
         {/* General Settings */}
         <View style={styles.section}>
-          <ThemedText style={[styles.sectionTitle, { color: colors.primary }]}>
-            General
-          </ThemedText>
-          <View style={[styles.sectionContent, { backgroundColor: colors.surface }]}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionBadge, { backgroundColor: colors.primary + '18' }]}>
+              <Ionicons name="options-outline" size={14} color={colors.primary} />
+            </View>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+              General
+            </ThemedText>
+          </View>
+          <View
+            style={[
+              styles.sectionContent,
+              {
+                backgroundColor: colors.surface,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.06,
+                    shadowRadius: 8,
+                  },
+                  android: { elevation: 2 },
+                }),
+              },
+            ]}
+          >
             <SettingItem
               icon="notifications-outline"
               title="Push Notifications"
-              subtitle={pushNotificationsEnabled ? "Receive alerts and updates" : "Notifications are disabled"}
+              subtitle={
+                pushNotificationsEnabled
+                  ? 'Receive alerts and updates'
+                  : 'Notifications are disabled'
+              }
               rightComponent={
                 <Switch
                   value={pushNotificationsEnabled}
                   onValueChange={setPushNotificationsEnabled}
-                  trackColor={{ false: colors.border, true: colors.primary + '40' }}
+                  trackColor={{ false: colors.border, true: colors.primary + '50' }}
                   thumbColor={pushNotificationsEnabled ? colors.primary : colors.icon}
                 />
               }
               showArrow={false}
+              isLast={false}
             />
             <SettingItem
-              icon={isDark ? "moon" : "sunny"}
+              icon={isDark ? 'moon' : 'sunny'}
               title="Theme"
-              subtitle={isDark ? "Currently in dark mode" : "Currently in light mode"}
+              subtitle={isDark ? 'Dark mode' : 'Light mode'}
               rightComponent={
                 <Switch
                   value={isDark}
                   onValueChange={handleDarkModeToggle}
-                  trackColor={{ false: colors.border, true: colors.primary + '40' }}
+                  trackColor={{ false: colors.border, true: colors.primary + '50' }}
                   thumbColor={isDark ? colors.primary : colors.icon}
                 />
               }
               showArrow={false}
+              isLast
             />
           </View>
         </View>
 
-
         {/* About */}
         <View style={styles.section}>
-          <ThemedText style={[styles.sectionTitle, { color: colors.primary }]}>
-            About
-          </ThemedText>
-          <View style={[styles.sectionContent, { backgroundColor: colors.surface }]}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionBadge, { backgroundColor: colors.primary + '18' }]}>
+              <Ionicons name="information-circle-outline" size={14} color={colors.primary} />
+            </View>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+              About
+            </ThemedText>
+          </View>
+          <View
+            style={[
+              styles.sectionContent,
+              {
+                backgroundColor: colors.surface,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.06,
+                    shadowRadius: 8,
+                  },
+                  android: { elevation: 2 },
+                }),
+              },
+            ]}
+          >
             <SettingItem
               icon="information-circle-outline"
               title="App Version"
               subtitle="1.0.0"
               showArrow={false}
+              isLast={false}
             />
             <SettingItem
               icon="help-circle-outline"
               title="Help & Support"
               subtitle="Get help and contact support"
               onPress={() => setShowHelp(true)}
+              isLast={false}
             />
             <SettingItem
               icon="document-text-outline"
               title="Terms of Service"
               subtitle="Read our terms and conditions"
               onPress={() => setShowTerms(true)}
+              isLast
             />
           </View>
         </View>
 
-
-        {/* Bottom spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
@@ -176,37 +236,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 20,
+    paddingTop: 8,
+    paddingBottom: 32,
   },
   header: {
-    paddingBottom: 10,
+    marginBottom: 28,
+    position: 'relative',
   },
   title: {
-    marginBottom: 0,
-    height: 30,
+    marginBottom: 4,
+    marginLeft: 12,
   },
-  subtitle: {
-    fontSize: 16,
+  headerSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginLeft: 12,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  sectionBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 8,
+    letterSpacing: 0.2,
   },
   sectionContent: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  settingItemLast: {
+    borderBottomWidth: 0,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -214,31 +294,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   settingText: {
     flex: 1,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
   },
   settingRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   bottomSpacing: {
-    height: 20,
+    height: 24,
   },
 });
 
