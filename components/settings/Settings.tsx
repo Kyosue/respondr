@@ -37,6 +37,29 @@ const Settings: React.FC = () => {
     return colors.primary;
   };
 
+  const trackColorOff = isDark ? colors.border : colors.border;
+  const trackColorOn = colors.primary;
+  const thumbColorOn = '#FFFFFF';
+  const thumbColorOff = isDark ? '#9BA1A6' : '#E9ECEF';
+
+  const SettingsSwitch = ({
+    value,
+    onValueChange,
+  }: {
+    value: boolean;
+    onValueChange: (v: boolean) => void;
+  }) => (
+    <View style={[styles.switchWrap, { backgroundColor: value ? colors.primary + '18' : colors.border + '50' }]}>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: trackColorOff, true: trackColorOn }}
+        thumbColor={value ? thumbColorOn : thumbColorOff}
+        ios_backgroundColor={trackColorOff}
+      />
+    </View>
+  );
+
   const SettingItem = ({
     icon,
     title,
@@ -139,11 +162,9 @@ const Settings: React.FC = () => {
                   : 'Notifications are disabled'
               }
               rightComponent={
-                <Switch
+                <SettingsSwitch
                   value={pushNotificationsEnabled}
                   onValueChange={setPushNotificationsEnabled}
-                  trackColor={{ false: colors.border, true: colors.primary + '50' }}
-                  thumbColor={pushNotificationsEnabled ? colors.primary : colors.icon}
                 />
               }
               showArrow={false}
@@ -154,11 +175,9 @@ const Settings: React.FC = () => {
               title="Theme"
               subtitle={isDark ? 'Dark mode' : 'Light mode'}
               rightComponent={
-                <Switch
+                <SettingsSwitch
                   value={isDark}
                   onValueChange={handleDarkModeToggle}
-                  trackColor={{ false: colors.border, true: colors.primary + '50' }}
-                  thumbColor={isDark ? colors.primary : colors.icon}
                 />
               }
               showArrow={false}
@@ -317,6 +336,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  switchWrap: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 24,
+    minWidth: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomSpacing: {
     height: 24,
