@@ -5,9 +5,9 @@ import {
   LayoutChangeEvent,
   NativeSyntheticEvent,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -29,6 +29,7 @@ export function ResourceDetailTabs({ activeTab, onTabChange }: ResourceDetailTab
   const { isMobile } = useScreenSize();
   const scrollRef = useRef<ScrollView>(null);
   const [scrollState, setScrollState] = useState({ atStart: true, atEnd: false });
+  const [hoveredTab, setHoveredTab] = useState<TabType | null>(null);
   const [contentWidth, setContentWidth] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const canScroll = contentWidth > layoutWidth;
@@ -58,18 +59,28 @@ export function ResourceDetailTabs({ activeTab, onTabChange }: ResourceDetailTab
   const tabContent = tabs.map((tab) => {
     const isActive = activeTab === tab.key;
     return (
-      <TouchableOpacity
+      <Pressable
         key={tab.key}
         style={[
           styles.tab,
           isMobile && styles.tabMobile,
           isActive && styles.tabActive,
           {
-            backgroundColor: isActive ? `${colors.primary}18` : 'transparent',
+            backgroundColor: isActive
+              ? `${colors.primary}18`
+              : hoveredTab === tab.key
+                ? `${colors.primary}10`
+                : 'transparent',
+            borderColor: hoveredTab === tab.key || isActive ? `${colors.primary}45` : 'transparent',
           },
         ]}
         onPress={() => onTabChange(tab.key)}
-        activeOpacity={0.7}
+        onHoverIn={() => {
+          if (Platform.OS === 'web') setHoveredTab(tab.key);
+        }}
+        onHoverOut={() => {
+          if (Platform.OS === 'web') setHoveredTab((prev) => (prev === tab.key ? null : prev));
+        }}
       >
         <Ionicons
           name={tab.icon as any}
@@ -86,7 +97,7 @@ export function ResourceDetailTabs({ activeTab, onTabChange }: ResourceDetailTab
         >
           {tab.label}
         </ThemedText>
-      </TouchableOpacity>
+      </Pressable>
     );
   });
 
@@ -213,24 +224,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderRadius: 10,
-    minHeight: 48,
-    gap: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    minHeight: 40,
+    gap: 6,
     ...Platform.select({
       web: {
         flex: 1,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
         borderRadius: 10,
-        minHeight: 52,
+        minHeight: 42,
       },
     }),
   },
   tabMobile: {
     flex: 0,
-    minWidth: 120,
+    minWidth: 96,
   },
   tabActive: {
     ...Platform.select({
@@ -243,12 +256,12 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    flex: 1,
+    textAlign: 'center',
     ...Platform.select({
       web: {
-        fontSize: 15,
+        fontSize: 13,
       },
     }),
   },

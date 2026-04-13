@@ -50,7 +50,12 @@ export function ResourceDetailModal({
   const [activeTab, setActiveTab] = useState<'details' | 'history' | 'images' | 'borrowed'>('details');
 
   // Hybrid RAMP
-  const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
+  const { isWeb, screenWidth, fadeAnim, slideAnim, handleClose } = useHybridRamp({ visible, onClose });
+  const webSlideX = slideAnim.interpolate({
+    // Add a slight overshoot before settling to mimic profile bounce.
+    inputRange: [0, 8, 50],
+    outputRange: [0, -14, Math.max(420, Math.round(screenWidth * 0.6))],
+  });
 
   // Clean up broken images when modal opens
   useEffect(() => {
@@ -107,7 +112,7 @@ export function ResourceDetailModal({
       <Animated.View
         style={[
           isWeb ? styles.webPanelContainer : styles.mobilePanelContainer,
-          isWeb && { transform: [{ scale: scaleAnim }, { translateY: slideAnim }] },
+          isWeb ? { transform: [{ translateX: webSlideX }] } : null,
         ]}
       >
       {isWeb ? (
@@ -202,15 +207,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 16,
+    paddingRight: 16,
+    paddingBottom: 16,
     zIndex: 100000,
     pointerEvents: 'box-none',
   },
   webPanel: {
-    width: '90%',
-    maxWidth: 1000,
-    maxHeight: '90%',
+    width: '68%',
+    maxWidth: 620,
+    height: '92%',
+    maxHeight: '92%',
     borderRadius: 16,
     overflow: 'hidden',
     ...StyleSheet.create({ shadow: {

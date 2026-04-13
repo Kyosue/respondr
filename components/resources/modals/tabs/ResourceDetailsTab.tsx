@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { usePlatform } from '@/hooks/usePlatform';
-import { Resource, ResourceCondition, ResourceStatus } from '@/types/Resource';
+import { Resource } from '@/types/Resource';
 
 interface ResourceDetailsTabProps {
   resource: Resource;
@@ -16,27 +16,7 @@ export function ResourceDetailsTab({ resource }: ResourceDetailsTabProps) {
   const colors = Colors[colorScheme ?? 'light'];
   const { isWeb } = usePlatform();
   const availabilityPercentage = (resource.availableQuantity / resource.totalQuantity) * 100;
-
-  const getStatusColor = (status: ResourceStatus) => {
-    switch (status) {
-      case 'active': return colors.success;
-      case 'inactive': return colors.text;
-      case 'maintenance': return colors.warning;
-      case 'retired': return colors.error;
-      default: return colors.text;
-    }
-  };
-
-  const getConditionColor = (condition: ResourceCondition) => {
-    switch (condition) {
-      case 'excellent': return colors.success;
-      case 'good': return colors.primary;
-      case 'fair': return colors.warning;
-      case 'poor': return colors.error;
-      case 'needs_repair': return colors.error;
-      default: return colors.text;
-    }
-  };
+  const inUseCount = resource.totalQuantity - resource.availableQuantity;
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -51,6 +31,21 @@ export function ResourceDetailsTab({ resource }: ResourceDetailsTabProps) {
     }
   };
 
+  const toTitle = (value: string) => value.replace('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  const getStatusColor = () => {
+    if (resource.status === 'active') return colors.success;
+    if (resource.status === 'maintenance') return colors.warning;
+    if (resource.status === 'retired') return colors.error;
+    return colors.icon;
+  };
+  const getConditionColor = () => {
+    if (resource.condition === 'excellent') return colors.success;
+    if (resource.condition === 'good') return colors.primary;
+    if (resource.condition === 'fair') return colors.warning;
+    return colors.error;
+  };
+  const availabilityColor = availabilityPercentage >= 60 ? colors.success : availabilityPercentage >= 30 ? colors.warning : colors.error;
+
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]} 
@@ -58,176 +53,61 @@ export function ResourceDetailsTab({ resource }: ResourceDetailsTabProps) {
       contentContainerStyle={styles.contentContainer}
     >
       <View style={[styles.contentWrapper, isWeb && styles.webContentWrapper]}>
-        {/* Hero Section */}
-        <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.heroContent}>
-            <View style={[styles.heroIconContainer, { backgroundColor: `${colors.primary}12` }]}>
-              <Ionicons name={getCategoryIcon(resource.category) as any} size={28} color={colors.primary} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.headerRow}>
+            <View style={[styles.iconWrap, { backgroundColor: `${colors.primary}14`, borderColor: colors.border }]}>
+              <Ionicons name={getCategoryIcon(resource.category) as any} size={20} color={colors.primary} />
             </View>
-            <View style={styles.heroTextContainer}>
-              <ThemedText style={[styles.heroTitle, { color: colors.text }]} numberOfLines={2}>
-                {resource.name}
-              </ThemedText>
-              <View style={styles.heroMeta}>
-                <View style={[styles.categoryChip, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}30` }]}>
-                  <Ionicons name={getCategoryIcon(resource.category) as any} size={12} color={colors.primary} />
-                  <ThemedText style={[styles.categoryText, { color: colors.primary }]}>
-                    {resource.category.charAt(0).toUpperCase() + resource.category.slice(1)}
-                  </ThemedText>
-                </View>
-                {resource.location && (
-                  <View style={[styles.locationChip, { borderColor: colors.border }]}>
-                    <Ionicons name="location-outline" size={12} color={colors.icon} />
-                    <ThemedText style={[styles.locationText, { color: colors.text }]} numberOfLines={1}>
-                      {resource.location}
-                    </ThemedText>
-                  </View>
-                )}
-              </View>
-            </View>
-            <View style={[styles.statusChip, {
-              backgroundColor: `${getStatusColor(resource.status)}18`,
-              borderColor: `${getStatusColor(resource.status)}50`,
-            }]}>
-              <View style={[styles.statusDot, { backgroundColor: getStatusColor(resource.status) }]} />
-              <ThemedText style={[styles.statusText, { color: getStatusColor(resource.status) }]} numberOfLines={1}>
-                {resource.status.charAt(0).toUpperCase() + resource.status.slice(1)}
+            <View style={styles.headerTextCol}>
+              <ThemedText style={[styles.title, { color: colors.text }]} numberOfLines={2}>{resource.name}</ThemedText>
+              <ThemedText style={[styles.subtitle, { color: colors.text }]} numberOfLines={1}>
+                {toTitle(resource.category)}{resource.location ? ` • ${resource.location}` : ''}
               </ThemedText>
             </View>
           </View>
-          {resource.description && (
-            <View style={[styles.descriptionContainer, { borderTopColor: colors.border }]}>
-              <ThemedText style={[styles.descriptionText, { color: colors.text }]}>
-                {resource.description}
-              </ThemedText>
-            </View>
-          )}
-        </View>
 
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon="cube"
-            label="Total"
-            value={resource.totalQuantity}
-            color={colors.text}
-            backgroundColor={`${colors.text}10`}
-            borderColor={colors.border}
-          />
-          <StatCard
-            icon="checkmark-circle"
-            label="Available"
-            value={resource.availableQuantity}
-            color={colors.success}
-            backgroundColor={`${colors.success}15`}
-            borderColor={colors.border}
-          />
-          <StatCard
-            icon="people"
-            label="In Use"
-            value={resource.totalQuantity - resource.availableQuantity}
-            color={colors.warning}
-            backgroundColor={`${colors.warning}15`}
-            borderColor={colors.border}
-          />
-          <StatCard
-            icon="trending-up"
-            label="Availability"
-            value={`${availabilityPercentage.toFixed(0)}%`}
-            color={availabilityPercentage > 30 ? colors.success : colors.warning}
-            backgroundColor={availabilityPercentage > 30 ? `${colors.success}15` : `${colors.warning}15`}
-            borderColor={colors.border}
-          />
-        </View>
-
-        {/* Availability */}
-        <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.progressHeader}>
-            <View style={[styles.progressIconWrap, { backgroundColor: `${colors.primary}12` }]}>
-              <Ionicons name="bar-chart-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.progressHeaderText}>
-              <ThemedText style={[styles.progressTitle, { color: colors.text }]}>
-                Availability
-              </ThemedText>
-              <ThemedText style={[styles.progressPercentage, {
-                color: availabilityPercentage > 30 ? colors.success : colors.warning,
-              }]}>
-                {availabilityPercentage.toFixed(1)}%
-              </ThemedText>
-            </View>
+          <View style={styles.chipsRow}>
+            <MetaChip label="Status" value={toTitle(resource.status)} color={getStatusColor()} />
+            <MetaChip label="Condition" value={toTitle(resource.condition)} color={getConditionColor()} />
+            {resource.resourceType ? <MetaChip label="Type" value={toTitle(resource.resourceType)} color={colors.primary} /> : null}
           </View>
+
+          <View style={styles.availabilityHeader}>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Availability</ThemedText>
+            <ThemedText style={[styles.availabilityPercent, { color: availabilityColor }]}>
+              {availabilityPercentage.toFixed(0)}%
+            </ThemedText>
+          </View>
+
+          <View style={styles.metricGrid}>
+            <StatCard icon="cube-outline" label="Total" value={resource.totalQuantity} tone={colors.icon} />
+            <StatCard icon="checkmark-circle-outline" label="Available" value={resource.availableQuantity} tone={colors.success} />
+            <StatCard icon="people-outline" label="In Use" value={inUseCount} tone={colors.warning} />
+            <StatCard icon="stats-chart-outline" label="Availability" value={`${availabilityPercentage.toFixed(0)}%`} tone={availabilityColor} />
+          </View>
+
           <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  backgroundColor: availabilityPercentage > 30 ? colors.success : colors.warning,
-                  width: `${Math.min(100, Math.max(0, availabilityPercentage))}%`,
-                },
-              ]}
-            />
+            <View style={[styles.progressBar, { width: `${Math.min(100, Math.max(0, availabilityPercentage))}%`, backgroundColor: availabilityColor }]} />
           </View>
-          <View style={styles.progressStats}>
-            <View style={styles.progressStatItem}>
-              <ThemedText style={[styles.progressStatLabel, { color: colors.text }]}>Available</ThemedText>
-              <ThemedText style={[styles.progressStatValue, { color: colors.success }]}>
-                {resource.availableQuantity}
-              </ThemedText>
-            </View>
-            <View style={styles.progressStatItem}>
-              <ThemedText style={[styles.progressStatLabel, { color: colors.text }]}>In Use</ThemedText>
-              <ThemedText style={[styles.progressStatValue, { color: colors.warning }]}>
-                {resource.totalQuantity - resource.availableQuantity}
-              </ThemedText>
-            </View>
-            <View style={styles.progressStatItem}>
-              <ThemedText style={[styles.progressStatLabel, { color: colors.text }]}>Total</ThemedText>
-              <ThemedText style={[styles.progressStatValue, { color: colors.text }]}>
-                {resource.totalQuantity}
-              </ThemedText>
-            </View>
+
+          <View style={styles.progressMetaRow}>
+            <ThemedText style={[styles.progressMetaText, { color: colors.text }]}>Available: {resource.availableQuantity}</ThemedText>
+            <ThemedText style={[styles.progressMetaText, { color: colors.text }]}>In Use: {inUseCount}</ThemedText>
           </View>
+
+          {resource.description ? (
+            <View style={[styles.descriptionWrap, { borderTopColor: colors.border }]}>
+              <ThemedText style={[styles.description, { color: colors.text }]}>{resource.description}</ThemedText>
+            </View>
+          ) : null}
         </View>
 
-        {/* Condition & Status (pills) */}
-        <View style={styles.conditionStatusRow}>
-          <View style={[styles.conditionPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.conditionPillIconWrap, { backgroundColor: `${getConditionColor(resource.condition)}18` }]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={getConditionColor(resource.condition)} />
-            </View>
-            <View style={styles.conditionPillContent}>
-              <ThemedText style={[styles.conditionPillLabel, { color: colors.text }]}>Condition</ThemedText>
-              <ThemedText style={[styles.conditionPillValue, { color: getConditionColor(resource.condition) }]} numberOfLines={1}>
-                {resource.condition.replace('_', ' ').charAt(0).toUpperCase() + resource.condition.replace('_', ' ').slice(1)}
-              </ThemedText>
-            </View>
-          </View>
-          <View style={[styles.statusPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.conditionPillIconWrap, { backgroundColor: `${getStatusColor(resource.status)}18` }]}>
-              <Ionicons name="checkmark-circle-outline" size={18} color={getStatusColor(resource.status)} />
-            </View>
-            <View style={styles.conditionPillContent}>
-              <ThemedText style={[styles.conditionPillLabel, { color: colors.text }]}>Status</ThemedText>
-              <ThemedText style={[styles.conditionPillValue, { color: getStatusColor(resource.status) }]} numberOfLines={1}>
-                {resource.status.charAt(0).toUpperCase() + resource.status.slice(1)}
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-
-        {/* Tags */}
         {resource.tags.length > 0 && (
-          <View style={[styles.tagsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.tagsHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: `${colors.primary}12` }]}>
-                <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
-              </View>
-              <ThemedText style={[styles.tagsTitle, { color: colors.text }]}>Tags</ThemedText>
-            </View>
+          <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Tags</ThemedText>
             <View style={styles.tagsContainer}>
               {resource.tags.map((tag, index) => (
-                <View key={index} style={[styles.tag, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}35` }]}>
+                <View key={index} style={[styles.tag, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}30` }]}>
                   <ThemedText style={[styles.tagText, { color: colors.primary }]} numberOfLines={1}>{tag}</ThemedText>
                 </View>
               ))}
@@ -237,12 +117,9 @@ export function ResourceDetailsTab({ resource }: ResourceDetailsTabProps) {
 
         {/* Resource Images */}
         {resource.images && resource.images.length > 0 && (
-          <View style={[styles.imagesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.imagesHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: `${colors.primary}12` }]}>
-                <Ionicons name="images-outline" size={18} color={colors.primary} />
-              </View>
-              <ThemedText style={[styles.imagesTitle, { color: colors.text }]}>
+              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
                 Images ({resource.images.length})
               </ThemedText>
             </View>
@@ -271,21 +148,54 @@ interface StatCardProps {
   icon: string;
   label: string;
   value: number | string;
-  color: string;
-  backgroundColor: string;
-  borderColor: string;
+  tone: string;
 }
 
-function StatCard({ icon, label, value, color, backgroundColor, borderColor }: StatCardProps) {
+function StatCard({ icon, label, value, tone }: StatCardProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   return (
-    <View style={[styles.statPill, { backgroundColor, borderColor }]}>
-      <View style={[styles.statPillIconWrap, { backgroundColor: `${color}18` }]}>
-        <Ionicons name={icon as any} size={18} color={color} />
+    <View style={[styles.statPill, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      <View style={[styles.statPillIconWrap, { backgroundColor: `${tone}14`, borderColor: colors.border }]}>
+        <Ionicons name={icon as any} size={16} color={tone} />
       </View>
-      <View style={styles.statPillContent}>
-        <ThemedText style={[styles.statPillValue, { color }]} numberOfLines={1}>{value}</ThemedText>
-        <ThemedText style={styles.statPillLabel} numberOfLines={1}>{label}</ThemedText>
-      </View>
+      <ThemedText style={[styles.statPillValue, { color: tone }]} numberOfLines={1}>{value}</ThemedText>
+      <ThemedText style={[styles.statPillLabel, { color: colors.text }]} numberOfLines={1}>{label}</ThemedText>
+    </View>
+  );
+}
+
+interface InfoRowProps {
+  label: string;
+  value: string;
+  valueColor?: string;
+}
+
+function InfoRow({ label, value, valueColor }: InfoRowProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  return (
+    <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
+      <ThemedText style={[styles.infoLabel, { color: colors.text }]}>{label}</ThemedText>
+      <ThemedText style={[styles.infoValue, { color: valueColor ?? colors.text }]} numberOfLines={1}>{value}</ThemedText>
+    </View>
+  );
+}
+
+interface MetaChipProps {
+  label: string;
+  value: string;
+  color: string;
+}
+
+function MetaChip({ label, value, color }: MetaChipProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  return (
+    <View style={[styles.metaChip, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      <View style={[styles.metaChipDot, { backgroundColor: color }]} />
+      <ThemedText style={[styles.metaChipLabel, { color: colors.text }]}>{label}</ThemedText>
+      <ThemedText style={[styles.metaChipValue, { color: colors.text }]} numberOfLines={1}>{value}</ThemedText>
     </View>
   );
 }
@@ -295,10 +205,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
+    padding: 12,
     ...Platform.select({
       web: {
-        padding: 24,
+        padding: 16,
       },
     }),
   },
@@ -306,9 +216,134 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webContentWrapper: {
-    maxWidth: 1000,
+    maxWidth: 860,
     alignSelf: 'center',
     width: '100%',
+  },
+  sectionCard: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  headerTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  subtitle: {
+    fontSize: 14,
+    opacity: 0.75,
+    marginTop: 2,
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.85,
+    marginBottom: 10,
+  },
+  descriptionWrap: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    maxWidth: '100%',
+  },
+  metaChipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  metaChipLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    opacity: 0.7,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  metaChipValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    maxWidth: 140,
+  },
+  availabilityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  availabilityPercent: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  metricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  infoList: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  infoLabel: {
+    fontSize: 13,
+    opacity: 0.75,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   
   // Hero Card
@@ -445,56 +480,33 @@ const styles = StyleSheet.create({
   statPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
+    justifyContent: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    gap: 12,
+    gap: 8,
     flex: 1,
     minWidth: '47%',
-    ...Platform.select({
-      web: {
-        minWidth: '22%',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        gap: 14,
-      },
-    }),
+    ...Platform.select({ web: { minWidth: '48%' } }),
   },
   statPillIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  statPillContent: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
+    borderWidth: 1,
   },
   statPillValue: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: -0.3,
-    marginBottom: 2,
-    ...Platform.select({
-      web: {
-        fontSize: 22,
-      },
-    }),
   },
   statPillLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     opacity: 0.75,
-    textTransform: 'uppercase',
-    letterSpacing: 0.35,
-    ...Platform.select({
-      web: {
-        fontSize: 12,
-      },
-    }),
+    letterSpacing: 0.2,
   },
   
   // Progress Card
@@ -554,14 +566,24 @@ const styles = StyleSheet.create({
     }),
   },
   progressTrack: {
-    height: 10,
-    borderRadius: 5,
+    height: 6,
+    borderRadius: 999,
     overflow: 'hidden',
-    marginBottom: 14,
+    marginBottom: 0,
   },
   progressBar: {
-    height: 10,
-    borderRadius: 5,
+    height: 6,
+    borderRadius: 999,
+  },
+  progressMetaRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  progressMetaText: {
+    fontSize: 13,
+    opacity: 0.75,
   },
   progressStats: {
     flexDirection: 'row',
@@ -719,28 +741,17 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   tag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     borderWidth: 1,
-    ...Platform.select({
-      web: {
-        paddingHorizontal: 14,
-        paddingVertical: 7,
-      },
-    }),
   },
   tagText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    ...Platform.select({
-      web: {
-        fontSize: 13,
-      },
-    }),
   },
   
   // Images Card

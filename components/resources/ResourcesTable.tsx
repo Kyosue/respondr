@@ -7,6 +7,7 @@ import { Resource, ResourceCategory } from '@/types/Resource';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Pressable } from 'react-native';
 
 interface ResourcesTableProps {
   resources: Resource[];
@@ -27,6 +28,43 @@ interface ResourcesTableProps {
   hasActiveFilters?: boolean;
   /** Called when user taps "Clear filters" in empty state */
   onClearFilters?: () => void;
+}
+
+interface TableActionButtonProps {
+  onPress: (e: any) => void;
+  icon: any;
+  label?: string;
+  accentColor: string;
+  colors: any;
+}
+
+function TableActionButton({ onPress, icon, label, accentColor, colors }: TableActionButtonProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const iconColor = isHovered ? '#fff' : accentColor;
+  const textColor = isHovered ? '#fff' : accentColor;
+
+  return (
+    <Pressable
+      style={[
+        styles.actionButton,
+        label ? styles.primaryButton : styles.iconButton,
+        {
+          backgroundColor: isHovered ? accentColor : colors.surface,
+          borderColor: isHovered ? accentColor : colors.border,
+        },
+      ]}
+      onPress={onPress}
+      onHoverIn={() => {
+        if (Platform.OS === 'web') setIsHovered(true);
+      }}
+      onHoverOut={() => {
+        if (Platform.OS === 'web') setIsHovered(false);
+      }}
+    >
+      <Ionicons name={icon} size={label ? 14 : 16} color={iconColor} />
+      {label ? <ThemedText style={[styles.actionButtonText, { color: textColor }]}>{label}</ThemedText> : null}
+    </Pressable>
+  );
 }
 
 function getCategoryColor(category: ResourceCategory): string {
@@ -483,19 +521,27 @@ export function ResourcesTable({
                   <View style={styles.mobileActions}>
                     {canBorrow && onBorrow && (
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.primaryButton, { backgroundColor: colors.primary }]}
+                        style={[
+                          styles.actionButton,
+                          styles.primaryButton,
+                          { backgroundColor: colors.surface, borderColor: colors.border }
+                        ]}
                         onPress={(e) => {
                           e.stopPropagation();
                           onBorrow(resource);
                         }}
                       >
-                        <Ionicons name="cart-outline" size={14} color="#fff" />
-                        <ThemedText style={styles.actionButtonText}>Borrow</ThemedText>
+                        <Ionicons name="cart-outline" size={14} color={colors.primary} />
+                        <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>Borrow</ThemedText>
                       </TouchableOpacity>
                     )}
                     {canEdit && onEdit && (
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.secondaryButton, { backgroundColor: `${colors.primary}20` }]}
+                        style={[
+                          styles.actionButton,
+                          styles.secondaryButton,
+                          { backgroundColor: colors.surface, borderColor: colors.border }
+                        ]}
                         onPress={(e) => {
                           e.stopPropagation();
                           onEdit(resource);
@@ -506,7 +552,11 @@ export function ResourcesTable({
                     )}
                     {canDelete && onDelete && (
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.dangerButton, { backgroundColor: `${colors.error}20` }]}
+                        style={[
+                          styles.actionButton,
+                          styles.dangerButton,
+                          { backgroundColor: colors.surface, borderColor: colors.border }
+                        ]}
                         onPress={(e) => {
                           e.stopPropagation();
                           onDelete(resource);
@@ -638,14 +688,6 @@ export function ResourcesTable({
               </ThemedText>
             </View>
           </View>
-          <View style={[styles.tableHeaderCell, styles.tableHeaderCellCondition]}>
-            <View style={styles.headerTitleContainer}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-              <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
-                Condition
-              </ThemedText>
-            </View>
-          </View>
           <View style={styles.tableHeaderCell}>
             <View style={styles.headerTitleContainer}>
               <Ionicons name="location-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
@@ -663,7 +705,7 @@ export function ResourcesTable({
             </View>
           </View>
           <View style={[styles.tableHeaderCell, styles.tableHeaderCellActions]}>
-            <View style={styles.headerTitleContainer}>
+            <View style={[styles.headerTitleContainer, styles.headerTitleContainerActions]}>
               <Ionicons name="settings-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
               <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
                 Actions
@@ -781,13 +823,6 @@ export function ResourcesTable({
                   </ThemedText>
                 </View>
               </View>
-              <View style={[styles.tableCell, styles.tableCellCondition]}>
-                <View style={[styles.conditionBadge, { backgroundColor: `${conditionColor}20` }]}>
-                  <ThemedText style={[styles.conditionText, { color: conditionColor }]}>
-                    {getConditionText(resource.condition)}
-                  </ThemedText>
-                </View>
-              </View>
               <View style={styles.tableCell}>
                 {resource.location ? (
                   <View style={styles.locationCell}>
@@ -824,38 +859,38 @@ export function ResourcesTable({
               <View style={[styles.tableCell, styles.tableCellActions]}>
                 <View style={styles.actionsCell}>
                   {canBorrow && onBorrow && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.primaryButton, { backgroundColor: colors.primary }]}
+                    <TableActionButton
+                      icon="cart-outline"
+                      label="Borrow"
+                      accentColor={colors.primary}
+                      colors={colors}
                       onPress={(e) => {
                         e.stopPropagation();
                         onBorrow(resource);
                       }}
-                    >
-                      <Ionicons name="cart-outline" size={14} color="#fff" />
-                      <ThemedText style={styles.actionButtonText}>Borrow</ThemedText>
-                    </TouchableOpacity>
+                    />
                   )}
                   {canEdit && onEdit && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.iconButton, { backgroundColor: `${colors.primary}20` }]}
+                    <TableActionButton
+                      icon="create-outline"
+                      accentColor={colors.primary}
+                      colors={colors}
                       onPress={(e) => {
                         e.stopPropagation();
                         onEdit(resource);
                       }}
-                    >
-                      <Ionicons name="create-outline" size={16} color={colors.primary} />
-                    </TouchableOpacity>
+                    />
                   )}
                   {canDelete && onDelete && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.iconButton, { backgroundColor: `${colors.error}20` }]}
+                    <TableActionButton
+                      icon="trash-outline"
+                      accentColor={colors.error}
+                      colors={colors}
                       onPress={(e) => {
                         e.stopPropagation();
                         onDelete(resource);
                       }}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={colors.error} />
-                    </TouchableOpacity>
+                    />
                   )}
                 </View>
               </View>
@@ -1055,7 +1090,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderCellActions: {
     flex: 1.5,
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   tableHeaderCellCondition: {
     flex: 0.7,
@@ -1098,7 +1133,10 @@ const styles = StyleSheet.create({
   },
   tableCellActions: {
     flex: 1.5,
-    alignItems: 'center',
+    alignItems: 'flex-end',
+  },
+  headerTitleContainerActions: {
+    justifyContent: 'flex-end',
   },
   tableCellCondition: {
     flex: 0.7,
@@ -1180,6 +1218,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
     gap: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
   },
   statusIndicator: {
     width: 8,
@@ -1215,8 +1255,10 @@ const styles = StyleSheet.create({
   actionsCell: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 6,
     flexWrap: 'wrap',
+    width: '100%',
   },
   actionButton: {
     flexDirection: 'row',
@@ -1225,6 +1267,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     gap: 4,
+    borderWidth: 1,
   },
   primaryButton: {
     // backgroundColor set dynamically
