@@ -319,6 +319,6 @@ export function ResourceFilterPopover({
     return count;
   }, [selectedCategory, selectedAgency, selectedResourceType, selectedStatus, selectedCondition, selectedSort]);
 
-  return <FilterPopover sections={sections} activeFilterCount={activeFilterCount} />;
+  return <FilterPopover sections={sections} activeFilterCount={activeFilterCount} triggerLabelWeb="Filter" />;
 }
 

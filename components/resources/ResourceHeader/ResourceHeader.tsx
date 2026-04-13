@@ -80,13 +80,14 @@ export function ResourceHeader({
           {showAddButton && (
             <TouchableOpacity 
               style={[styles.headerButton, { 
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
+                backgroundColor: isWeb ? colors.surface : colors.primary,
+                borderColor: isWeb ? colors.border : colors.primary,
               }]}
               onPress={onAddResource}
               activeOpacity={0.8}
             >
-              <Ionicons name="add" size={18} color="#fff" />
+              <Ionicons name="add" size={18} color={isWeb ? colors.primary : '#fff'} />
+              {isWeb && <ThemedText style={[styles.headerButtonText, { color: colors.primary }]}>Add Resources</ThemedText>}
             </TouchableOpacity>
           )}
           
@@ -95,23 +96,25 @@ export function ResourceHeader({
             <>
           <TouchableOpacity 
             style={[styles.headerButton, { 
-              backgroundColor: colors.success,
-              borderColor: colors.success,
+              backgroundColor: isWeb ? colors.surface : colors.success,
+              borderColor: isWeb ? colors.border : colors.success,
             }]}
             onPress={onMultiBorrow}
             activeOpacity={0.8}
           >
-             <Ionicons name="layers" size={16} color="#fff" />
+             <Ionicons name="layers" size={16} color={isWeb ? colors.success : '#fff'} />
+             <ThemedText style={[styles.headerButtonText, { color: isWeb ? colors.success : '#fff' }]}>Multi Borrow</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.headerButton, { 
-              backgroundColor: colors.warning,
-              borderColor: colors.warning,
+              backgroundColor: isWeb ? colors.surface : colors.warning,
+              borderColor: isWeb ? colors.border : colors.warning,
             }]}
             onPress={onBorrowerDashboard}
             activeOpacity={0.8}
           >
-            <Ionicons name="people" size={16} color="#fff" />
+            <Ionicons name="people" size={16} color={isWeb ? colors.warning : '#fff'} />
+            <ThemedText style={[styles.headerButtonText, { color: isWeb ? colors.warning : '#fff' }]}>Dashboard</ThemedText>
           </TouchableOpacity>
             </>
           ) : (
@@ -189,6 +192,11 @@ export function ResourceHeader({
             activeOpacity={0.8}
           >
             <Ionicons name={showSearch ? "close" : "search"} size={16} color={colors.text} />
+            {isWeb && (
+              <ThemedText style={[styles.headerButtonText, { color: colors.text }]}>
+                {showSearch ? 'Close' : 'Search'}
+              </ThemedText>
+            )}
           </TouchableOpacity>
           
           <ResourceFilterPopover 

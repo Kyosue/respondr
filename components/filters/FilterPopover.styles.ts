@@ -27,6 +27,20 @@ export const styles = StyleSheet.create({
       },
     }),
   },
+  filterButtonWebLabeled: {
+    width: 'auto',
+    minWidth: 44,
+    height: 32,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+  },
+  filterButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+  },
   filterBadge: {
     position: 'absolute',
     top: -4,

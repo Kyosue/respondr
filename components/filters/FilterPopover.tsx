@@ -36,6 +36,7 @@ interface FilterPopoverProps {
   sections: FilterSection[];
   activeFilterCount?: number;
   showActiveFilters?: boolean;
+  triggerLabelWeb?: string;
 }
 
 interface FilterSectionProps {
@@ -175,6 +176,7 @@ export function FilterPopover({
   sections,
   activeFilterCount = 0,
   showActiveFilters = false,
+  triggerLabelWeb,
 }: FilterPopoverProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -258,11 +260,20 @@ export function FilterPopover({
     <View style={styles.container}>
       {/* Filter Button */}
       <TouchableOpacity
-        style={[styles.filterButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        style={[
+          styles.filterButton,
+          isWeb && triggerLabelWeb ? styles.filterButtonWebLabeled : null,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
         onPress={() => setIsOpen(!isOpen)}
         activeOpacity={0.8}
       >
         <Ionicons name="filter-outline" size={16} color={colors.text} />
+        {isWeb && triggerLabelWeb ? (
+          <ThemedText style={[styles.filterButtonText, { color: colors.text }]}>
+            {triggerLabelWeb}
+          </ThemedText>
+        ) : null}
         {activeFilterCount > 0 && (
           <View style={[styles.filterBadge, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
             <ThemedText style={styles.filterBadgeText}>{activeFilterCount}</ThemedText>

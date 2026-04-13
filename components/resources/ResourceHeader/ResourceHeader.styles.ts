@@ -54,7 +54,20 @@ export const styles = StyleSheet.create({
       android: {
         elevation: 2,
       },
+      web: {
+        width: 'auto',
+        minWidth: 44,
+        height: 32,
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+      },
     }),
+  },
+  headerButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
   },
   searchContainer: {
     marginBottom: 12,
