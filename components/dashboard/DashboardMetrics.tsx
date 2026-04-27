@@ -3,15 +3,14 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface MetricItem {
   label: string;
   value: string | number;
   icon: keyof typeof Ionicons.glyphMap;
-  gradient: string[];
   color: string;
+  size?: 'large' | 'medium' | 'compact';
 }
 
 interface DashboardMetricsProps {
@@ -27,81 +26,73 @@ export function DashboardMetrics({
 }: DashboardMetricsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { isMobile } = useScreenSize();
+  const { isMobile, width } = useScreenSize();
+  const isWeb = Platform.OS === 'web';
+  const canFitHorizontal = isWeb && !isMobile && width >= 1280;
 
   const metrics: MetricItem[] = [
     { 
       label: 'Active Operations', 
       value: activeOperations,
       icon: 'location',
-      gradient: colorScheme === 'dark' ? ['#4361EE', '#3A0CA3'] : ['#4361EE', '#7209B7'],
-      color: '#4361EE'
+      color: '#4361EE',
+      size: 'large',
     },
     { 
       label: 'Resource Utilization', 
       value: `${resourceUtilization}%`,
       icon: 'cube',
-      gradient: colorScheme === 'dark' ? ['#4CAF50', '#059669'] : ['#4CAF50', '#10B981'],
-      color: '#4CAF50'
+      color: '#4CAF50',
+      size: 'medium',
     },
     { 
       label: 'Recent Documents', 
       value: recentDocuments,
       icon: 'document-text',
-      gradient: colorScheme === 'dark' ? ['#FF9800', '#F59E0B'] : ['#FF9800', '#F97316'],
-      color: '#FF9800'
+      color: '#FF9800',
+      size: 'compact',
     },
   ];
 
   return (
     <View style={styles.container}>
-      <View style={[styles.metricsContainer, isMobile && styles.metricsContainerMobile]}>
+      <View
+        style={[
+          styles.metricsContainer,
+          canFitHorizontal && styles.metricsContainerHorizontal,
+          isMobile && styles.metricsContainerMobile,
+        ]}
+      >
         {metrics.map((metric) => (
           <TouchableOpacity
             key={metric.label}
             activeOpacity={0.8}
-            style={[styles.metricCard, isMobile && styles.metricCardMobile]}
+            style={[
+              styles.metricCard,
+              canFitHorizontal && styles.metricCardHorizontal,
+              !canFitHorizontal && isWeb && metric.size === 'large' && styles.metricCardLarge,
+              !canFitHorizontal && isWeb && metric.size === 'medium' && styles.metricCardMedium,
+              !canFitHorizontal && isWeb && metric.size === 'compact' && styles.metricCardCompact,
+              isMobile && styles.metricCardMobile,
+            {
+              borderColor: colorScheme === 'dark' ? '#2A2F3A' : '#EAECF0',
+              backgroundColor: colorScheme === 'dark' ? '#171A21' : '#FFFFFF',
+            },
+            ]}
           >
-            <LinearGradient
-              colors={metric.gradient as any}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.gradientCard, isMobile && styles.gradientCardMobile]}
-            >
-              <View style={styles.metricContent}>
-                {isMobile ? (
-                  // Mobile: Icon and value on top, label below
-                  <>
-                    <View style={styles.mobileTopRow}>
-                      <View style={[styles.iconBackground, styles.iconBackgroundMobile, { backgroundColor: `${metric.color}20` }]}>
-                        <Ionicons name={metric.icon} size={16} color="#FFFFFF" />
-                      </View>
-                      <ThemedText style={styles.metricValueMobile}>
-                        {metric.value}
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={styles.metricLabelMobile} numberOfLines={2}>
-                      {metric.label}
-                    </ThemedText>
-                  </>
-                ) : (
-                  // Desktop: Icon and text side by side
-                  <View style={styles.metricRow}>
-                    <View style={[styles.iconBackground, { backgroundColor: `${metric.color}20` }]}>
-                      <Ionicons name={metric.icon} size={24} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.metricTextContainer}>
-                      <ThemedText style={styles.metricValue}>
-                        {metric.value}
-                      </ThemedText>
-                      <ThemedText style={styles.metricLabel}>
-                        {metric.label}
-                      </ThemedText>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </LinearGradient>
+          <View style={styles.webCardContent}>
+            <View style={[styles.webIconWrap, { backgroundColor: `${metric.color}14` }]}>
+              <Ionicons name={metric.icon} size={18} color={metric.color} />
+            </View>
+            <View style={styles.metricTextContainer}>
+              <ThemedText style={[styles.webMetricLabel, { color: colors.text }]}>
+                {metric.label}
+              </ThemedText>
+              <ThemedText style={[styles.webMetricValue, { color: colors.text }]}>
+                {metric.value}
+              </ThemedText>
+            </View>
+          </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -111,117 +102,90 @@ export function DashboardMetrics({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
-    paddingHorizontal: 4,
+    marginBottom: 14,
+    paddingHorizontal: 0,
   },
   metricsContainer: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     flexWrap: 'wrap',
+    alignItems: 'stretch',
+  },
+  metricsContainerHorizontal: {
+    flexWrap: 'nowrap',
   },
   metricsContainerMobile: {
-    gap: 8,
+    gap: 10,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
   metricCard: {
-    flex: 1,
-    minWidth: 160,
-    borderRadius: 16,
+    flexGrow: 1,
+    minWidth: 180,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  metricCardLarge: {
+    width: '100%',
+    minHeight: 104,
+  },
+  metricCardHorizontal: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 88,
+  },
+  metricCardMedium: {
+    width: '58%',
+    minHeight: 88,
+  },
+  metricCardCompact: {
+    width: '38%',
+    minHeight: 88,
   },
   metricCardMobile: {
-    width: '31%',
-    minWidth: '31%',
+    width: '48.5%',
+    minWidth: '48.5%',
     flex: 0,
     marginBottom: 0,
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  gradientCard: {
-    padding: 16,
-    borderRadius: 16,
-    minHeight: 80,
-    justifyContent: 'center',
-  },
-  gradientCardMobile: {
-    padding: 10,
-    minHeight: 85,
-    justifyContent: 'flex-start',
-  },
-  metricContent: {
-    flex: 1,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  mobileTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-    width: '100%',
-    gap: 4,
-  },
-  iconBackground: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    flexShrink: 0,
-  },
-  iconBackgroundMobile: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   metricTextContainer: {
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
   },
-  metricValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  webCardContent: {
+    minHeight: 84,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  webIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  webMetricLabel: {
+    fontSize: 12,
+    opacity: 0.62,
     marginBottom: 2,
     fontFamily: 'Gabarito',
   },
-  metricValueMobile: {
+  webMetricValue: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: '700',
     fontFamily: 'Gabarito',
-    flexShrink: 0,
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    fontWeight: '500',
-    fontFamily: 'Gabarito',
-    flexShrink: 1,
-  },
-  metricLabelMobile: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    fontWeight: '500',
-    fontFamily: 'Gabarito',
-    lineHeight: 13,
-    textAlign: 'left',
-    marginTop: 4,
   },
 });
 

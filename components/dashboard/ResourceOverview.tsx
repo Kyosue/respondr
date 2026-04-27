@@ -5,148 +5,37 @@ import { useResources } from '@/contexts/ResourceContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
-// Animated Stat Card Component
-interface StatCardWithAnimationProps {
+interface StatCardProps {
   stat: {
     label: string;
     value: number;
     icon: string;
     color: string;
-    percentage: number;
+    subtitle: string;
   };
-  activeBars: number;
-  totalBars: number;
   colors: any;
 }
 
-function StatCardWithAnimation({ stat, activeBars, totalBars, colors }: StatCardWithAnimationProps) {
-  const [cardWidth, setCardWidth] = useState(0);
-  const [calculatedBars, setCalculatedBars] = useState(totalBars);
-  
-  // Calculate number of bars based on card width
-  useEffect(() => {
-    if (cardWidth > 0) {
-      // Bar width + spacing (4px bar + 2px spacing = 6px per bar on web, 3px + 1.5px = 4.5px on mobile)
-      const barWidth = Platform.OS === 'web' ? 4 : 3;
-      const barSpacing = Platform.OS === 'web' ? 2 : 1.5;
-      const padding = Platform.OS === 'web' ? 24 : 20; // Card padding * 2
-      const availableWidth = cardWidth - padding;
-      const barUnit = barWidth + barSpacing;
-      const maxBars = Math.floor(availableWidth / barUnit);
-      // Use at least 20 bars, but not more than what fits
-      const bars = Math.max(20, Math.min(maxBars, 60));
-      setCalculatedBars(bars);
-    } else {
-      setCalculatedBars(totalBars);
-    }
-  }, [cardWidth, totalBars]);
-
-  const barAnimations = useRef(
-    Array.from({ length: 60 }).map(() => ({
-      scale: new Animated.Value(0),
-      opacity: new Animated.Value(0),
-    }))
-  ).current;
-
-  // Number counting animation
-  const countAnimation = useRef(new Animated.Value(0)).current;
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    // Number counting animation
-    Animated.timing(countAnimation, {
-      toValue: stat.value,
-      duration: 1500,
-      useNativeDriver: false, // We need to use false for number interpolation
-    }).start();
-
-    // Update display value as animation progresses
-    const listener = countAnimation.addListener(({ value }) => {
-      setDisplayValue(Math.floor(value));
-    });
-
-    return () => {
-      countAnimation.removeListener(listener);
-    };
-  }, [stat.value, countAnimation]);
-
-  useEffect(() => {
-    // Staggered animation for each bar
-    const activeBarsCount = Math.round((stat.percentage / 100) * calculatedBars);
-    const animations = barAnimations.slice(0, calculatedBars).map((anim, index) => {
-      const isActive = index < activeBarsCount;
-      const delay = index * 15; // 15ms delay between each bar
-      
-      return Animated.parallel([
-        Animated.timing(anim.scale, {
-          toValue: isActive ? 1 : 0.3,
-          duration: 400,
-          delay,
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim.opacity, {
-          toValue: isActive ? 1 : 0.3,
-          duration: 400,
-          delay,
-          useNativeDriver: true,
-        }),
-      ]);
-    });
-
-    if (animations.length > 0) {
-      Animated.stagger(0, animations).start();
-    }
-  }, [calculatedBars, stat.percentage, barAnimations]);
-
-  const activeBarsCount = Math.round((stat.percentage / 100) * calculatedBars);
-
+function StatCard({ stat, colors }: StatCardProps) {
   return (
-    <View 
-      style={[styles.statCard, { backgroundColor: `${stat.color}10` }]}
-      onLayout={(event) => {
-        const { width } = event.nativeEvent.layout;
-        setCardWidth(width);
-      }}
-    >
+    <View style={[styles.statCard, { backgroundColor: `${stat.color}10` }]}>
+      <View style={styles.statCardMetaRow}>
+        <ThemedText style={[styles.statMetaText, { color: colors.text }]}>{stat.subtitle}</ThemedText>
+      </View>
       <View style={styles.statCardTop}>
         <View style={[styles.statIconContainer, { backgroundColor: stat.color }]}>
           <Ionicons name={stat.icon as any} size={20} color="#FFFFFF" />
         </View>
         <View style={styles.statContent}>
           <ThemedText style={[styles.statValue, { color: colors.text }]}>
-            {displayValue}
+            {stat.value}
           </ThemedText>
           <ThemedText style={[styles.statLabel, { color: colors.text }]} numberOfLines={2}>
             {stat.label}
           </ThemedText>
         </View>
-      </View>
-      
-      {/* Individual Progress Bar with Vertical Bars - Auto Width */}
-      <View style={styles.cardProgressBar}>
-        {Array.from({ length: calculatedBars }).map((_, index) => {
-          const isActive = index < activeBarsCount;
-          const isLast = index === calculatedBars - 1;
-          const anim = barAnimations[index];
-          
-          return (
-            <Animated.View
-              key={index}
-              style={[
-                styles.cardProgressBarItem,
-                !isLast && styles.cardProgressBarItemSpacing,
-                isActive && { backgroundColor: stat.color },
-                {
-                  transform: [{ scaleY: anim.scale }],
-                  opacity: anim.opacity,
-                },
-              ]}
-            />
-          );
-        })}
       </View>
     </View>
   );
@@ -157,6 +46,8 @@ export function ResourceOverview() {
   const colors = Colors[colorScheme ?? 'light'];
   const { state } = useResources();
   const { isMobile } = useScreenSize();
+  const sidebarBackground = colorScheme === 'dark' ? '#15171C' : '#FFFFFF';
+  const sidebarBorder = colorScheme === 'dark' ? '#262A33' : '#EAECF0';
 
   const totalQuantity = state.resources.reduce((sum, r) => sum + (r.totalQuantity || 0), 0);
   const availableQuantity = state.resources.reduce((sum, r) => sum + (r.availableQuantity || 0), 0);
@@ -171,52 +62,45 @@ export function ResourceOverview() {
     return availabilityPercent < 10 && resource.availableQuantity > 0;
   }).length;
 
-  // Calculate percentages for each metric
-  const totalResourcesPercent = state.resources.length > 0 ? 100 : 0;
   const availablePercent = totalQuantity > 0 
     ? Math.round((availableQuantity / totalQuantity) * 100)
     : 0;
   const inUsePercent = utilizationPercentage;
-  const lowStockPercent = state.resources.length > 0
-    ? Math.round((lowStockCount / state.resources.length) * 100)
-    : 0;
+  const totalResourcesCount = state.resources.length;
 
   const stats = [
     {
-      label: 'Total Resources',
-      value: state.resources.length,
+      label: 'Resource Types',
+      value: totalResourcesCount,
       icon: 'cube-outline' as const,
       color: '#4361EE',
-      percentage: totalResourcesPercent,
+      subtitle: `${totalQuantity} units`,
     },
     {
-      label: 'Available',
+      label: 'Available Units',
       value: availableQuantity,
       icon: 'checkmark-circle-outline' as const,
       color: '#10B981',
-      percentage: availablePercent,
+      subtitle: `${availablePercent}%`,
     },
     {
-      label: 'In Use',
+      label: 'In Use Units',
       value: borrowedQuantity,
       icon: 'arrow-forward-circle-outline' as const,
       color: '#F59E0B',
-      percentage: inUsePercent,
+      subtitle: `${inUsePercent}%`,
     },
     {
-      label: 'Low Stock',
+      label: 'Low-Stock Types',
       value: lowStockCount,
       icon: 'warning-outline' as const,
       color: '#EF4444',
-      percentage: lowStockPercent,
+      subtitle: `${lowStockCount}/${totalResourcesCount}`,
     },
   ];
 
-  // Default total bars (will be overridden by card width measurement)
-  const totalBars = Platform.OS === 'web' ? 40 : 30;
-
   return (
-    <ThemedView style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <ThemedView style={[styles.container, { backgroundColor: sidebarBackground, borderColor: sidebarBorder }]}>
       <View style={styles.header}>
         <ThemedText style={[styles.title, { color: colors.text }]}>Resource Overview</ThemedText>
         <View style={[styles.utilizationBadge, { backgroundColor: `${colors.primary}15` }]}>
@@ -229,15 +113,37 @@ export function ResourceOverview() {
       <View style={[styles.statsGrid, isMobile && styles.statsGridMobile]}>
         {stats.map((stat) => {
           return (
-            <StatCardWithAnimation
+            <StatCard
               key={stat.label}
               stat={stat}
-              activeBars={0} // Will be calculated inside component
-              totalBars={totalBars}
               colors={colors}
             />
           );
         })}
+      </View>
+
+      <View style={[styles.compositionCard, { backgroundColor: colorScheme === 'dark' ? '#1B2029' : '#F8F9FC' }]}>
+        <View style={styles.compositionHeader}>
+          <ThemedText style={[styles.compositionTitle, { color: colors.text }]}>Inventory Composition</ThemedText>
+          <ThemedText style={[styles.compositionPercent, { color: colors.text }]}>{availablePercent}% / {inUsePercent}%</ThemedText>
+        </View>
+
+        <View style={styles.compositionTrack}>
+          <View style={[styles.compositionSegment, { flex: availableQuantity, backgroundColor: '#10B981' }]} />
+          <View style={[styles.compositionSegment, { flex: borrowedQuantity, backgroundColor: '#F59E0B' }]} />
+          {totalQuantity === 0 && <View style={[styles.compositionSegment, { flex: 1, backgroundColor: '#E5E7EB' }]} />}
+        </View>
+
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+            <ThemedText style={[styles.legendText, { color: colors.text }]}>Available ({availableQuantity})</ThemedText>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
+            <ThemedText style={[styles.legendText, { color: colors.text }]}>In Use ({borrowedQuantity})</ThemedText>
+          </View>
+        </View>
       </View>
     </ThemedView>
   );
@@ -245,13 +151,13 @@ export function ResourceOverview() {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
     ...(Platform.OS !== 'web' && {
-      padding: 14,
-      marginBottom: 16,
+      padding: 12,
+      marginBottom: 14,
     }),
     ...(Platform.OS === 'web' && {
       marginBottom: 0,
@@ -261,17 +167,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
     fontFamily: 'Gabarito',
   },
   utilizationBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   utilizationText: {
     fontSize: 12,
@@ -281,7 +187,7 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   statsGridMobile: {
     gap: 8,
@@ -289,80 +195,116 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: 140,
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     ...(Platform.OS !== 'web' && {
       padding: 10,
-      minWidth: '48%',
+      minWidth: '48.5%',
       flex: 0,
-      width: '48%',
+      width: '48.5%',
     }),
+  },
+  statCardMetaRow: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginBottom: 4,
+  },
+  statMetaText: {
+    fontSize: 12,
+    lineHeight: 15,
+    opacity: 0.82,
+    fontWeight: '700',
+    fontFamily: 'Gabarito',
   },
   statCardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 10,
   },
   statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     ...(Platform.OS !== 'web' && {
-      width: 36,
-      height: 36,
+      width: 32,
+      height: 32,
     }),
   },
   statContent: {
     flex: 1,
     minWidth: 0,
+    justifyContent: 'center',
+    gap: 2,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 2,
+    lineHeight: 24,
     fontFamily: 'Gabarito',
-    ...(Platform.OS !== 'web' && {
-      fontSize: 18,
-    }),
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     opacity: 0.8,
+    lineHeight: 15,
+    fontWeight: '600',
     fontFamily: 'Gabarito',
-    ...(Platform.OS !== 'web' && {
-      fontSize: 10,
-      lineHeight: 13,
-    }),
   },
-  cardProgressBar: {
+  compositionCard: {
+    marginTop: 10,
+    borderRadius: 10,
+    padding: 10,
+  },
+  compositionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    height: 16,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 8,
+  },
+  compositionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Gabarito',
+  },
+  compositionPercent: {
+    fontSize: 12,
+    opacity: 0.8,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+  },
+  compositionTrack: {
+    flexDirection: 'row',
+    height: 10,
     width: '100%',
-    flexWrap: 'nowrap',
-    ...(Platform.OS !== 'web' && {
-      height: 14,
-    }),
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginBottom: 8,
   },
-  cardProgressBarItem: {
-    width: 4,
+  compositionSegment: {
     height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 1.5,
-    flexShrink: 0,
-    ...(Platform.OS !== 'web' && {
-      width: 3,
-    }),
   },
-  cardProgressBarItemSpacing: {
-    marginRight: 2,
-    ...(Platform.OS !== 'web' && {
-      marginRight: 1.5,
-    }),
+  legendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  legendText: {
+    fontSize: 12,
+    opacity: 0.8,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
   },
 });
 

@@ -197,6 +197,8 @@ export function ActivityStream({ operations, documents, transactions }: Activity
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
+  const sidebarBackground = colorScheme === 'dark' ? '#15171C' : '#FFFFFF';
+  const sidebarBorder = colorScheme === 'dark' ? '#262A33' : '#EAECF0';
   
   // State to trigger periodic updates for recent activities
   const [updateTick, setUpdateTick] = useState(0);
@@ -329,7 +331,7 @@ export function ActivityStream({ operations, documents, transactions }: Activity
         styles.card, 
         isMobile && styles.cardMobile,
         !isMobile && styles.cardDesktop,
-        { backgroundColor: colors.surface, borderColor: colors.border }
+        { backgroundColor: sidebarBackground, borderColor: sidebarBorder }
       ]}>
         <View style={styles.headerSection}>
           <View style={styles.titleContainer}>
@@ -353,7 +355,7 @@ export function ActivityStream({ operations, documents, transactions }: Activity
       styles.card, 
       isMobile && styles.cardMobile,
       !isMobile && styles.cardDesktop,
-      { backgroundColor: colors.surface, borderColor: colors.border }
+      { backgroundColor: sidebarBackground, borderColor: sidebarBorder }
     ]}>
       <View style={styles.headerSection}>
         <View style={styles.titleContainer}>
@@ -412,18 +414,16 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 14,
+    marginBottom: 14,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   cardMobile: {
-    padding: 14,
-    marginBottom: 16,
-    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderRadius: 12,
   },
   cardDesktop: {
     flex: 1,
@@ -439,8 +439,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 10,
+    marginBottom: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
     ...(Platform.OS !== 'web' && {
@@ -454,18 +454,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerIconContainer: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     fontFamily: 'Gabarito',
     ...(Platform.OS !== 'web' && {
-      fontSize: 16,
+      fontSize: 15,
     }),
   },
   scrollView: {
@@ -475,54 +475,54 @@ const styles = StyleSheet.create({
     }),
   },
   group: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   groupLabel: {
     fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 6,
     fontFamily: 'Gabarito',
   },
   activityItem: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 6,
     alignItems: 'flex-start',
     paddingVertical: 2,
   },
   activityIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 8,
     flexShrink: 0,
   },
   activityContent: {
     flex: 1,
   },
   activityMessage: {
-    fontSize: 14,
+    fontSize: 13,
     marginBottom: 2,
     fontFamily: 'Gabarito',
-    lineHeight: 16,
+    lineHeight: 15,
     fontWeight: '500',
     ...(Platform.OS !== 'web' && {
-      fontSize: 13,
-      lineHeight: 18,
+      fontSize: 12,
+      lineHeight: 16,
     }),
   },
   activityTime: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'Gabarito',
     ...(Platform.OS !== 'web' && {
       fontSize: 10,
     }),
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
     paddingVertical: 40,
     fontFamily: 'Gabarito',

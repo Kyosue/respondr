@@ -9,54 +9,63 @@ export const dashboardStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Platform.OS === 'web' ? 24 : 120, // Extra padding to prevent content from being cut off by bottom nav
+    paddingBottom: Platform.OS === 'web' ? 20 : 108,
     flexGrow: 1,
   },
   header: {
-    marginBottom: Platform.OS === 'web' ? 24 : 20,
-    paddingBottom: Platform.OS === 'web' ? 16 : 12,
+    marginBottom: Platform.OS === 'web' ? 16 : 14,
+  },
+  webHeaderCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   title: {
-    fontSize: Platform.OS === 'web' ? 32 : 28,
+    fontSize: Platform.OS === 'web' ? 30 : 24,
     fontWeight: '700',
-    marginBottom: Platform.OS === 'web' ? 8 : 6,
+    marginBottom: Platform.OS === 'web' ? 4 : 3,
     fontFamily: 'Gabarito',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: Platform.OS === 'web' ? 15 : 13,
+    fontSize: Platform.OS === 'web' ? 14 : 12,
     fontFamily: 'Gabarito',
     opacity: 0.7,
-    lineHeight: Platform.OS === 'web' ? 20 : 18,
+    lineHeight: Platform.OS === 'web' ? 18 : 16,
   },
-  desktopLayout: {
-    flex: 1,
+  bentoGrid: {
+    width: '100%',
+    gap: Platform.OS === 'web' ? 14 : 16,
+  },
+  bentoTileFull: {
     width: '100%',
   },
-  desktopContentRow: {
+  bentoMainRow: {
     flexDirection: 'row',
     width: '100%',
-    gap: 20,
+    gap: Platform.OS === 'web' ? 14 : 16,
     alignItems: 'stretch',
   },
-  desktopLeftColumn: {
+  bentoTileTall: {
+    flex: Platform.OS === 'web' ? 1.3 : 1,
+    minWidth: 0,
+  },
+  bentoRightColumn: {
     flex: 1,
     minWidth: 0,
-    gap: 20,
+    gap: Platform.OS === 'web' ? 10 : 12,
     justifyContent: 'flex-start',
   },
-  desktopRightColumn: {
-    width: 400,
-    flexShrink: 0,
-    justifyContent: 'flex-start',
-  },
-  desktopFullWidth: {
+  bentoTileTopRight: {
     width: '100%',
-    gap: 20,
+  },
+  bentoTileBottomRight: {
+    width: '100%',
   },
   mobileLayout: {
     flex: 1,
-    gap: Platform.OS === 'web' ? 20 : 16,
+    gap: Platform.OS === 'web' ? 16 : 14,
   },
 });
 

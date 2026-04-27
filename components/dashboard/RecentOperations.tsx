@@ -51,6 +51,8 @@ export function RecentOperations({ operations, onViewAll, onOperationPress, onNa
   const { isMobile } = useScreenSize();
   const { setMunicipalityToOpen } = useNavigation();
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const sidebarBackground = colorScheme === 'dark' ? '#15171C' : '#FFFFFF';
+  const sidebarBorder = colorScheme === 'dark' ? '#262A33' : '#EAECF0';
 
   const recentOperations = operations
     .filter(op => op.status === 'active')
@@ -70,7 +72,7 @@ export function RecentOperations({ operations, onViewAll, onOperationPress, onNa
 
   if (recentOperations.length === 0) {
     return (
-      <ThemedView style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <ThemedView style={[styles.container, { backgroundColor: sidebarBackground, borderColor: sidebarBorder }]}>
         <View style={styles.header}>
           <ThemedText style={[styles.title, { color: colors.text }]}>Recent Operations</ThemedText>
         </View>
@@ -87,7 +89,7 @@ export function RecentOperations({ operations, onViewAll, onOperationPress, onNa
   // Render table view for web
   if (Platform.OS === 'web' && !isMobile) {
     return (
-      <ThemedView style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <ThemedView style={[styles.container, { backgroundColor: sidebarBackground, borderColor: sidebarBorder }]}>
         <View style={styles.header}>
           <ThemedText style={[styles.title, { color: colors.text }]}>Recent Operations</ThemedText>
           {onViewAll && (
@@ -184,7 +186,7 @@ export function RecentOperations({ operations, onViewAll, onOperationPress, onNa
 
   // Render list view for mobile
   return (
-    <ThemedView style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <ThemedView style={[styles.container, { backgroundColor: sidebarBackground, borderColor: sidebarBorder }]}>
       <View style={styles.header}>
         <ThemedText style={[styles.title, { color: colors.text }]}>Recent Operations</ThemedText>
         {onViewAll && (
@@ -231,14 +233,14 @@ export function RecentOperations({ operations, onViewAll, onOperationPress, onNa
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
     ...(Platform.OS !== 'web' && {
-      padding: 14,
-      marginBottom: 16,
-      borderRadius: 14,
+      padding: 12,
+      marginBottom: 14,
+      borderRadius: 12,
     }),
     ...(Platform.OS === 'web' && {
       marginBottom: 0,
@@ -248,22 +250,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     ...(Platform.OS !== 'web' && {
       marginBottom: 12,
     }),
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     fontFamily: 'Gabarito',
     ...(Platform.OS !== 'web' && {
       fontSize: 16,
     }),
   },
   viewAll: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
     fontFamily: 'Gabarito',
   },
   operationsList: {
@@ -272,11 +274,11 @@ const styles = StyleSheet.create({
   operationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     gap: 12,
     ...(Platform.OS !== 'web' && {
-      paddingVertical: 10,
+      paddingVertical: 9,
       gap: 10,
     }),
   },
@@ -291,13 +293,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   operationTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
     fontFamily: 'Gabarito',
     ...(Platform.OS !== 'web' && {
-      fontSize: 14,
-      marginBottom: 3,
+      fontSize: 13,
+      marginBottom: 2,
     }),
   },
   operationMeta: {
@@ -311,7 +313,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 11,
     opacity: 0.7,
     fontFamily: 'Gabarito',
   },
@@ -333,17 +335,17 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    borderBottomWidth: 2,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     backgroundColor: 'transparent',
   },
   tableHeaderCell: {
     paddingHorizontal: 8,
   },
   tableHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     opacity: 0.7,
@@ -355,8 +357,8 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
@@ -368,7 +370,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tableCellText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Gabarito',
   },
   tableCellStatus: {
@@ -392,15 +394,15 @@ const styles = StyleSheet.create({
     minWidth: 140,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
     alignSelf: 'flex-start',
   },
   statusBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '500',
     fontFamily: 'Gabarito',
   },
 });

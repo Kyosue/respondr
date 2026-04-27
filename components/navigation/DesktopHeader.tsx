@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -17,6 +17,7 @@ export function DesktopHeader({ title, onTabChange }: DesktopHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
+  const isWeb = Platform.OS === 'web';
 
   // Get first and last word from user's full name
   const getUserDisplayName = (fullName?: string) => {
@@ -28,40 +29,49 @@ export function DesktopHeader({ title, onTabChange }: DesktopHeaderProps) {
 
   const displayName = getUserDisplayName(user?.fullName);
 
+  const headerContent = (
+    <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      {displayName ? (
+        <View style={styles.nameContainer}>
+          <ThemedText style={[styles.userName, { color: colors.text }]}>
+            {displayName}
+          </ThemedText>
+        </View>
+      ) : null}
+      <View style={styles.rightSection}>
+        <NotificationButton
+          buttonSize={40}
+          iconSize={20}
+          dropdownWidth={360}
+          dropdownMaxHeight={500}
+          onNavigate={onTabChange}
+        />
+        <ProfileButton
+          buttonSize={40}
+          iconSize={18}
+          dropdownWidth={360}
+          dropdownMaxHeight={500}
+        />
+      </View>
+    </View>
+  );
+
+  if (isWeb) {
+    return headerContent;
+  }
+
   return (
     <SafeAreaView edges={['top']}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        {displayName ? (
-          <View style={styles.nameContainer}>
-            <ThemedText style={[styles.userName, { color: colors.text }]}>
-              {displayName}
-            </ThemedText>
-          </View>
-        ) : null}
-        <View style={styles.rightSection}>
-          <NotificationButton
-            buttonSize={40}
-            iconSize={20}
-            dropdownWidth={360}
-            dropdownMaxHeight={500}
-            onNavigate={onTabChange}
-          />
-          <ProfileButton
-            buttonSize={40}
-            iconSize={18}
-            dropdownWidth={360}
-            dropdownMaxHeight={500}
-          />
-        </View>
-      </View>
+      {headerContent}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    minHeight: 76,
     paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',

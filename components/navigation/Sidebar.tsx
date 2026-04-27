@@ -1,17 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Animated,
   Image,
-  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 import { LogoutModal } from '@/components/modals/LogoutModal';
 import { ThemedText } from '@/components/ThemedText';
@@ -26,163 +23,71 @@ interface SidebarProps {
   onTabChange: (tab: string) => void;
 }
 
-interface AnimatedNavItemProps {
-  tab: { id: string; icon: string; label?: string; title?: string };
+interface SidebarNavItem {
+  item: { id: string; icon: string; label?: string; title?: string };
   isActive: boolean;
   isCollapsed: boolean;
   colors: any;
   onPress: () => void;
 }
 
-function AnimatedNavItem({ tab, isActive, isCollapsed, colors, onPress }: AnimatedNavItemProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const backgroundColorAnim = useRef(new Animated.Value(0)).current;
-  const accentBarAnim = useRef(new Animated.Value(0)).current;
-  const iconScaleAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(backgroundColorAnim, {
-        toValue: isActive ? 1 : 0,
-        useNativeDriver: false,
-        tension: 300,
-        friction: 30,
-      }),
-      Animated.spring(accentBarAnim, {
-        toValue: isActive ? 1 : 0,
-        useNativeDriver: false,
-        tension: 300,
-        friction: 30,
-      }),
-      Animated.spring(iconScaleAnim, {
-        toValue: isActive ? 1.1 : 1,
-        useNativeDriver: true,
-        tension: 300,
-        friction: 20,
-      }),
-    ]).start();
-  }, [isActive]);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 20,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 20,
-    }).start();
-  };
-
-  const backgroundColor = backgroundColorAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['transparent', `${colors.primary}25`],
-  });
-
-
-  const displayText = tab.id === 'sitrep' ? 'Situation Report' : (tab.label || tab.title);
-
-  const shadowStyle = isActive
-    ? Platform.select({
-        ios: {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 6,
-        },
-        android: {
-          elevation: 4,
-        },
-      })
-    : {};
+function NavItem({ item, isActive, isCollapsed, colors, onPress }: SidebarNavItem) {
+  const label = item.id === 'sitrep' ? 'Situation Report' : (item.label || item.title || item.id);
+  const iconName = isActive ? item.icon.replace('-outline', '') : item.icon;
 
   return (
-    <Animated.View
-      style={[
-        styles.menuItemContainer,
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.navItem,
         {
-          transform: [{ scale: scaleAnim }],
+          borderColor: isActive ? `${colors.primary}75` : 'transparent',
+          backgroundColor: isActive ? `${colors.primary}0F` : 'transparent',
+          opacity: pressed ? 0.68 : 1,
         },
       ]}
     >
-      <Animated.View
-      />
-      <Animated.View
-        style={[
-          styles.menuItem,
-          {
-            backgroundColor: backgroundColor,
-            ...shadowStyle,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.menuItemTouchable}
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          activeOpacity={1}
+      <View style={styles.iconWrap}>
+        <Ionicons
+          name={iconName as any}
+          size={20}
+          color={isActive ? colors.primary : `${colors.text}AA`}
+        />
+      </View>
+      {!isCollapsed && (
+        <ThemedText
+          style={[
+            styles.navText,
+            {
+              color: isActive ? colors.text : `${colors.text}BF`,
+              fontWeight: isActive ? '600' : '500',
+            },
+          ]}
         >
-          <Animated.View
-            style={{
-              transform: [{ scale: iconScaleAnim }],
-            }}
-          >
-            <Ionicons
-              name={
-                isActive
-                  ? tab.icon.replace('-outline', '') as any
-                  : tab.icon as any
-              }
-              size={22}
-              color={isActive ? colors.primary : colors.text}
-            />
-          </Animated.View>
-          {!isCollapsed && (
-            <ThemedText
-              style={[
-                styles.menuItemText,
-                {
-                  color: isActive ? colors.primary : colors.text,
-                  fontWeight: isActive ? '600' : '500',
-                },
-              ]}
-            >
-              {displayText}
-            </ThemedText>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
-    </Animated.View>
+          {label}
+        </ThemedText>
+      )}
+    </Pressable>
   );
 }
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { user } = useAuth();
   const { logout } = useLogin();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const router = useRouter();
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  
-  // Get menu items based on user role
-  const menuItems = user?.userType ? getMenuItems(user.userType) : [];
-  
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
 
-  const handleLogoutPress = () => {
-    setShowLogoutModal(true);
-  };
+  const menuItems = user?.userType ? getMenuItems(user.userType) : [];
+  const secondaryItems = useMemo(
+    () => menuItems.filter(item => item.id !== 'logout'),
+    [menuItems],
+  );
+
+  const logoutItem = menuItems.find(item => item.id === 'logout');
 
   const handleLogoutConfirm = async () => {
     setShowLogoutModal(false);
@@ -190,160 +95,118 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     router.replace('/login');
   };
 
-  const handleLogoutCancel = () => {
-    setShowLogoutModal(false);
-  };
-
   return (
-    <SafeAreaView 
+    <SafeAreaView
       style={[
-        styles.sidebar, 
-        { 
-          backgroundColor: colors.surface, 
-          borderRightColor: colors.border,
-          width: isCollapsed ? 80 : 250,
-          flex: 1,
-        }
+        styles.sidebar,
+        {
+          backgroundColor: colorScheme === 'dark' ? '#15171C' : '#FFFFFF',
+          borderRightColor: colorScheme === 'dark' ? '#262A33' : '#EAECF0',
+          width: isCollapsed ? 72 : 248,
+        },
       ]}
-      edges={['top', 'left']}
+      edges={['top']}
     >
-      {/* Logo Section with Toggle */}
-      <View style={styles.logoSection}>
-        <TouchableOpacity 
-          style={styles.logoContainer}
-          onPress={isCollapsed ? toggleCollapse : undefined}
-          activeOpacity={isCollapsed ? 0.7 : 1}
-        >
-          <Image
-            source={require('@/assets/images/respondr_foreground.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-        
-        {!isCollapsed && (
-          <View style={styles.logoTextContainer}>
-            <ThemedText type="subtitle" style={styles.appName}>
-              Respondr
-            </ThemedText>
-          </View>
-        )}
-        
-        {!isCollapsed && (
-          <TouchableOpacity 
-            style={styles.toggleButton}
-            onPress={toggleCollapse}
-            activeOpacity={0.7}
+      <View style={[styles.header, { borderBottomColor: colorScheme === 'dark' ? '#262A33' : '#EAECF0' }]}>
+        <View style={styles.brandWrap}>
+          <Pressable
+            onPress={isCollapsed ? () => setIsCollapsed(false) : undefined}
+            style={[styles.logoBadge, { backgroundColor: colorScheme === 'dark' ? '#222633' : '#EEF0FF' }]}
           >
-            <View style={{ transform: [{ rotate: '180deg' }] }}>
-              <Svg viewBox="0 0 24 24" width={26} height={26}>
-                <Path 
-                  d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2z" 
-                  stroke={colors.text} 
-                  fill="none" 
-                  strokeWidth="1.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                />
-                <Path 
-                  d="M15 4v16" 
-                  stroke={colors.text} 
-                  fill="none" 
-                  strokeWidth="1.5" 
-                />
-                <Path 
-                  d="m9 10 2 2 -2 2" 
-                  stroke={colors.text} 
-                  fill="none" 
-                  strokeWidth="1.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                />
-              </Svg>
+            <Image
+              source={require('@/assets/images/respondr_foreground.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </Pressable>
+          {!isCollapsed && (
+            <View>
+              <ThemedText style={[styles.brandName, { color: colors.text }]}>Respondr</ThemedText>
+              <ThemedText style={[styles.brandTagline, { color: `${colors.text}99` }]}>
+                Command Center
+              </ThemedText>
             </View>
-          </TouchableOpacity>
+          )}
+        </View>
+        {!isCollapsed && (
+          <Pressable style={styles.collapseButton} onPress={() => setIsCollapsed(true)} hitSlop={6}>
+            <Ionicons
+              name="chevron-back"
+              size={18}
+              color={`${colors.text}8C`}
+            />
+          </Pressable>
         )}
       </View>
 
-
-      {/* Bottom Tabs (Primary Navigation) */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {!isCollapsed && (
-          <View style={styles.section}>
-            <ThemedText style={[styles.sectionTitle, { color: colors.text, opacity: 0.6 }]}>
-              Main
-            </ThemedText>
-          </View>
-        )}
-        <View style={styles.section}>
-          {BOTTOM_TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <AnimatedNavItem
-                key={tab.id}
-                tab={tab}
-                isActive={isActive}
-                isCollapsed={isCollapsed}
-                colors={colors}
-                onPress={() => onTabChange(tab.id)}
-              />
-            );
-          })}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.navSection}>
+          {!isCollapsed && (
+            <View style={styles.sectionHeader}>
+              <ThemedText style={[styles.sectionLabel, { color: colors.text }]}>Operations</ThemedText>
+            </View>
+          )}
+          {BOTTOM_TABS.map((tab) => (
+            <NavItem
+              key={tab.id}
+              item={tab}
+              isActive={activeTab === tab.id}
+              isCollapsed={isCollapsed}
+              colors={colors}
+              onPress={() => onTabChange(tab.id)}
+            />
+          ))}
         </View>
 
-        {/* Divider for collapsed state */}
-        {isCollapsed && (
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        )}
+        <View style={[styles.divider, { backgroundColor: colorScheme === 'dark' ? '#262A33' : '#EEF0F4' }]} />
 
-        {/* Hamburger Menu Items (Secondary Navigation) */}
-        {!isCollapsed && (
-          <View style={styles.section}>
-            <ThemedText style={[styles.sectionTitle, { color: colors.text, opacity: 0.6 }]}>
-              More
-            </ThemedText>
-          </View>
-        )}
-        <View style={styles.section}>
-          {menuItems.filter(item => item.id !== 'logout').map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <AnimatedNavItem
-                key={item.id}
-                tab={item}
-                isActive={isActive}
-                isCollapsed={isCollapsed}
-                colors={colors}
-                onPress={() => onTabChange(item.id)}
-              />
-            );
-          })}
+        <View style={styles.navSection}>
+          {!isCollapsed && (
+            <View style={styles.sectionHeader}>
+              <ThemedText style={[styles.sectionLabel, { color: colors.text }]}>Management</ThemedText>
+            </View>
+          )}
+          {secondaryItems.map((item) => (
+            <NavItem
+              key={item.id}
+              item={item}
+              isActive={activeTab === item.id}
+              isCollapsed={isCollapsed}
+              colors={colors}
+              onPress={() => onTabChange(item.id)}
+            />
+          ))}
         </View>
       </ScrollView>
 
-      {/* Logout Button */}
-      <TouchableOpacity
-        style={[styles.logoutButton, { borderTopColor: colors.border }]}
-        onPress={handleLogoutPress}
-        activeOpacity={0.7}
+      <Pressable
+        onPress={() => setShowLogoutModal(true)}
+        style={({ pressed }) => [
+          styles.logoutButton,
+          {
+            borderTopColor: colorScheme === 'dark' ? '#262A33' : '#EEF0F4',
+            backgroundColor: pressed
+              ? `${colors.error}24`
+              : (colorScheme === 'dark' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)'),
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            paddingHorizontal: isCollapsed ? 0 : 20,
+          },
+        ]}
       >
-        <Ionicons
-          name={menuItems.find(item => item.id === 'logout')?.icon as any}
-          size={22}
-          color={colors.error}
-        />
+        <View style={styles.iconWrap}>
+          <Ionicons name={(logoutItem?.icon || 'log-out-outline') as any} size={20} color={colors.error} />
+        </View>
         {!isCollapsed && (
           <ThemedText style={[styles.logoutText, { color: colors.error }]}>
-            {menuItems.find(item => item.id === 'logout')?.title}
+            {logoutItem?.title || 'Logout'}
           </ThemedText>
         )}
-      </TouchableOpacity>
+      </Pressable>
 
-      {/* Logout Modal */}
       <LogoutModal
         visible={showLogoutModal}
         onConfirm={handleLogoutConfirm}
-        onCancel={handleLogoutCancel}
+        onCancel={() => setShowLogoutModal(false)}
       />
     </SafeAreaView>
   );
@@ -351,111 +214,122 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 250,
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-      },
-    }),
+    flex: 1,
+    height: '100%',
+    borderRightWidth: StyleSheet.hairlineWidth,
+    marginLeft: 0,
+    paddingLeft: 0,
   },
-  logoSection: {
-    padding: 16,
-    paddingTop: 20,
-    paddingBottom: 20,
+  header: {
+    minHeight: 76,
+    borderBottomWidth: 0,
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+    justifyContent: 'space-between',
   },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: 50,
-    height: 50,
-  },
-  logoTextContainer: {
-    flex: 1,
-  },
-  appName: {
-    fontWeight: 'bold',
-    fontSize: 24,
-    lineHeight: 16,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
-  },
-  menuItemContainer: {
-    position: 'relative',
-    marginHorizontal: 12,
-    marginVertical: 2,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    borderRadius: 12,
-    minHeight: 44,
-    overflow: 'hidden',
-  },
-  menuItemTouchable: {
+  brandWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    flex: 1,
+    gap: 9,
+    flexShrink: 1,
   },
-  menuItemText: {
-    marginLeft: 16,
-    fontSize: 15,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingHorizontal: 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginBottom: Platform.OS === 'web' ? 0 : 8,
-  },
-  logoutText: {
-    marginLeft: 16,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  toggleButton: {
-    padding: 8,
+  logoBadge: {
+    width: 40,
+    height: 40,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logo: {
+    width: 24,
+    height: 24,
+  },
+  brandName: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  brandTagline: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: -2,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingVertical: 8,
+    paddingLeft: 10,
+    paddingRight: 10,
+  },
+  navSection: {
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  sectionHeader: {
+    minHeight: 32,
+    marginBottom: 2,
+    paddingLeft: 10,
+    paddingRight: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  collapseButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  navItem: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    marginVertical: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    justifyContent: 'flex-start',
+  },
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navText: {
+    fontSize: 16,
+    lineHeight: 18,
+  },
   divider: {
-    height: 1,
-    marginHorizontal: 20,
-    marginVertical: 8,
+    height: StyleSheet.hairlineWidth,
+    marginTop: 10,
+    marginBottom: 8,
+    marginHorizontal: 10,
+  },
+  logoutButton: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: 58,
+    paddingHorizontal: 20,
+    marginHorizontal: 10,
+    marginVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

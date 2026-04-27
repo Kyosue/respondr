@@ -119,7 +119,6 @@ export function AddExternalResourceModal({
       onClose();
     }
   });
-
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Real-time validation
@@ -702,23 +701,22 @@ export function AddExternalResourceModal({
 
   // Platform-specific modal rendering
   if (isWeb) {
-    // RAMP implementation for web
     return (
       <Modal
         visible={visible}
         {...getModalConfig()}
         onRequestClose={handleClose}
-        transparent={true}
+        transparent
         animationType="fade"
       >
-        <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
           <TouchableOpacity 
             style={styles.overlayCloseButton} 
             onPress={handleClose}
             activeOpacity={0.7}
           />
           <Animated.View style={[
-            styles.container,
+            styles.webPanel,
             {
               opacity: fadeAnim,
               transform: [
@@ -727,29 +725,29 @@ export function AddExternalResourceModal({
               ]
             }
           ]}>
-            <ThemedView style={styles.modalContent}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-              <Ionicons name="close" size={20} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <ThemedText type="subtitle" style={styles.title}>Add External Resource</ThemedText>
-              <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
-                Create a new resource entry
-              </ThemedText>
+          <ThemedView style={styles.modalContent}>
+            <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+              <View style={styles.headerTop}>
+                <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="close" size={20} color={colors.text} />
+                </TouchableOpacity>
+                <View style={styles.headerTitleContainer}>
+                  <ThemedText type="subtitle" style={styles.title}>Add External Resource</ThemedText>
+                  <ThemedText style={[styles.headerSubtitle, { color: colors.text + '80' }]}>
+                    Create a new resource entry
+                  </ThemedText>
+                </View>
+                <View style={styles.headerButton}>
+                  <FormButton title="Save" onPress={handleSubmit} variant="primary" disabled={loading} loading={loading} style={styles.saveButtonPill} />
+                </View>
+              </View>
             </View>
-            <View style={styles.headerButton}>
-              <FormButton title="Save" onPress={handleSubmit} variant="primary" disabled={loading} loading={loading} style={styles.saveButtonPill} />
-            </View>
-          </View>
-        </View>
 
-        {renderFormSections()}
+            {renderFormSections()}
           </ThemedView>
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
-    </Modal>
+      </Modal>
     );
   }
 
@@ -790,7 +788,7 @@ export function AddExternalResourceModal({
 
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
@@ -805,20 +803,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1,
   },
-  container: {
+  webPanel: {
     width: '100%',
-    maxWidth: 600,
-    maxHeight: '90%',
-    borderRadius: 12,
+    maxWidth: 620,
+    height: '96%',
+    maxHeight: '96%',
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    ...StyleSheet.create({ shadow: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16,
+    }}).shadow,
     zIndex: 2,
   },
   modalContent: {

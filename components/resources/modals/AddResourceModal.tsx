@@ -109,7 +109,6 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
       onClose();
     }
   });
-
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Real-time validation
@@ -360,23 +359,22 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
 
   // Platform-specific modal rendering
   if (isWeb) {
-    // RAMP implementation for web
-  return (
-    <Modal
-      visible={visible}
-      {...getModalConfig()}
-      onRequestClose={handleClose}
-        transparent={true}
+    return (
+      <Modal
+        visible={visible}
+        {...getModalConfig()}
+        onRequestClose={handleClose}
+        transparent
         animationType="fade"
       >
-        <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
-          <TouchableOpacity 
-            style={styles.overlayCloseButton} 
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity
+            style={styles.overlayCloseButton}
             onPress={handleClose}
             activeOpacity={0.7}
           />
           <Animated.View style={[
-            styles.container,
+            styles.webPanel,
             {
               opacity: fadeAnim,
               transform: [
@@ -667,10 +665,10 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
             />
           </View>
         </ScrollView>
-          </ThemedView>
+            </ThemedView>
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
-    </Modal>
+      </Modal>
     );
   }
 
@@ -1002,7 +1000,7 @@ export function AddResourceModal({ visible, onClose, onSuccess }: AddResourceMod
 
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
@@ -1017,20 +1015,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1,
   },
-  container: {
+  webPanel: {
     width: '100%',
-    maxWidth: 600,
-    maxHeight: '90%',
-    borderRadius: 12,
+    maxWidth: 620,
+    height: '96%',
+    maxHeight: '96%',
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    ...StyleSheet.create({ shadow: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16,
+    }}).shadow,
     zIndex: 2,
   },
   modalContent: {

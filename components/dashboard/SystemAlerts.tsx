@@ -94,43 +94,43 @@ export function SystemAlerts() {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
     ...(Platform.OS !== 'web' && {
-      padding: 14,
+      padding: 12,
       marginBottom: 16,
-      borderRadius: 14,
+      borderRadius: 12,
     }),
   },
   header: {
-    marginBottom: Platform.OS === 'web' ? 12 : 10,
+    marginBottom: Platform.OS === 'web' ? 10 : 8,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     fontFamily: 'Gabarito',
   },
   alertsList: {
-    gap: 10,
+    gap: 8,
   },
   alertItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderRadius: 10,
-    borderLeftWidth: 4,
-    gap: 12,
+    borderLeftWidth: 3,
+    gap: 10,
     ...(Platform.OS !== 'web' && {
-      padding: 10,
+      padding: 9,
       borderRadius: 8,
-      gap: 10,
+      gap: 8,
     }),
   },
   alertMessage: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Gabarito',
     ...(Platform.OS !== 'web' && {
       fontSize: 13,

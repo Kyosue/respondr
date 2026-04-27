@@ -9,7 +9,6 @@ import { useScreenSize } from '@/hooks/useScreenSize';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { ActivityStream } from './ActivityStream';
-import { DashboardMetrics } from './DashboardMetrics';
 import { RecentOperations } from './RecentOperations';
 import { ResourceOverview } from './ResourceOverview';
 import { SystemAlerts } from './SystemAlerts';
@@ -65,32 +64,6 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
     loadDocuments(undefined, true); // refresh: true to replace, not append
   }, [loadDocuments]); // Include loadDocuments in dependencies
 
-  // Calculate metrics
-  const activeOperations = operations.filter(op => op.status === 'active').length;
-  
-  // Calculate resource utilization from total quantities, not resource count
-  const totalQuantity = resourceState.resources.reduce((sum, r) => sum + (r.totalQuantity || 0), 0);
-  const borrowedQuantity = resourceState.resources.reduce((sum, r) => sum + ((r.totalQuantity || 0) - (r.availableQuantity || 0)), 0);
-  const resourceUtilization = totalQuantity > 0
-    ? Math.round((borrowedQuantity / totalQuantity) * 100)
-    : 0;
-
-  // Recent documents (last 7 days) - deduplicate by ID first
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  
-  // Deduplicate documents by ID to prevent counting duplicates
-  const uniqueDocuments = Array.from(
-    new Map(documents.map(doc => [doc.id, doc])).values()
-  );
-  
-  const recentDocuments = uniqueDocuments.filter(doc => {
-    const uploadDate = typeof doc.uploadedAt === 'string' || typeof doc.uploadedAt === 'number'
-      ? new Date(doc.uploadedAt)
-      : doc.uploadedAt;
-    return uploadDate >= sevenDaysAgo;
-  }).length;
-
   const handleNavigate = (tab: string) => {
     if (onNavigate) {
       onNavigate(tab);
@@ -100,7 +73,11 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
   if (isLoading) {
     return (
       <ThemedView style={dashboardStyles.container}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View
+          style={[
+            { flex: 1, justifyContent: 'center', alignItems: 'center' },
+          ]}
+        >
           <ActivityIndicator size="large" color={colors.primary} />
           <ThemedText style={{ marginTop: 16, opacity: 0.7 }}>
             Loading dashboard...
@@ -112,70 +89,74 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
 
   return (
     <ThemedView style={dashboardStyles.container}>
-      <ScrollView
-        style={dashboardStyles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={dashboardStyles.scrollContent}
+      <View
+        style={[
+          { flex: 1 },
+        ]}
       >
-        {/* Header */}
-        <View style={dashboardStyles.header}>
-          <View>
-            <ThemedText style={[dashboardStyles.title, { color: colors.text }]}>
-              Dashboard
-            </ThemedText>
-            <ThemedText style={[dashboardStyles.subtitle, { color: colors.text, opacity: 0.7 }]}>
-              Overview of your operations, resources, and activities
-            </ThemedText>
-          </View>
-        </View>
-
-        {/* Metrics Section */}
-        <DashboardMetrics
-          activeOperations={activeOperations}
-          resourceUtilization={resourceUtilization}
-          recentDocuments={recentDocuments}
-        />
-
-        {/* System Alerts */}
-        <SystemAlerts />
-
-        {/* Main Content Grid */}
-        {isMobile ? (
-          <View style={dashboardStyles.mobileLayout}>
-            <ResourceOverview />
-            <RecentOperations 
-              operations={operations}
-              onViewAll={() => handleNavigate('operations')}
-              onNavigate={handleNavigate}
-            />
-            <ActivityStream
-              operations={operations}
-              documents={documents}
-              transactions={resourceState.transactions}
-            />
-          </View>
-        ) : (
-          <View style={dashboardStyles.desktopLayout}>
-            <View style={dashboardStyles.desktopContentRow}>
-              <View style={dashboardStyles.desktopLeftColumn}>
-                <ResourceOverview />
-                <RecentOperations 
-                  operations={operations}
-                  onViewAll={() => handleNavigate('operations')}
-                  onNavigate={handleNavigate}
-                />
-              </View>
-              <View style={dashboardStyles.desktopRightColumn}>
-                <ActivityStream
-                  operations={operations}
-                  documents={documents}
-                  transactions={resourceState.transactions}
-                />
-              </View>
+        <ScrollView
+          style={dashboardStyles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={dashboardStyles.scrollContent}
+        >
+          {/* Header */}
+          <View style={dashboardStyles.header}>
+            <View>
+              <ThemedText style={[dashboardStyles.title, { color: colors.text }]}>
+                Dashboard
+              </ThemedText>
             </View>
           </View>
-        )}
-      </ScrollView>
+
+          {/* Main Content Grid */}
+          {isMobile ? (
+            <View style={dashboardStyles.mobileLayout}>
+              <SystemAlerts />
+              <ResourceOverview />
+              <RecentOperations 
+                operations={operations}
+                onViewAll={() => handleNavigate('operations')}
+                onNavigate={handleNavigate}
+              />
+              <ActivityStream
+                operations={operations}
+                documents={documents}
+                transactions={resourceState.transactions}
+              />
+            </View>
+          ) : (
+            <View style={dashboardStyles.bentoGrid}>
+              <View style={dashboardStyles.bentoTileFull}>
+                <ResourceOverview />
+              </View>
+
+              <View style={dashboardStyles.bentoMainRow}>
+                <View style={dashboardStyles.bentoTileTall}>
+                  <ActivityStream
+                    operations={operations}
+                    documents={documents}
+                    transactions={resourceState.transactions}
+                  />
+                </View>
+
+                <View style={dashboardStyles.bentoRightColumn}>
+                  <View style={dashboardStyles.bentoTileTopRight}>
+                    <RecentOperations 
+                      operations={operations}
+                      onViewAll={() => handleNavigate('operations')}
+                      onNavigate={handleNavigate}
+                    />
+                  </View>
+
+                  <View style={dashboardStyles.bentoTileBottomRight}>
+                    <SystemAlerts />
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </View>
     </ThemedView>
   );
 }

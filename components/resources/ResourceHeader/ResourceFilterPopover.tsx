@@ -18,6 +18,7 @@ interface ResourceFilterPopoverProps {
   selectedSort?: ResourceSortOption;
   onSortSelect?: (sort: ResourceSortOption) => void;
   agencies?: Agency[];
+  showWebLabel?: boolean;
 }
 
 const CATEGORIES: ResourceCategory[] = [
@@ -171,6 +172,7 @@ export function ResourceFilterPopover({
   selectedSort = 'default',
   onSortSelect,
   agencies = [],
+  showWebLabel = true,
 }: ResourceFilterPopoverProps) {
   const sections: FilterSection[] = useMemo(() => {
     const filterSections: FilterSection[] = [
@@ -319,6 +321,6 @@ export function ResourceFilterPopover({
     return count;
   }, [selectedCategory, selectedAgency, selectedResourceType, selectedStatus, selectedCondition, selectedSort]);
 
-  return <FilterPopover sections={sections} activeFilterCount={activeFilterCount} triggerLabelWeb="Filter" />;
+  return <FilterPopover sections={sections} activeFilterCount={activeFilterCount} triggerLabelWeb={showWebLabel ? "Filter" : undefined} />;
 }
 

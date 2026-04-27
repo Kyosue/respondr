@@ -2,10 +2,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import {
-    Animated,
-    Platform,
-    StyleSheet,
-    View
+  Animated,
+  Platform,
+  StyleSheet,
+  View
 } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
@@ -73,36 +73,35 @@ export function DesktopLayout({ activeTab, onTabChange }: DesktopLayoutProps) {
       />
 
       <View style={styles.container}>
-        {/* Sidebar with floating style */}
         <View style={styles.sidebarWrapper}>
           <Sidebar activeTab={activeTab} onTabChange={onTabChange} />
         </View>
 
-        {/* Main Content Area */}
         <View style={styles.mainContent}>
-          <DesktopHeader title={getPageTitle(activeTab)} onTabChange={onTabChange} />
+          <View style={styles.mainPanel}>
+            <DesktopHeader title={getPageTitle(activeTab)} onTabChange={onTabChange} />
 
-          <View style={styles.contentWrapper}>
-            <Animated.View
-              key={activeTab}
-              style={[
-                styles.contentContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-              {/* Render only the active component */}
-              {activeTab === 'dashboard' && <Dashboard onNavigate={onTabChange} />}
-              {activeTab === 'operations' && <Operations />}
-              {activeTab === 'resources' && <Resources />}
-              {activeTab === 'sitrep' && <SitRep />}
-              {activeTab === 'user-management' && <UserManagement />}
-              {activeTab === 'weather-station' && <WeatherStation />}
-              {activeTab === 'reports' && <Reports />}
-              {activeTab === 'settings' && <Settings />}
-            </Animated.View>
+            <View style={styles.contentWrapper}>
+              <Animated.View
+                key={activeTab}
+                style={[
+                  styles.contentContainer,
+                  {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
+              >
+                {activeTab === 'dashboard' && <Dashboard onNavigate={onTabChange} />}
+                {activeTab === 'operations' && <Operations />}
+                {activeTab === 'resources' && <Resources />}
+                {activeTab === 'sitrep' && <SitRep />}
+                {activeTab === 'user-management' && <UserManagement />}
+                {activeTab === 'weather-station' && <WeatherStation />}
+                {activeTab === 'reports' && <Reports />}
+                {activeTab === 'settings' && <Settings />}
+              </Animated.View>
+            </View>
           </View>
         </View>
       </View>
@@ -114,16 +113,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingLeft: 0,
+    paddingRight: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   sidebarWrapper: {
-    marginRight: 16,
+    marginRight: 0,
     alignSelf: 'stretch',
   },
   mainContent: {
     flex: 1,
+    paddingTop: 0,
+  },
+  mainPanel: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   backgroundGradient: {
     position: 'absolute',
@@ -138,6 +143,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    padding: 20,
+    padding: Platform.OS === 'web' ? 16 : 20,
   },
 });

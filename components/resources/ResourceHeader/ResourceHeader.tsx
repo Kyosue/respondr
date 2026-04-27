@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { usePlatform } from '@/hooks/usePlatform';
+import { useScreenSize } from '@/hooks/useScreenSize';
 
 import { Agency, ResourceCategory, ResourceCondition, ResourceStatus } from '@/types/Resource';
 import { ResourceActiveFilterTags } from './ResourceActiveFilterTags';
@@ -67,7 +68,9 @@ export function ResourceHeader({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isWeb } = usePlatform();
+  const { isMobile } = useScreenSize();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const isDesktopHeader = isWeb && !isMobile;
 
   return (
     <View style={styles.header}>
@@ -79,49 +82,49 @@ export function ResourceHeader({
         <View style={styles.headerActions}>
           {showAddButton && (
             <TouchableOpacity 
-              style={[styles.headerButton, { 
-                backgroundColor: isWeb ? colors.surface : colors.primary,
-                borderColor: isWeb ? colors.border : colors.primary,
+              style={[styles.headerButton, !isDesktopHeader && styles.headerButtonCompact, { 
+                backgroundColor: isDesktopHeader ? colors.surface : colors.primary,
+                borderColor: isDesktopHeader ? colors.border : colors.primary,
               }]}
               onPress={onAddResource}
               activeOpacity={0.8}
             >
-              <Ionicons name="add" size={18} color={isWeb ? colors.primary : '#fff'} />
-              {isWeb && <ThemedText style={[styles.headerButtonText, { color: colors.primary }]}>Add Resources</ThemedText>}
+              <Ionicons name="add" size={18} color={isDesktopHeader ? colors.primary : '#fff'} />
+              {isDesktopHeader && <ThemedText style={[styles.headerButtonText, { color: colors.primary }]}>Add Resources</ThemedText>}
             </TouchableOpacity>
           )}
           
           {/* Show all buttons on desktop, group some in "More" menu on mobile */}
-          {isWeb ? (
+          {isDesktopHeader ? (
             <>
           <TouchableOpacity 
-            style={[styles.headerButton, { 
-              backgroundColor: isWeb ? colors.surface : colors.success,
-              borderColor: isWeb ? colors.border : colors.success,
+            style={[styles.headerButton, !isDesktopHeader && styles.headerButtonCompact, { 
+              backgroundColor: isDesktopHeader ? colors.surface : colors.success,
+              borderColor: isDesktopHeader ? colors.border : colors.success,
             }]}
             onPress={onMultiBorrow}
             activeOpacity={0.8}
           >
-             <Ionicons name="layers" size={16} color={isWeb ? colors.success : '#fff'} />
-             <ThemedText style={[styles.headerButtonText, { color: isWeb ? colors.success : '#fff' }]}>Multi Borrow</ThemedText>
+             <Ionicons name="layers" size={16} color={isDesktopHeader ? colors.success : '#fff'} />
+             <ThemedText style={[styles.headerButtonText, { color: isDesktopHeader ? colors.success : '#fff' }]}>Multi Borrow</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.headerButton, { 
-              backgroundColor: isWeb ? colors.surface : colors.warning,
-              borderColor: isWeb ? colors.border : colors.warning,
+            style={[styles.headerButton, !isDesktopHeader && styles.headerButtonCompact, { 
+              backgroundColor: isDesktopHeader ? colors.surface : colors.warning,
+              borderColor: isDesktopHeader ? colors.border : colors.warning,
             }]}
             onPress={onBorrowerDashboard}
             activeOpacity={0.8}
           >
-            <Ionicons name="people" size={16} color={isWeb ? colors.warning : '#fff'} />
-            <ThemedText style={[styles.headerButtonText, { color: isWeb ? colors.warning : '#fff' }]}>Dashboard</ThemedText>
+            <Ionicons name="people" size={16} color={isDesktopHeader ? colors.warning : '#fff'} />
+            <ThemedText style={[styles.headerButtonText, { color: isDesktopHeader ? colors.warning : '#fff' }]}>Dashboard</ThemedText>
           </TouchableOpacity>
             </>
           ) : (
             <>
               {/* More menu button on mobile */}
               <TouchableOpacity 
-                style={[styles.headerButton, { 
+                style={[styles.headerButton, styles.headerButtonCompact, { 
                   backgroundColor: colors.surface, 
                   borderColor: colors.border,
                 }]}
@@ -184,7 +187,7 @@ export function ResourceHeader({
           )}
           
           <TouchableOpacity 
-            style={[styles.headerButton, { 
+            style={[styles.headerButton, !isDesktopHeader && styles.headerButtonCompact, { 
               backgroundColor: colors.surface, 
               borderColor: colors.border,
             }]}
@@ -192,7 +195,7 @@ export function ResourceHeader({
             activeOpacity={0.8}
           >
             <Ionicons name={showSearch ? "close" : "search"} size={16} color={colors.text} />
-            {isWeb && (
+            {isDesktopHeader && (
               <ThemedText style={[styles.headerButtonText, { color: colors.text }]}>
                 {showSearch ? 'Close' : 'Search'}
               </ThemedText>
@@ -213,6 +216,7 @@ export function ResourceHeader({
             onStatusSelect={onStatusSelect}
             onConditionSelect={onConditionSelect}
             agencies={agencies}
+            showWebLabel={isDesktopHeader}
           />
         </View>
       </View>

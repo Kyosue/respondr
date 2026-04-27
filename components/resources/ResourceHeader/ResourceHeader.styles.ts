@@ -64,6 +64,14 @@ export const styles = StyleSheet.create({
       },
     }),
   },
+  headerButtonCompact: {
+    width: 40,
+    minWidth: 40,
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: 0,
+    flexDirection: 'row',
+  },
   headerButtonText: {
     marginLeft: 6,
     fontSize: 13,
