@@ -195,6 +195,16 @@ export interface ResourceStats {
   categories: Record<ResourceCategory, number>;
 }
 
+export interface ResourceOverviewStats {
+  totalResourceTypes: number;
+  totalUnits: number;
+  availableUnits: number;
+  inUseUnits: number;
+  lowStockTypes: number;
+  availablePercent: number;
+  inUsePercent: number;
+}
+
 /** Options for paginated resource list API */
 export interface GetResourcesPageOptions {
   page: number;

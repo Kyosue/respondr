@@ -6,9 +6,10 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { SitRepDocument } from '@/types/Document';
 import { ResourceTransaction } from '@/types/Resource';
+import { SyncManager } from '@/utils/syncManager';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface ActivityItem {
   id: string;
@@ -16,12 +17,32 @@ interface ActivityItem {
   message: string;
   timestamp: Date;
   icon: keyof typeof Ionicons.glyphMap;
+  navigateTo: string;
 }
 
 interface ActivityStreamProps {
   operations: OperationRecord[];
   documents: SitRepDocument[];
   transactions: ResourceTransaction[];
+  onNavigate?: (tab: string) => void;
+}
+
+function formatUploaderDisplayName(uploadedBy?: string): string | null {
+  if (!uploadedBy) return null;
+  const value = uploadedBy.trim();
+  if (!value) return null;
+
+  // Common case: backend stores auth UID in uploadedBy.
+  // If it looks like an internal identifier, hide it from UI copy.
+  const uidLike = /^[A-Za-z0-9_-]{20,}$/.test(value) && !value.includes('@');
+  if (uidLike) return null;
+
+  if (value.includes('@')) {
+    const [namePart] = value.split('@');
+    return namePart || null;
+  }
+
+  return value;
 }
 
 function formatTimeAgo(date: Date | string | number | undefined | null): string {
@@ -193,7 +214,7 @@ function AnimatedGroupLabel({ children, index }: AnimatedGroupLabelProps) {
   );
 }
 
-export function ActivityStream({ operations, documents, transactions }: ActivityStreamProps) {
+export function ActivityStream({ operations, documents, transactions, onNavigate }: ActivityStreamProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
@@ -202,6 +223,7 @@ export function ActivityStream({ operations, documents, transactions }: Activity
   
   // State to trigger periodic updates for recent activities
   const [updateTick, setUpdateTick] = useState(0);
+  const [documentUploaderNames, setDocumentUploaderNames] = useState<Record<string, string>>({});
 
   // Helper to safely convert to Date
   const toDate = (date: Date | string | number | undefined | null): Date => {
@@ -211,6 +233,53 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     return new Date();
   };
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    const resolveUploaderNames = async () => {
+      const sortedDocuments = [...documents].sort((a, b) => {
+        const timeA = toDate(a.uploadedAt).getTime();
+        const timeB = toDate(b.uploadedAt).getTime();
+        return timeB - timeA;
+      });
+      const topDocuments = sortedDocuments.slice(0, 3);
+      const nextNames: Record<string, string> = {};
+      const syncManager = SyncManager.getInstance();
+
+      await Promise.all(
+        topDocuments.map(async (doc) => {
+          const displayFromValue = formatUploaderDisplayName(doc.uploadedBy);
+          if (displayFromValue) {
+            nextNames[doc.id] = displayFromValue;
+            return;
+          }
+          if (!doc.uploadedBy) return;
+
+          try {
+            const userData = await syncManager.getUserData(doc.uploadedBy);
+            const resolvedName =
+              userData?.fullName || userData?.displayName || formatUploaderDisplayName(userData?.email) || '';
+            if (resolvedName) {
+              nextNames[doc.id] = resolvedName;
+            }
+          } catch {
+            // Keep silent fallback if user lookup fails.
+          }
+        })
+      );
+
+      if (!isCancelled) {
+        setDocumentUploaderNames(nextNames);
+      }
+    };
+
+    resolveUploaderNames();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [documents]);
+
   // Build activity items with unique IDs - memoized to prevent unnecessary recalculations
   const recentActivities = useMemo(() => {
     const activities: ActivityItem[] = [];
@@ -218,54 +287,77 @@ export function ActivityStream({ operations, documents, transactions }: Activity
     const seenDocIds = new Set<string>();
     const seenTransIds = new Set<string>();
 
-    // Add operations (recent active ones) - limit to 3 most recent
-    operations
+    // Add operations (recent active ones) - sort before slicing
+    const sortedOperations = [...operations]
       .filter(op => op.status === 'active')
-      .slice(0, 3)
-      .forEach((op) => {
+      .sort((a, b) => {
+        const timeA = toDate(a.startDate || a.createdAt).getTime();
+        const timeB = toDate(b.startDate || b.createdAt).getTime();
+        return timeB - timeA;
+      });
+
+    sortedOperations.slice(0, 3).forEach((op) => {
         if (!seenOpIds.has(op.id)) {
           seenOpIds.add(op.id);
-          // Use startDate for operations (when it actually started) or fallback to createdAt
           const opTimestamp = op.startDate || op.createdAt;
           if (opTimestamp) {
+            const operationType = op.operationType ? ` - ${op.operationType}` : '';
             activities.push({
               id: `op-${op.id}`,
               type: 'operation',
-              message: `Operation: ${op.title}`,
+              message: `${op.title}${operationType}`,
               timestamp: toDate(opTimestamp),
               icon: 'location',
+              navigateTo: 'operations',
             });
           }
         }
       });
 
-    // Add recent documents - limit to 3 most recent
-    documents.slice(0, 3).forEach((doc) => {
+    // Add recent documents - sort before slicing
+    const sortedDocuments = [...documents].sort((a, b) => {
+      const timeA = toDate(a.uploadedAt).getTime();
+      const timeB = toDate(b.uploadedAt).getTime();
+      return timeB - timeA;
+    });
+
+    sortedDocuments.slice(0, 3).forEach((doc) => {
       if (!seenDocIds.has(doc.id)) {
         seenDocIds.add(doc.id);
+        const uploaderName = documentUploaderNames[doc.id] || formatUploaderDisplayName(doc.uploadedBy);
         activities.push({
           id: `doc-${doc.id}`,
           type: 'document',
-          message: `Document uploaded: ${doc.title}`,
+          message: uploaderName ? `${doc.title} uploaded by ${uploaderName}` : `${doc.title} uploaded`,
           timestamp: toDate(doc.uploadedAt),
           icon: 'document-text',
+          navigateTo: 'sitrep',
         });
       }
     });
 
-    // Add recent resource transactions - limit to 3 most recent
-    transactions
+    // Add recent resource transactions - sort before slicing
+    const sortedTransactions = [...transactions]
       .filter(t => t.status === 'active')
-      .slice(0, 3)
-      .forEach((transaction) => {
+      .sort((a, b) => {
+        const timeA = toDate(a.createdAt).getTime();
+        const timeB = toDate(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+
+    sortedTransactions.slice(0, 3).forEach((transaction) => {
         if (!seenTransIds.has(transaction.id)) {
           seenTransIds.add(transaction.id);
+          const borrowerDepartment = transaction.borrowerDepartment
+            ? ` (${transaction.borrowerDepartment})`
+            : '';
           activities.push({
             id: `trans-${transaction.id}`,
             type: 'resource',
-            message: `Resource borrowed: ${transaction.borrowerName}`,
+            message: `${transaction.borrowerName}${borrowerDepartment} borrowed ${transaction.quantity} item${transaction.quantity > 1 ? 's' : ''}`,
             timestamp: toDate(transaction.createdAt),
             icon: 'cube',
+            navigateTo: 'resources',
           });
         }
       });
@@ -280,7 +372,7 @@ export function ActivityStream({ operations, documents, transactions }: Activity
 
     // Limit to top 8 activities for compact display
     return activities.slice(0, 8);
-  }, [operations, documents, transactions]);
+  }, [operations, documents, transactions, documentUploaderNames]);
 
   // Check if there are any activities that would benefit from updates (less than 24 hours old)
   // Recalculates when updateTick changes to check if activities are still recent
@@ -386,7 +478,11 @@ export function ActivityStream({ operations, documents, transactions }: Activity
                 const currentItemIndex = itemIndex + activityIndex;
                 return (
                   <AnimatedActivityItem key={activity.id} index={currentItemIndex}>
-                    <View style={styles.activityItem}>
+                    <TouchableOpacity
+                      style={styles.activityItem}
+                      onPress={() => onNavigate?.(activity.navigateTo)}
+                      activeOpacity={0.75}
+                    >
                       <View style={[styles.activityIconContainer, { backgroundColor: `${colors.primary}15` }]}>
                         <Ionicons name={activity.icon} size={16} color={colors.primary} />
                       </View>
@@ -398,7 +494,7 @@ export function ActivityStream({ operations, documents, transactions }: Activity
                           {activityTimeStrings.get(activity.id) || formatTimeAgo(activity.timestamp instanceof Date ? activity.timestamp : new Date(activity.timestamp))}
                         </ThemedText>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   </AnimatedActivityItem>
                 );
               })}
@@ -490,6 +586,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     alignItems: 'flex-start',
     paddingVertical: 2,
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+    } as any),
   },
   activityIconContainer: {
     width: 26,

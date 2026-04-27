@@ -1,4 +1,4 @@
-import { BorrowerProfile, GetResourcesPageOptions, MultiResourceTransaction, Resource, ResourceHistory, ResourceListPage, ResourceTransaction } from '@/types/Resource';
+import { BorrowerProfile, GetResourcesPageOptions, MultiResourceTransaction, Resource, ResourceHistory, ResourceListPage, ResourceOverviewStats, ResourceTransaction } from '@/types/Resource';
 import {
     addDoc,
     collection,
@@ -95,6 +95,37 @@ export const resourceService = {
         return [];
       }
       console.error('Error getting resources:', error);
+      throw error;
+    }
+  },
+
+  // Get dashboard overview stats from full resource dataset
+  async getOverviewStats(): Promise<ResourceOverviewStats> {
+    try {
+      const resources = await this.getAllResources();
+      const totalResourceTypes = resources.length;
+      const totalUnits = resources.reduce((sum, resource) => sum + (resource.totalQuantity || 0), 0);
+      const availableUnits = resources.reduce((sum, resource) => sum + (resource.availableQuantity || 0), 0);
+      const inUseUnits = Math.max(0, totalUnits - availableUnits);
+      const lowStockTypes = resources.filter((resource) => {
+        if (resource.totalQuantity === 0) return false;
+        const availabilityPercent = (resource.availableQuantity / resource.totalQuantity) * 100;
+        return availabilityPercent < 10 && resource.availableQuantity > 0;
+      }).length;
+      const availablePercent = totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0;
+      const inUsePercent = totalUnits > 0 ? Math.round((inUseUnits / totalUnits) * 100) : 0;
+
+      return {
+        totalResourceTypes,
+        totalUnits,
+        availableUnits,
+        inUseUnits,
+        lowStockTypes,
+        availablePercent,
+        inUsePercent,
+      };
+    } catch (error) {
+      console.error('Error getting overview stats:', error);
       throw error;
     }
   },

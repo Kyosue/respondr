@@ -3,7 +3,7 @@ import { ResilientAgencyService } from '@/firebase/resilientAgency';
 import { ResilientBorrowerService } from '@/firebase/resilientBorrower';
 import { ResilientTransactionService } from '@/firebase/resilientTransaction';
 import { resourceService } from '@/firebase/resources';
-import { Agency, BorrowerProfile, GetResourcesPageOptions, MultiResourceTransaction, Resource, ResourceCategory, ResourceCondition, ResourceFilters, ResourceHistory, ResourceStats, ResourceTransaction, TransactionStatus } from '@/types/Resource';
+import { Agency, BorrowerProfile, GetResourcesPageOptions, MultiResourceTransaction, Resource, ResourceCategory, ResourceCondition, ResourceFilters, ResourceHistory, ResourceOverviewStats, ResourceStats, ResourceTransaction, TransactionStatus } from '@/types/Resource';
 import { CacheManager } from '@/utils/cacheManager';
 import { generateMultiItemId, generateUniqueId } from '@/utils/idGenerator';
 import { MaintenanceUtils } from '@/utils/maintenanceUtils';
@@ -24,6 +24,7 @@ interface ResourceState {
   loadingMore: boolean;
   error: string | null;
   stats: ResourceStats | null;
+  overviewStats: ResourceOverviewStats | null;
   selectedResource: Resource | null;
   /** Total count from last paginated fetch (for "X of Y" display) */
   resourcesTotalCount: number;
@@ -62,6 +63,7 @@ type ResourceAction =
   | { type: 'ADD_HISTORY'; payload: ResourceHistory }
   | { type: 'SET_FILTERS'; payload: ResourceFilters }
   | { type: 'SET_STATS'; payload: ResourceStats }
+  | { type: 'SET_OVERVIEW_STATS'; payload: ResourceOverviewStats | null }
   | { type: 'SET_SELECTED_RESOURCE'; payload: Resource | null };
 
 interface ResourceContextType {
@@ -145,6 +147,8 @@ interface ResourceContextType {
   // Stats and analytics
   getStats: () => ResourceStats;
   refreshStats: () => Promise<void>;
+  refreshOverviewStats: () => Promise<void>;
+  overviewStats: ResourceOverviewStats | null;
   
   // History and tracking
   getResourceHistory: (resourceId: string) => ResourceHistory[];
@@ -191,6 +195,7 @@ const initialState: ResourceState = {
   loadingMore: false,
   error: null,
   stats: null,
+  overviewStats: null,
   selectedResource: null,
   resourcesTotalCount: 0,
   resourcesCurrentPage: 0,
@@ -278,11 +283,37 @@ function resourceReducer(state: ResourceState, action: ResourceAction): Resource
       return { ...state, filters: action.payload };
     case 'SET_STATS':
       return { ...state, stats: action.payload };
+    case 'SET_OVERVIEW_STATS':
+      return { ...state, overviewStats: action.payload };
     case 'SET_SELECTED_RESOURCE':
       return { ...state, selectedResource: action.payload };
     default:
       return state;
   }
+}
+
+function computeOverviewStats(resources: Resource[]): ResourceOverviewStats {
+  const totalResourceTypes = resources.length;
+  const totalUnits = resources.reduce((sum, resource) => sum + (resource.totalQuantity || 0), 0);
+  const availableUnits = resources.reduce((sum, resource) => sum + (resource.availableQuantity || 0), 0);
+  const inUseUnits = Math.max(0, totalUnits - availableUnits);
+  const lowStockTypes = resources.filter((resource) => {
+    if (resource.totalQuantity === 0) return false;
+    const availabilityPercent = (resource.availableQuantity / resource.totalQuantity) * 100;
+    return availabilityPercent < 10 && resource.availableQuantity > 0;
+  }).length;
+  const availablePercent = totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0;
+  const inUsePercent = totalUnits > 0 ? Math.round((inUseUnits / totalUnits) * 100) : 0;
+
+  return {
+    totalResourceTypes,
+    totalUnits,
+    availableUnits,
+    inUseUnits,
+    lowStockTypes,
+    availablePercent,
+    inUsePercent,
+  };
 }
 
 const ResourceContext = createContext<ResourceContextType | undefined>(undefined);
@@ -384,6 +415,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
         const cachedResources = await cacheManager.get<Resource[]>('resources');
         if (cachedResources) {
           dispatch({ type: 'SET_RESOURCES', payload: cachedResources });
+          dispatch({ type: 'SET_OVERVIEW_STATS', payload: computeOverviewStats(cachedResources) });
         }
 
         // Load ALL cached transactions (not just active ones)
@@ -410,6 +442,7 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
         if (syncedResources.length > 0) {
           await loadHistoryFromFirebase(syncedResources);
         }
+        dispatch({ type: 'SET_OVERVIEW_STATS', payload: computeOverviewStats(syncedResources) });
       }
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load resources' });
@@ -448,8 +481,10 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeResources = resourceService.subscribeToResources((resources) => {
       if (usePaginatedResourcesRef.current) return;
       dispatch({ type: 'SET_RESOURCES', payload: resources });
+      dispatch({ type: 'SET_OVERVIEW_STATS', payload: computeOverviewStats(resources) });
       // Update cache
       cacheManager.set('resources', resources);
+      cacheManager.set('overviewStats', computeOverviewStats(resources));
     });
 
     // Set up borrowers listener
@@ -1432,6 +1467,37 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'SET_STATS', payload: stats });
   };
 
+  const refreshOverviewStats = useCallback(async () => {
+    try {
+      // For paginated mode, fetch complete overview from backend to avoid partial-page totals.
+      if (state.usePaginatedResources) {
+        const cachedOverviewStats = await cacheManager.get<ResourceOverviewStats>('overviewStats');
+        if (cachedOverviewStats) {
+          dispatch({ type: 'SET_OVERVIEW_STATS', payload: cachedOverviewStats });
+        }
+        const liveOverviewStats = await resourceService.getOverviewStats();
+        dispatch({ type: 'SET_OVERVIEW_STATS', payload: liveOverviewStats });
+        await cacheManager.set('overviewStats', liveOverviewStats);
+        return;
+      }
+
+      // Non-paginated mode can derive from in-memory resources.
+      const derivedOverviewStats = computeOverviewStats(state.resources);
+      dispatch({ type: 'SET_OVERVIEW_STATS', payload: derivedOverviewStats });
+      await cacheManager.set('overviewStats', derivedOverviewStats);
+    } catch (error) {
+      console.error('Failed to refresh overview stats:', error);
+      if (state.resources.length > 0) {
+        dispatch({ type: 'SET_OVERVIEW_STATS', payload: computeOverviewStats(state.resources) });
+      }
+    }
+  }, [state.usePaginatedResources, state.resources, cacheManager]);
+
+  useEffect(() => {
+    if (!user) return;
+    refreshOverviewStats();
+  }, [user, state.usePaginatedResources, refreshOverviewStats]);
+
   const getResourceHistory = (resourceId: string) => {
     return state.history.filter(h => h.resourceId === resourceId);
   };
@@ -1495,9 +1561,11 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
       // Load resources from Firebase
       const firebaseResources = await resourceService.getAllResources();
       dispatch({ type: 'SET_RESOURCES', payload: firebaseResources });
+      dispatch({ type: 'SET_OVERVIEW_STATS', payload: computeOverviewStats(firebaseResources) });
       
       // Cache the resources
       await cacheManager.set('resources', firebaseResources);
+      await cacheManager.set('overviewStats', computeOverviewStats(firebaseResources));
       
       // Load ALL transactions (not just active ones) using resilient service
       const transactions = await resilientTransactionService.getAllTransactions();
@@ -1824,6 +1892,8 @@ export function ResourceProvider({ children }: { children: React.ReactNode }) {
     searchResources,
     getStats,
     refreshStats,
+    refreshOverviewStats,
+    overviewStats: state.overviewStats,
     getResourceHistory,
     addHistoryEntry,
     selectResource,

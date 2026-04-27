@@ -200,17 +200,26 @@ export const operationsService = {
     } as OperationRecord;
   },
 
-  onAllOperations(callback: (operations: OperationRecord[]) => void) {
+  onAllOperations(
+    callback: (operations: OperationRecord[]) => void,
+    onError?: (error: Error) => void
+  ) {
     const q = query(collection(db, OPERATIONS_COLLECTION), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snap) => {
-      const list: OperationRecord[] = snap.docs.map(d => {
-        const raw = { id: d.id, ...d.data() } as any;
-        const converted = convertTimestamps(raw);
-        // Firestore may store dates as Timestamps; ensure Date
-        return converted as OperationRecord;
-      });
-      callback(list);
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: OperationRecord[] = snap.docs.map(d => {
+          const raw = { id: d.id, ...d.data() } as any;
+          const converted = convertTimestamps(raw);
+          // Firestore may store dates as Timestamps; ensure Date
+          return converted as OperationRecord;
+        });
+        callback(list);
+      },
+      (error) => {
+        onError?.(error);
+      }
+    );
   },
 
   async updateOperation(
