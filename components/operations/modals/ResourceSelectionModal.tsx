@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -18,6 +19,7 @@ import { useHybridRamp } from '../../../hooks/useHybridRamp';
 import { Resource, ResourceCategory } from '../../../types/Resource';
 import { getModalConfig } from '../../../utils/modalUtils';
 import { ThemedText } from '../../ThemedText';
+import { Tag } from '../../base/tags/tags';
 import { WebOptimizedImage } from '../../ui/WebOptimizedImage';
 
 interface OperationResource {
@@ -47,6 +49,7 @@ export function ResourceSelectionModal({
 }: ResourceSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [tempSelectedResources, setTempSelectedResources] = useState<OperationResource[]>(selectedResources);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
   const colorScheme = useColorScheme();
   
   // Hybrid RAMP hook
@@ -78,13 +81,35 @@ export function ResourceSelectionModal({
   
   // Calculate cards per row based on screen size
   const getCardsPerRow = () => {
-    if (isWeb) return 4; // 4 cards per row on web
+    if (isWeb) return 5; // 5 cards per row on web
     if (isTablet) return 3; // 3 cards per row on tablet
     return 2; // 2 cards per row on mobile
   };
   
   const cardsPerRow = getCardsPerRow();
   const cardWidth = (100 / cardsPerRow) - 2; // 2% margin between cards
+  const masonryColumns = useMemo(() => {
+    const columns: Resource[][] = Array.from({ length: cardsPerRow }, () => []);
+    if (isWeb) {
+      // Web: place each card in the currently shortest column for a tighter masonry layout.
+      const columnHeights = Array.from({ length: cardsPerRow }, () => 0);
+      filteredResources.forEach((resource) => {
+        const ratio = imageAspectRatios[resource.id] || 16 / 9;
+        const imageHeight = (220 / ratio);
+        const metaHeight = 84;
+        const quantityHeight = tempSelectedResources.some((r) => r.resourceId === resource.id) ? 78 : 0;
+        const estimatedCardHeight = imageHeight + metaHeight + quantityHeight;
+        const targetIndex = columnHeights.indexOf(Math.min(...columnHeights));
+        columns[targetIndex].push(resource);
+        columnHeights[targetIndex] += estimatedCardHeight + 8;
+      });
+    } else {
+      filteredResources.forEach((resource, index) => {
+        columns[index % cardsPerRow].push(resource);
+      });
+    }
+    return columns;
+  }, [filteredResources, cardsPerRow, imageAspectRatios, tempSelectedResources, isWeb]);
 
   const isResourceSelected = (resourceId: string) => {
     return tempSelectedResources.some(r => r.resourceId === resourceId);
@@ -207,6 +232,269 @@ export function ResourceSelectionModal({
 
   const handleClose = rampHandleClose; // Use the handleClose from the hook
 
+  const getCategoryColor = (category: ResourceCategory) => {
+    switch (category) {
+      case 'tools':
+        return '#3B82F6';
+      case 'equipment':
+        return '#8B5CF6';
+      case 'vehicles':
+        return '#F59E0B';
+      case 'medical':
+        return '#EF4444';
+      case 'communication':
+        return '#0EA5E9';
+      case 'supplies':
+        return '#10B981';
+      case 'personnel':
+        return '#EC4899';
+      case 'other':
+      default:
+        return '#6B7280';
+    }
+  };
+
+  useEffect(() => {
+    filteredResources.forEach((resource) => {
+      const uri = resource.images?.[0];
+      if (!uri || imageAspectRatios[resource.id]) return;
+      Image.getSize(
+        uri,
+        (width, height) => {
+          if (width > 0 && height > 0) {
+            setImageAspectRatios((prev) => ({
+              ...prev,
+              [resource.id]: width / height,
+            }));
+          }
+        },
+        () => {
+          // Ignore failed image size lookups and keep fallback ratio.
+        }
+      );
+    });
+  }, [filteredResources, imageAspectRatios]);
+
+  const renderResourceCard = (resource: Resource) => {
+    const isSelected = isResourceSelected(resource.id);
+    const selectedResource = tempSelectedResources.find(r => r.resourceId === resource.id);
+    const resourceAspectRatio = imageAspectRatios[resource.id] || 16 / 9;
+
+    return (
+      <View
+        style={{
+          width: '100%',
+          backgroundColor: colors.surface,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: isSelected ? colors.primary : colors.border,
+          marginBottom: 8,
+          overflow: 'hidden',
+          minHeight: isWeb ? undefined : 180
+        }}
+      >
+        {/* Clickable Top Section - for selection/deselection */}
+        <TouchableOpacity
+          onPress={() => handleResourceSelect(resource)}
+          activeOpacity={0.7}
+          style={{ flex: 1 }}
+        >
+          {/* Selection Indicator */}
+          {isSelected && (
+            <View style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              backgroundColor: colors.primary,
+              borderRadius: 10,
+              width: 20,
+              height: 20,
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1
+            }}>
+              <Ionicons name="checkmark" size={12} color="white" />
+            </View>
+          )}
+
+          {/* Resource Image */}
+          <View style={{
+            aspectRatio: resourceAspectRatio,
+            backgroundColor: colors.border
+          }}>
+            {resource.images && resource.images.length > 0 ? (
+              <WebOptimizedImage
+                source={{ uri: resource.images[0] }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: colors.border
+              }}>
+                <Ionicons name="cube-outline" size={32} color={colors.text + '60'} />
+              </View>
+            )}
+          </View>
+
+          {/* Resource Info */}
+          <View style={{ padding: isWeb ? 10 : 8 }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 4
+            }}>
+              <ThemedText style={{
+                fontSize: isWeb ? 14 : 12,
+                fontWeight: '600',
+                color: colors.text,
+                flex: 1
+              }} numberOfLines={isWeb ? 2 : 1}>
+                {resource.name}
+              </ThemedText>
+              <View style={{ marginLeft: 8 }}>
+                <Tag dot size="sm" dotColor={getCategoryColor(resource.category)}>
+                  {resource.category.toUpperCase()}
+                </Tag>
+              </View>
+            </View>
+
+            <ThemedText style={{
+              fontSize: isWeb ? 11 : 10,
+              color: colors.primary,
+              fontWeight: '600'
+            }}>
+              {resource.availableQuantity}/{resource.totalQuantity} available
+            </ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        {/* Separate Quantity Selector Container - doesn't trigger deselection */}
+        {isSelected && selectedResource && (
+          <View
+            style={{
+              padding: isWeb ? 10 : 8,
+              paddingTop: 6,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              backgroundColor: colors.surface
+            }}
+            {...(Platform.OS !== 'web' ? {
+              onStartShouldSetResponder: () => true,
+              onTouchEnd: (e: any) => e.stopPropagation()
+            } : {
+              onClick: (e: any) => e.stopPropagation(),
+              onMouseDown: (e: any) => e.stopPropagation()
+            })}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
+              <ThemedText style={{
+                fontSize: isWeb ? 11 : 10,
+                color: colors.text + '80',
+                textAlign: 'center'
+              }}>
+                Quantity
+              </ThemedText>
+              {selectedResource.quantity >= resource.availableQuantity && (
+                <ThemedText style={{
+                  fontSize: isWeb ? 10 : 9,
+                  color: '#EF4444',
+                  fontWeight: '600'
+                }}>
+                  (Max: {resource.availableQuantity})
+                </ThemedText>
+              )}
+            </View>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              maxWidth: '100%',
+              gap: 4
+            }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: selectedResource.quantity <= 1 ? '#9CA3AF' : '#EF4444',
+                  borderRadius: 6,
+                  width: isWeb ? 40 : 36,
+                  height: isWeb ? 40 : 36,
+                  minHeight: isWeb ? 40 : 36,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  opacity: selectedResource.quantity <= 1 ? 0.6 : 1,
+                }}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleQuantityChange(resource.id, selectedResource.quantity - 1);
+                }}
+                disabled={selectedResource.quantity <= 1}
+              >
+                <Ionicons name="remove" size={isWeb ? 16 : 14} color="white" />
+              </TouchableOpacity>
+              <TextInput
+                style={{
+                  backgroundColor: colors.background,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 6,
+                  flex: 1,
+                  minWidth: 0,
+                  height: isWeb ? 40 : 36,
+                  minHeight: isWeb ? 40 : 36,
+                  textAlign: 'center',
+                  fontSize: isWeb ? 14 : 12,
+                  fontWeight: '700',
+                  color: colors.text,
+                  paddingHorizontal: 8,
+                  paddingVertical: 0,
+                  includeFontPadding: false,
+                  textAlignVertical: 'center'
+                }}
+                value={selectedResource.quantity > 0 ? selectedResource.quantity.toString() : ''}
+                onChangeText={(text) => {
+                  handleQuantityInputChange(resource.id, text);
+                }}
+                onBlur={() => {
+                  handleQuantityInputBlur(resource.id);
+                }}
+                keyboardType="numeric"
+                selectTextOnFocus
+                onFocus={(e) => e.stopPropagation()}
+                onPressIn={(e) => e.stopPropagation()}
+              />
+              <TouchableOpacity
+                style={{
+                  backgroundColor: selectedResource.quantity >= resource.availableQuantity ? '#9CA3AF' : '#10B981',
+                  borderRadius: 6,
+                  width: isWeb ? 40 : 36,
+                  height: isWeb ? 40 : 36,
+                  minHeight: isWeb ? 40 : 36,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  opacity: selectedResource.quantity >= resource.availableQuantity ? 0.6 : 1,
+                }}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleQuantityChange(resource.id, selectedResource.quantity + 1);
+                }}
+                disabled={selectedResource.quantity >= resource.availableQuantity}
+              >
+                <Ionicons name="add" size={isWeb ? 16 : 14} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // Platform-specific modal rendering
   if (isWeb) {
     // Hybrid RAMP implementation for web
@@ -307,240 +595,19 @@ export function ResourceSelectionModal({
               >
                 <View style={{
                   flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
                   gap: 8
                 }}>
-                  {filteredResources.map((resource) => {
-                    const isSelected = isResourceSelected(resource.id);
-                    const selectedResource = tempSelectedResources.find(r => r.resourceId === resource.id);
-                    
-                    return (
-                      <View
-                        key={resource.id}
-                        style={{
-                          width: `${cardWidth}%`,
-                          backgroundColor: colors.surface,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: isSelected ? colors.primary : colors.border,
-                          marginBottom: 8,
-                          overflow: 'hidden',
-                          minHeight: isWeb ? 200 : 180
-                        }}
-                      >
-                        {/* Clickable Top Section - for selection/deselection */}
-                        <TouchableOpacity
-                        onPress={() => handleResourceSelect(resource)}
-                          activeOpacity={0.7}
-                          style={{ flex: 1 }}
-                      >
-                        {/* Selection Indicator */}
-                        {isSelected && (
-                          <View style={{
-                            position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            backgroundColor: colors.primary,
-                            borderRadius: 10,
-                            width: 20,
-                            height: 20,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            zIndex: 1
-                          }}>
-                            <Ionicons name="checkmark" size={12} color="white" />
-                          </View>
-                        )}
-
-                        {/* Resource Image */}
-                        <View style={{
-                          height: isWeb ? 100 : 90,
-                          backgroundColor: colors.border
-                        }}>
-                          {resource.images && resource.images.length > 0 ? (
-                            <WebOptimizedImage
-                              source={{ uri: resource.images[0] }}
-                              style={{
-                                width: '100%',
-                                height: '100%'
-                              }}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View style={{
-                              flex: 1,
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              backgroundColor: colors.border
-                            }}>
-                              <Ionicons name="cube-outline" size={32} color={colors.text + '60'} />
-                            </View>
-                          )}
+                  {masonryColumns.map((column, columnIndex) => (
+                    <View key={`web-column-${columnIndex}`} style={{ width: `${cardWidth}%` }}>
+                      {column.map((resource) => (
+                        <View key={resource.id}>
+                          {renderResourceCard(resource)}
                         </View>
-
-                        {/* Resource Info */}
-                        <View style={{ padding: isWeb ? 10 : 8 }}>
-                          <View style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            marginBottom: 4
-                          }}>
-                            <ThemedText style={{
-                                fontSize: isWeb ? 13 : 13,
-                              fontWeight: '600',
-                              color: colors.text,
-                              flex: 1
-                            }} numberOfLines={1}>
-                              {resource.name}
-                            </ThemedText>
-                            <View style={{
-                              backgroundColor: colors.primary + '20',
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
-                              borderRadius: 4,
-                              marginLeft: 8
-                            }}>
-                              <ThemedText style={{
-                                  fontSize: isWeb ? 10 : 10,
-                                color: colors.primary,
-                                fontWeight: '600',
-                                textTransform: 'uppercase'
-                              }}>
-                                {resource.category}
-                              </ThemedText>
-                            </View>
-                          </View>
-
-                          <ThemedText style={{
-                              fontSize: isWeb ? 11 : 11,
-                            color: colors.primary,
-                            fontWeight: '600'
-                          }}>
-                            {resource.availableQuantity}/{resource.totalQuantity} available
-                          </ThemedText>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Separate Quantity Selector Container - doesn't trigger deselection */}
-                          {isSelected && selectedResource && (
-                          <View 
-                            style={{
-                              padding: isWeb ? 10 : 8,
-                              paddingTop: 6,
-                              borderTopWidth: 1,
-                              borderTopColor: colors.border,
-                              backgroundColor: colors.surface
-                            }}
-                            {...(Platform.OS !== 'web' ? {
-                              onStartShouldSetResponder: () => true,
-                              onTouchEnd: (e: any) => e.stopPropagation()
-                            } : {
-                              onClick: (e: any) => e.stopPropagation(),
-                              onMouseDown: (e: any) => e.stopPropagation()
-                            })}
-                          >
-                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
-                                <ThemedText style={{
-                                fontSize: isWeb ? 11 : 11,
-                                  color: colors.text + '80',
-                                  textAlign: 'center'
-                                }}>
-                                  Quantity
-                                </ThemedText>
-                                {selectedResource.quantity >= resource.availableQuantity && (
-                                  <ThemedText style={{
-                                  fontSize: isWeb ? 10 : 10,
-                                    color: '#EF4444',
-                                    fontWeight: '600'
-                                  }}>
-                                    (Max: {resource.availableQuantity})
-                                  </ThemedText>
-                                )}
-                              </View>
-                              <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                              width: '100%',
-                              maxWidth: '100%',
-                              gap: 4
-                              }}>
-                                <TouchableOpacity
-                                  style={{
-                                    backgroundColor: selectedResource.quantity <= 1 ? '#9CA3AF' : '#EF4444',
-                                    borderRadius: 6,
-                                  width: isWeb ? 40 : 36,
-                                  height: isWeb ? 40 : 36,
-                                  minHeight: isWeb ? 40 : 36,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    opacity: selectedResource.quantity <= 1 ? 0.6 : 1,
-                                  }}
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  handleQuantityChange(resource.id, selectedResource.quantity - 1);
-                                }}
-                                  disabled={selectedResource.quantity <= 1}
-                                >
-                                  <Ionicons name="remove" size={isWeb ? 16 : 14} color="white" />
-                                </TouchableOpacity>
-                              <TextInput
-                                style={{
-                                  backgroundColor: colors.background,
-                                  borderWidth: 1,
-                                  borderColor: colors.border,
-                                  borderRadius: 6,
-                                  flex: 1,
-                                  minWidth: 0,
-                                  height: isWeb ? 40 : 36,
-                                  minHeight: isWeb ? 40 : 36,
-                                  textAlign: 'center',
-                                  fontSize: isWeb ? 14 : 13,
-                                    fontWeight: '700',
-                                  color: colors.text,
-                                  paddingHorizontal: 8,
-                                  paddingVertical: 0,
-                                  includeFontPadding: false,
-                                  textAlignVertical: 'center'
-                                }}
-                                value={selectedResource.quantity > 0 ? selectedResource.quantity.toString() : ''}
-                                onChangeText={(text) => {
-                                  handleQuantityInputChange(resource.id, text);
-                                }}
-                                onBlur={() => {
-                                  handleQuantityInputBlur(resource.id);
-                                }}
-                                keyboardType="numeric"
-                                selectTextOnFocus
-                                onFocus={(e) => e.stopPropagation()}
-                                onPressIn={(e) => e.stopPropagation()}
-                              />
-                                <TouchableOpacity
-                                  style={{
-                                    backgroundColor: selectedResource.quantity >= resource.availableQuantity ? '#9CA3AF' : '#10B981',
-                                    borderRadius: 6,
-                                  width: isWeb ? 40 : 36,
-                                  height: isWeb ? 40 : 36,
-                                  minHeight: isWeb ? 40 : 36,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    opacity: selectedResource.quantity >= resource.availableQuantity ? 0.6 : 1,
-                                  }}
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  handleQuantityChange(resource.id, selectedResource.quantity + 1);
-                                }}
-                                  disabled={selectedResource.quantity >= resource.availableQuantity}
-                                >
-                                  <Ionicons name="add" size={isWeb ? 16 : 14} color="white" />
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          )}
-                        </View>
-                    );
-                  })}
+                      ))}
+                    </View>
+                  ))}
                 </View>
               </ScrollView>
 
@@ -678,240 +745,19 @@ export function ResourceSelectionModal({
         >
           <View style={{
             flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'flex-start',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
             gap: 8
           }}>
-            {filteredResources.map((resource) => {
-              const isSelected = isResourceSelected(resource.id);
-              const selectedResource = tempSelectedResources.find(r => r.resourceId === resource.id);
-              
-              return (
-                <View
-                  key={resource.id}
-                  style={{
-                    width: `${cardWidth}%`,
-                    backgroundColor: colors.surface,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                    marginBottom: 8,
-                    overflow: 'hidden',
-                    minHeight: isWeb ? 200 : 180
-                  }}
-                >
-                  {/* Clickable Top Section - for selection/deselection */}
-                  <TouchableOpacity
-                  onPress={() => handleResourceSelect(resource)}
-                    activeOpacity={0.7}
-                    style={{ flex: 1 }}
-                >
-                  {/* Selection Indicator */}
-                  {isSelected && (
-                    <View style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      backgroundColor: colors.primary,
-                      borderRadius: 10,
-                      width: 20,
-                      height: 20,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      zIndex: 1
-                    }}>
-                      <Ionicons name="checkmark" size={12} color="white" />
-                    </View>
-                  )}
-
-                  {/* Resource Image */}
-                  <View style={{
-                    height: isWeb ? 100 : 90,
-                    backgroundColor: colors.border
-                  }}>
-                    {resource.images && resource.images.length > 0 ? (
-                      <WebOptimizedImage
-                        source={{ uri: resource.images[0] }}
-                        style={{
-                          width: '100%',
-                          height: '100%'
-                        }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={{
-                        flex: 1,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        backgroundColor: colors.border
-                      }}>
-                        <Ionicons name="cube-outline" size={32} color={colors.text + '60'} />
-                      </View>
-                    )}
+            {masonryColumns.map((column, columnIndex) => (
+              <View key={`mobile-column-${columnIndex}`} style={{ width: `${cardWidth}%` }}>
+                {column.map((resource) => (
+                  <View key={resource.id}>
+                    {renderResourceCard(resource)}
                   </View>
-
-                  {/* Resource Info */}
-                  <View style={{ padding: isWeb ? 10 : 8 }}>
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      marginBottom: 4
-                    }}>
-                      <ThemedText style={{
-                        fontSize: isWeb ? 13 : 12,
-                        fontWeight: '600',
-                        color: colors.text,
-                        flex: 1
-                      }} numberOfLines={1}>
-                        {resource.name}
-                      </ThemedText>
-                      <View style={{
-                        backgroundColor: colors.primary + '20',
-                        paddingHorizontal: 6,
-                        paddingVertical: 2,
-                        borderRadius: 4,
-                        marginLeft: 8
-                      }}>
-                        <ThemedText style={{
-                          fontSize: isWeb ? 10 : 9,
-                          color: colors.primary,
-                          fontWeight: '600',
-                          textTransform: 'uppercase'
-                        }}>
-                          {resource.category}
-                        </ThemedText>
-                      </View>
-                    </View>
-
-                    <ThemedText style={{
-                      fontSize: isWeb ? 11 : 10,
-                      color: colors.primary,
-                      fontWeight: '600'
-                    }}>
-                      {resource.availableQuantity}/{resource.totalQuantity} available
-                    </ThemedText>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Separate Quantity Selector Container - doesn't trigger deselection */}
-                    {isSelected && selectedResource && (
-                    <View 
-                      style={{
-                        padding: isWeb ? 10 : 8,
-                        paddingTop: 6,
-                        borderTopWidth: 1,
-                        borderTopColor: colors.border,
-                        backgroundColor: colors.surface
-                      }}
-                      {...(Platform.OS !== 'web' ? {
-                        onStartShouldSetResponder: () => true,
-                        onTouchEnd: (e: any) => e.stopPropagation()
-                      } : {
-                        onClick: (e: any) => e.stopPropagation(),
-                        onMouseDown: (e: any) => e.stopPropagation()
-                      })}
-                    >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 6, gap: 4 }}>
-                          <ThemedText style={{
-                            fontSize: isWeb ? 11 : 10,
-                            color: colors.text + '80',
-                            textAlign: 'center'
-                          }}>
-                            Quantity
-                          </ThemedText>
-                          {selectedResource.quantity >= resource.availableQuantity && (
-                            <ThemedText style={{
-                              fontSize: isWeb ? 10 : 9,
-                              color: '#EF4444',
-                              fontWeight: '600'
-                            }}>
-                              (Max: {resource.availableQuantity})
-                            </ThemedText>
-                          )}
-                        </View>
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        width: '100%',
-                        maxWidth: '100%',
-                        gap: 4
-                        }}>
-                          <TouchableOpacity
-                            style={{
-                              backgroundColor: selectedResource.quantity <= 1 ? '#9CA3AF' : '#EF4444',
-                              borderRadius: 6,
-                            width: isWeb ? 40 : 36,
-                            height: isWeb ? 40 : 36,
-                            minHeight: isWeb ? 40 : 36,
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              opacity: selectedResource.quantity <= 1 ? 0.6 : 1,
-                            }}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleQuantityChange(resource.id, selectedResource.quantity - 1);
-                          }}
-                            disabled={selectedResource.quantity <= 1}
-                          >
-                            <Ionicons name="remove" size={isWeb ? 16 : 14} color="white" />
-                          </TouchableOpacity>
-                        <TextInput
-                          style={{
-                            backgroundColor: colors.background,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            borderRadius: 6,
-                            flex: 1,
-                            minWidth: 0,
-                            height: isWeb ? 40 : 36,
-                            minHeight: isWeb ? 40 : 36,
-                            textAlign: 'center',
-                              fontSize: isWeb ? 14 : 12,
-                              fontWeight: '700',
-                            color: colors.text,
-                            paddingHorizontal: 8,
-                            paddingVertical: 0,
-                            includeFontPadding: false,
-                            textAlignVertical: 'center'
-                          }}
-                          value={selectedResource.quantity > 0 ? selectedResource.quantity.toString() : ''}
-                          onChangeText={(text) => {
-                            handleQuantityInputChange(resource.id, text);
-                          }}
-                          onBlur={() => {
-                            handleQuantityInputBlur(resource.id);
-                          }}
-                          keyboardType="numeric"
-                          selectTextOnFocus
-                          onFocus={(e) => e.stopPropagation()}
-                          onPressIn={(e) => e.stopPropagation()}
-                        />
-                          <TouchableOpacity
-                            style={{
-                              backgroundColor: selectedResource.quantity >= resource.availableQuantity ? '#9CA3AF' : '#10B981',
-                              borderRadius: 6,
-                            width: isWeb ? 40 : 36,
-                            height: isWeb ? 40 : 36,
-                            minHeight: isWeb ? 40 : 36,
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              opacity: selectedResource.quantity >= resource.availableQuantity ? 0.6 : 1,
-                            }}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleQuantityChange(resource.id, selectedResource.quantity + 1);
-                          }}
-                            disabled={selectedResource.quantity >= resource.availableQuantity}
-                          >
-                            <Ionicons name="add" size={isWeb ? 16 : 14} color="white" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-              );
-            })}
+                ))}
+              </View>
+            ))}
           </View>
         </ScrollView>
 

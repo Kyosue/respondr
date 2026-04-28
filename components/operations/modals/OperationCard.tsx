@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
+import { Tag } from '@/components/base/tags/tags';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +48,7 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
   const colors = Colors[colorScheme ?? 'light'];
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [updaterName, setUpdaterName] = useState<string | null>(null);
   const [personnelMap, setPersonnelMap] = useState<Map<string, { fullName: string; email?: string }>>(new Map());
@@ -160,15 +162,22 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
     });
   };
 
-  const formatResources = () => {
-    return operation.resources
-      .map(resource => `${resource.quantity}x ${resource.resourceName}`)
-      .join(', ');
+  const getResourceLabels = () => {
+    return operation.resources.map((resource) => `${resource.quantity}x ${resource.resourceName}`);
   };
 
-  const formatPersonnel = () => {
+  const formatLocation = () => {
+    if (!operation.exactLocation) return '';
+    const parts: string[] = [];
+    if (operation.exactLocation.barangay) parts.push(operation.exactLocation.barangay);
+    if (operation.exactLocation.purok) parts.push(operation.exactLocation.purok);
+    if (operation.exactLocation.specificAddress) parts.push(operation.exactLocation.specificAddress);
+    return parts.join(', ');
+  };
+
+  const getPersonnelNames = () => {
     if (!operation.assignedPersonnel || operation.assignedPersonnel.length === 0) {
-      return '';
+      return [];
     }
     
     const getLastName = (fullName: string): string => {
@@ -186,19 +195,7 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
       })
       .filter((name): name is string => name !== null);
 
-    if (personnelNames.length === 0) {
-      return 'Loading...';
-    }
-
-    // Show up to 3 names, then "and X more" if there are more
-    const maxDisplay = 3;
-    if (personnelNames.length <= maxDisplay) {
-      return personnelNames.join(' • ');
-    } else {
-      const displayed = personnelNames.slice(0, maxDisplay).join(' • ');
-      const remaining = personnelNames.length - maxDisplay;
-      return `${displayed} • and ${remaining} more`;
-    }
+    return personnelNames;
   };
 
   const canConclude = !!onConclude && operation.status !== 'concluded';
@@ -218,6 +215,7 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
 
   // Update operation button removed per requirements
   const handleDelete = () => {
+    setShowActionsMenu(false);
     onDelete?.(operation.id);
   };
 
@@ -226,52 +224,67 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
       {/* Header with title and badges */}
       <View style={styles.operationHeader}>
         <View style={styles.operationTitleContainer}>
-          <ThemedText style={[styles.operationTitle, { color: colors.text }]} numberOfLines={1}>
-            {operation.title}
-          </ThemedText>
-          <View style={styles.badgeContainer}>
-            {operation.status === 'active' && (
-              <View style={[styles.statusBadge, { backgroundColor: colors.success || '#4CAF50' }]}>
-                <ThemedText style={styles.statusText}>Active</ThemedText>
-              </View>
-            )}
-            {operation.status === 'concluded' && (
-              <View style={[styles.statusBadge, { backgroundColor: colors.tabIconDefault || '#8E8E93' }]}>
-                <ThemedText style={styles.statusText}>Concluded</ThemedText>
-              </View>
-            )}
+          <View style={styles.titleRow}>
+            <ThemedText style={[styles.operationTitle, { color: colors.text }]} numberOfLines={1}>
+              {operation.title}
+            </ThemedText>
+            <Tag dot size="sm" dotColor={operation.status === 'active' ? '#10B981' : '#6B7280'}>
+              {operation.status === 'active' ? 'ACTIVE' : 'CONCLUDED'}
+            </Tag>
           </View>
+        </View>
+        <View style={styles.actionsMenuContainer}>
+          <TouchableOpacity
+            style={[styles.moreButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setShowActionsMenu((prev) => !prev)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="ellipsis-vertical" size={16} color={colors.text} />
+          </TouchableOpacity>
+          {showActionsMenu && (
+            <View style={[styles.actionsDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setShowActionsMenu(false);
+                  setShowPreviewModal(true);
+                }}
+              >
+                <Ionicons name="eye-outline" size={16} color={colors.text} />
+                <ThemedText style={[styles.dropdownItemText, { color: colors.text }]}>View</ThemedText>
+              </TouchableOpacity>
+              {canEdit && (
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setShowActionsMenu(false);
+                    onEdit?.(operation);
+                  }}
+                >
+                  <Ionicons name="create-outline" size={16} color={colors.text} />
+                  <ThemedText style={[styles.dropdownItemText, { color: colors.text }]}>Edit</ThemedText>
+                </TouchableOpacity>
+              )}
+              {canDelete && (
+                <TouchableOpacity style={styles.dropdownItem} onPress={handleDelete}>
+                  <Ionicons name="trash-outline" size={16} color={colors.error || '#EF4444'} />
+                  <ThemedText style={[styles.dropdownItemText, { color: colors.error || '#EF4444' }]}>Delete</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </View>
       
-      {/* Description - compact */}
-      {operation.description && (
-        <ThemedText style={[styles.operationDescription, { color: colors.text, opacity: 0.8 }]} numberOfLines={2}>
-          {operation.description}
-        </ThemedText>
-      )}
-      
       {/* Details */}
       <View style={styles.operationDetails}>
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <Ionicons name="construct" size={14} color={colors.text} style={styles.detailIcon} />
-            <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
-              {operation.operationType}
-            </ThemedText>
-          </View>
-        </View>
-
-        
-
         {/* Location Information */}
         {operation.exactLocation && (
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
               <Ionicons name="location" size={14} color={colors.text} style={styles.detailIcon} />
               <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={2}>
-                {operation.exactLocation.barangay}, {operation.exactLocation.purok}
-                {operation.exactLocation.specificAddress && ` - ${operation.exactLocation.specificAddress}`}
+                {formatLocation()}
               </ThemedText>
             </View>
           </View>
@@ -281,9 +294,22 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
               <Ionicons name="car" size={14} color={colors.text} style={styles.detailIcon} />
-              <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
-                {formatResources()}
-              </ThemedText>
+              <View style={styles.resourceTagsWrap}>
+                {(() => {
+                  const labels = getResourceLabels();
+                  const maxDisplay = 2;
+                  const visibleLabels = labels.slice(0, maxDisplay);
+                  const remaining = labels.length - visibleLabels.length;
+                  return (
+                    <>
+                      {visibleLabels.map((label) => (
+                        <Tag key={label} size="sm">{label}</Tag>
+                      ))}
+                      {remaining > 0 ? <Tag size="sm">+{remaining} more</Tag> : null}
+                    </>
+                  );
+                })()}
+              </View>
             </View>
             
             {operation.endDate && (
@@ -302,9 +328,25 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
               <Ionicons name="people" size={14} color={colors.text} style={styles.detailIcon} />
-              <ThemedText style={[styles.detailValue, { color: colors.text }]} numberOfLines={3}>
-                {formatPersonnel()}
-              </ThemedText>
+              <View style={styles.personnelTagsWrap}>
+                {(() => {
+                  const names = getPersonnelNames();
+                  if (names.length === 0) {
+                    return <Tag size="sm">Loading...</Tag>;
+                  }
+                  const maxDisplay = 2;
+                  const visibleNames = names.slice(0, maxDisplay);
+                  const remaining = names.length - visibleNames.length;
+                  return (
+                    <>
+                      {visibleNames.map((name) => (
+                        <Tag key={name} size="sm">{name}</Tag>
+                      ))}
+                      {remaining > 0 ? <Tag size="sm">+{remaining} more</Tag> : null}
+                    </>
+                  );
+                })()}
+              </View>
             </View>
           </View>
         )}
@@ -312,39 +354,6 @@ export function OperationCard({ operation, onConclude, onDelete, onEdit }: Opera
       
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        {canDelete && (
-          <TouchableOpacity
-            style={[
-              styles.iconButton,
-              { borderColor: colors.border, backgroundColor: colors.surface }
-            ]}
-            onPress={handleDelete}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.error || '#EF4444'} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[
-            styles.iconButton,
-            { borderColor: colors.primary, backgroundColor: colors.primary }
-          ]}
-          onPress={() => setShowPreviewModal(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="eye-outline" size={18} color="white" />
-        </TouchableOpacity>
-        {canEdit && (
-          <TouchableOpacity
-            style={[
-              styles.iconButton,
-              { borderColor: colors.primary, backgroundColor: colors.primary }
-            ]}
-            onPress={() => onEdit?.(operation)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={18} color="white" />
-          </TouchableOpacity>
-        )}
         {canConclude && (
           <TouchableOpacity
             style={[
@@ -408,6 +417,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     padding: 16,
+    position: 'relative',
+    overflow: 'visible',
+    zIndex: 1,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -415,31 +427,72 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   operationHeader: {
+    position: 'relative',
+    paddingRight: 40,
     marginBottom: 8,
+    overflow: 'visible',
+    zIndex: 30,
   },
   operationTitleContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    flex: 1,
+    minWidth: 0,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
+    width: '100%',
+    paddingRight: 4,
   },
   operationTitle: {
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
-    marginRight: 8,
+    marginRight: 0,
+    marginBottom: 0,
   },
-  badgeContainer: {
-    flexDirection: 'row',
-    gap: 6,
+  actionsMenuContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 40,
+    overflow: 'visible',
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  moreButton: {
+    width: 32,
+    height: 32,
     borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statusText: {
-    color: 'white',
-    fontSize: 11,
+  actionsDropdown: {
+    position: 'absolute',
+    top: 36,
+    right: 0,
+    minWidth: 130,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 4,
+    zIndex: 999,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  dropdownItemText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   priorityBadge: {
@@ -451,11 +504,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 11,
     fontWeight: '600',
-  },
-  operationDescription: {
-    fontSize: 14,
-    lineHeight: 18,
-    marginBottom: 8,
   },
   operationDetails: {
     marginBottom: 8,
@@ -478,6 +526,20 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 13,
     flex: 1,
+  },
+  personnelTagsWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
+  },
+  resourceTagsWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
   },
   operationFooter: {
     flexDirection: 'row',
@@ -514,14 +576,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     gap: 6,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
   },
   updateButton: {
     borderWidth: 1,

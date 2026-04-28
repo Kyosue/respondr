@@ -100,6 +100,11 @@ export function FormDatePicker({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const formattedDate = value.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  });
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
@@ -129,43 +134,47 @@ export function FormDatePicker({
           min={minimumDate ? minimumDate.toISOString().split('T')[0] : undefined}
           style={{
             border: `1px solid ${colors.inputBorder}`,
-            borderRadius: 8,
-            padding: '12px',
-            fontSize: 16,
+            borderRadius: 10,
+            padding: '12px 14px',
+            fontSize: 18,
             backgroundColor: colors.inputBackground,
             color: colors.inputText || colors.text,
             width: '100%',
             boxSizing: 'border-box',
             fontFamily: 'inherit',
             outline: 'none',
+            minHeight: 50,
           }}
         />
       ) : (
         <>
-      <TouchableOpacity
-        style={[
-          styles.dateButton,
-          {
-            backgroundColor: colors.inputBackground,
-            borderColor: colors.inputBorder,
-          },
-        ]}
-        onPress={() => setShowDatePicker(true)}
-      >
-        <Ionicons name="calendar-outline" size={20} color={colors.text} />
-        <ThemedText style={styles.dateText}>
-          {value.toLocaleDateString()}
-        </ThemedText>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.dateButton,
+              {
+                backgroundColor: colors.inputBackground,
+                borderColor: colors.inputBorder,
+              },
+            ]}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.dateButtonLeft}>
+              <Ionicons name="calendar-outline" size={20} color={colors.icon} />
+              <ThemedText style={[styles.dateText, { color: colors.inputText || colors.text }]}>
+                {formattedDate}
+              </ThemedText>
+            </View>
+          </TouchableOpacity>
       
-      {showDatePicker && (
-        <DateTimePicker
-          value={value}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-          minimumDate={minimumDate}
-        />
+          {showDatePicker && (
+            <DateTimePicker
+              value={value}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+              minimumDate={minimumDate}
+            />
           )}
         </>
       )}
@@ -490,14 +499,21 @@ const styles = StyleSheet.create({
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    gap: 8,
+    minHeight: 50,
+  },
+  dateButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '500',
   },
   imagePickerButton: {
     borderWidth: 1,

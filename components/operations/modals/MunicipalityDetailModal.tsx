@@ -3,6 +3,7 @@ import { Colors } from '@/constants/Colors';
 import { Municipality } from '@/data/davaoOrientalData';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useHybridRamp } from '@/hooks/useHybridRamp';
+import { fetchWeatherData, WeatherApiResponse } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -11,7 +12,6 @@ import { Animated, Dimensions, Modal, Platform, ScrollView, StyleSheet, Touchabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CurrentOperationsTab } from './CurrentOperationsTab';
 import { HistoryOperationsTab } from './HistoryOperationsTab';
-import { fetchWeatherData, WeatherApiResponse } from '@/services/weatherApi';
 
 interface MunicipalityDetailModalProps {
   visible: boolean;
@@ -203,7 +203,7 @@ export function MunicipalityDetailModal({
           <Animated.View
             style={[
               styles.containerWeb,
-              { backgroundColor: colors.surface, opacity: fadeAnim, transform: [{ scale: scaleAnim }, { translateY: slideAnim }] }
+              { backgroundColor: colors.surface, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }
             ]}
           >
             {/* Header */}
@@ -358,41 +358,67 @@ export function MunicipalityDetailModal({
                   <TouchableOpacity
                     style={[
                       styles.tabButton,
-                      activeTab === 'current' && [styles.activeTab, { backgroundColor: colors.primary }]
+                      activeTab === 'current' && [styles.activeTab, { backgroundColor: colors.surface }]
                     ]}
                     onPress={() => setActiveTab('current')}
                   >
-                    <Ionicons 
-                      name="list" 
-                      size={16} 
-                      color={activeTab === 'current' ? 'white' : colors.text} 
+                    <Ionicons
+                      name="list"
+                      size={16}
+                      color={activeTab === 'current' ? colors.text : colors.icon}
                     />
                     <ThemedText style={[
                       styles.tabText,
-                      { color: activeTab === 'current' ? 'white' : colors.text }
+                      { color: activeTab === 'current' ? colors.text : colors.icon }
                     ]}>
-                      Current ({recentOperations?.length || 0})
+                      Current
                     </ThemedText>
+                    <View style={[
+                      styles.tabBadge,
+                      {
+                        backgroundColor: activeTab === 'current' ? colors.primary : 'rgba(120, 128, 145, 0.2)',
+                      }
+                    ]}>
+                      <ThemedText style={[
+                        styles.tabBadgeText,
+                        { color: activeTab === 'current' ? 'white' : colors.icon }
+                      ]}>
+                        {recentOperations?.length || 0}
+                      </ThemedText>
+                    </View>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.tabButton,
-                      activeTab === 'history' && [styles.activeTab, { backgroundColor: colors.primary }]
+                      activeTab === 'history' && [styles.activeTab, { backgroundColor: colors.surface }]
                     ]}
                     onPress={() => setActiveTab('history')}
                   >
-                    <Ionicons 
-                      name="time" 
-                      size={16} 
-                      color={activeTab === 'history' ? 'white' : colors.text} 
+                    <Ionicons
+                      name="time"
+                      size={16}
+                      color={activeTab === 'history' ? colors.text : colors.icon}
                     />
                     <ThemedText style={[
                       styles.tabText,
-                      { color: activeTab === 'history' ? 'white' : colors.text }
+                      { color: activeTab === 'history' ? colors.text : colors.icon }
                     ]}>
-                      History ({concludedOperations?.length || 0})
+                      History
                     </ThemedText>
+                    <View style={[
+                      styles.tabBadge,
+                      {
+                        backgroundColor: activeTab === 'history' ? colors.primary : 'rgba(120, 128, 145, 0.2)',
+                      }
+                    ]}>
+                      <ThemedText style={[
+                        styles.tabBadgeText,
+                        { color: activeTab === 'history' ? 'white' : colors.icon }
+                      ]}>
+                        {concludedOperations?.length || 0}
+                      </ThemedText>
+                    </View>
                   </TouchableOpacity>
                 </View>
                 
@@ -601,41 +627,67 @@ export function MunicipalityDetailModal({
                 <TouchableOpacity
                   style={[
                     styles.tabButton,
-                    activeTab === 'current' && [styles.activeTab, { backgroundColor: colors.primary }]
+                    activeTab === 'current' && [styles.activeTab, { backgroundColor: colors.surface }]
                   ]}
                   onPress={() => setActiveTab('current')}
                 >
-                  <Ionicons 
-                    name="list" 
-                    size={16} 
-                    color={activeTab === 'current' ? 'white' : colors.text} 
+                  <Ionicons
+                    name="list"
+                    size={16}
+                    color={activeTab === 'current' ? colors.text : colors.icon}
                   />
                   <ThemedText style={[
                     styles.tabText,
-                    { color: activeTab === 'current' ? 'white' : colors.text }
+                    { color: activeTab === 'current' ? colors.text : colors.icon }
                   ]}>
-                    Current ({recentOperations?.length || 0})
+                    Current
                   </ThemedText>
+                  <View style={[
+                    styles.tabBadge,
+                    {
+                      backgroundColor: activeTab === 'current' ? colors.primary : 'rgba(120, 128, 145, 0.2)',
+                    }
+                  ]}>
+                    <ThemedText style={[
+                      styles.tabBadgeText,
+                      { color: activeTab === 'current' ? 'white' : colors.icon }
+                    ]}>
+                      {recentOperations?.length || 0}
+                    </ThemedText>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[
                     styles.tabButton,
-                    activeTab === 'history' && [styles.activeTab, { backgroundColor: colors.primary }]
+                    activeTab === 'history' && [styles.activeTab, { backgroundColor: colors.surface }]
                   ]}
                   onPress={() => setActiveTab('history')}
                 >
-                  <Ionicons 
-                    name="time" 
-                    size={16} 
-                    color={activeTab === 'history' ? 'white' : colors.text} 
+                  <Ionicons
+                    name="time"
+                    size={16}
+                    color={activeTab === 'history' ? colors.text : colors.icon}
                   />
                   <ThemedText style={[
                     styles.tabText,
-                    { color: activeTab === 'history' ? 'white' : colors.text }
+                    { color: activeTab === 'history' ? colors.text : colors.icon }
                   ]}>
-                    History ({concludedOperations?.length || 0})
+                    History
                   </ThemedText>
+                  <View style={[
+                    styles.tabBadge,
+                    {
+                      backgroundColor: activeTab === 'history' ? colors.primary : 'rgba(120, 128, 145, 0.2)',
+                    }
+                  ]}>
+                    <ThemedText style={[
+                      styles.tabBadgeText,
+                      { color: activeTab === 'history' ? 'white' : colors.icon }
+                    ]}>
+                      {concludedOperations?.length || 0}
+                    </ThemedText>
+                  </View>
                 </TouchableOpacity>
               </View>
               
@@ -693,9 +745,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)'
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   overlayCloseButton: {
     position: 'absolute',
@@ -710,9 +765,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   containerWeb: {
+    flex: 1,
     width: '100%',
-    maxWidth: 1030,
-    height: '85%',
+    maxWidth: 620,
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
@@ -958,27 +1013,44 @@ const styles = StyleSheet.create({
   // Tab Styles
   tabContainer: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 16,
-    padding: 4,
+    padding: 5,
   },
   tabButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 6,
   },
   activeTab: {
-    // backgroundColor set dynamically
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 13,
   },
   tabContent: {
     minHeight: 200,

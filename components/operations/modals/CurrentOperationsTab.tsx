@@ -77,12 +77,12 @@ export function CurrentOperationsTab({
           Current Operations
         </ThemedText>
         <View style={styles.buttonContainer}>
-          {onAddOperation ? (
+          {onAddOperation && items && items.length > 0 ? (
             <TouchableOpacity 
               style={[styles.addButton, { backgroundColor: colors.primary }]}
               onPress={onAddOperation}
             >
-              <Ionicons name="add-circle" size={20} color="white" />
+              <Ionicons name="add" size={18} color="white" />
               <ThemedText style={styles.addButtonText}>
                 Add Operation
               </ThemedText>
@@ -110,10 +110,26 @@ export function CurrentOperationsTab({
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="list-outline" size={48} color={colors.text} style={styles.emptyIcon} />
+            <View style={[styles.emptyIconWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Ionicons name="list-outline" size={32} color={colors.icon} />
+            </View>
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+              No active operations
+            </ThemedText>
             <ThemedText style={[styles.emptyMessage, { color: colors.text }]}>
               There are no active operations for this location.
             </ThemedText>
+            {onAddOperation && (
+              <TouchableOpacity
+                style={[styles.emptyPrimaryButton, { backgroundColor: colors.primary }]}
+                onPress={onAddOperation}
+              >
+                <Ionicons name="add" size={18} color="white" />
+                <ThemedText style={styles.emptyPrimaryButtonText}>
+                  Add Operation
+                </ThemedText>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -202,18 +218,50 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 36,
     paddingHorizontal: 24,
     width: '100%',
   },
-  emptyIcon: {
-    opacity: 0.3,
-    marginBottom: 16,
+  emptyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
   },
   emptyMessage: {
     fontSize: 14,
     opacity: 0.7,
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 16,
+    maxWidth: 360,
+  },
+  emptyPrimaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+  },
+  emptyPrimaryButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

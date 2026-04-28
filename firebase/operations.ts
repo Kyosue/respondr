@@ -41,6 +41,7 @@ export interface OperationRecord {
   };
   resources: OperationResourceRef[];
   assignedPersonnel: string[];
+  teamLeader?: string;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;

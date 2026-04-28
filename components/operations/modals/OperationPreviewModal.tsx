@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { Tag } from '@/components/base/tags/tags';
+import { WebOptimizedImage } from '@/components/ui/WebOptimizedImage';
 import { Colors } from '@/constants/Colors';
 import { getMunicipalities } from '@/data/davaoOrientalData';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -63,6 +65,7 @@ export function OperationPreviewModal({
   const [teamLeaderName, setTeamLeaderName] = useState<string | null>(null);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [updaterName, setUpdaterName] = useState<string | null>(null);
+  const [resourceImageMap, setResourceImageMap] = useState<Map<string, string>>(new Map());
   const municipalities = getMunicipalities();
 
   const { isWeb, fadeAnim, scaleAnim, slideAnim, handleClose: rampHandleClose } = useHybridRamp({
@@ -193,6 +196,47 @@ export function OperationPreviewModal({
     return () => { isMounted = false; };
   }, [operation.assignedPersonnel, operation.teamLeader, visible]);
 
+  // Fetch resource images for preview chips
+  useEffect(() => {
+    let isMounted = true;
+    const fetchResourceImages = async () => {
+      try {
+        if (!operation.resources || operation.resources.length === 0) {
+          setResourceImageMap(new Map());
+          return;
+        }
+
+        const { db } = await import('@/firebase/config');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const imageMap = new Map<string, string>();
+
+        await Promise.all(
+          operation.resources.map(async (resource) => {
+            try {
+              const resourceRef = doc(db, 'resources', resource.resourceId);
+              const snap = await getDoc(resourceRef);
+              if (!snap.exists()) return;
+              const data = snap.data() as { images?: string[] };
+              const imageUri = data.images?.[0];
+              if (imageUri) imageMap.set(resource.resourceId, imageUri);
+            } catch (e) {
+              console.error(`Error fetching resource image for ${resource.resourceId}:`, e);
+            }
+          })
+        );
+
+        if (isMounted) setResourceImageMap(imageMap);
+      } catch (e) {
+        console.error('Error fetching resource images:', e);
+      }
+    };
+
+    if (visible) fetchResourceImages();
+    return () => {
+      isMounted = false;
+    };
+  }, [operation.resources, visible]);
+
   const formatDate = (value: string | Date | number) => {
     const date = value instanceof Date ? value : new Date(value);
     if (isNaN(date.getTime())) return '—';
@@ -217,6 +261,30 @@ export function OperationPreviewModal({
     return `${lastName}, ${firstName}`;
   };
 
+  const getCategoryColor = (category: string) => {
+    switch ((category || '').toLowerCase()) {
+      case 'tools':
+        return '#3B82F6';
+      case 'equipment':
+        return '#8B5CF6';
+      case 'vehicles':
+        return '#F59E0B';
+      case 'medical':
+        return '#EF4444';
+      case 'communication':
+        return '#0EA5E9';
+      case 'supplies':
+        return '#10B981';
+      case 'personnel':
+        return '#EC4899';
+      case 'other':
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const getStatusColor = () => (operation.status === 'active' ? '#10B981' : '#6B7280');
+
   const handleClose = rampHandleClose;
 
   // Platform-specific modal rendering
@@ -230,18 +298,12 @@ export function OperationPreviewModal({
         animationType="fade"
       >
         <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
-          <TouchableOpacity 
-            style={styles.overlayCloseButton} 
-            onPress={handleClose}
-            activeOpacity={0.7}
-          />
           <Animated.View style={[
             styles.container,
             {
               opacity: fadeAnim,
               transform: [
-                { scale: scaleAnim },
-                { translateY: slideAnim }
+                { translateX: slideAnim }
               ]
             }
           ]}>
@@ -278,26 +340,12 @@ export function OperationPreviewModal({
                     {operation.title}
                   </ThemedText>
                   <View style={styles.heroBadges}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: operation.status === 'active' ? '#10B981' : '#6B7280' }
-                    ]}>
-                      <Ionicons 
-                        name={operation.status === 'active' ? 'play-circle' : 'checkmark-circle'} 
-                        size={14} 
-                        color="#FFFFFF" 
-                        style={{ marginRight: 4 }}
-                      />
-                      <ThemedText style={styles.statusText}>
-                        {operation.status === 'active' ? 'Active' : 'Concluded'}
-                      </ThemedText>
-                    </View>
-                    <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
-                      <Ionicons name="construct" size={14} color={colors.primary} style={{ marginRight: 4 }} />
-                      <ThemedText style={[styles.typeBadgeText, { color: colors.primary }]}>
-                        {operation.operationType}
-                      </ThemedText>
-                    </View>
+                    <Tag dot size="sm" dotColor={getStatusColor()}>
+                      {operation.status === 'active' ? 'ACTIVE' : 'CONCLUDED'}
+                    </Tag>
+                    <Tag dot size="sm" dotColor={colors.primary}>
+                      {operation.operationType.toUpperCase()}
+                    </Tag>
                   </View>
                 </View>
 
@@ -351,7 +399,7 @@ export function OperationPreviewModal({
                 {/* Dates */}
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <View style={styles.datesRow}>
-                  <View style={styles.dateItem}>
+                  <View style={[styles.dateItem, { borderColor: colors.border, backgroundColor: colors.background }]}>
                     <View style={styles.dateIconContainer}>
                       <Ionicons name="calendar-outline" size={16} color={colors.primary} />
                     </View>
@@ -365,7 +413,7 @@ export function OperationPreviewModal({
                     </View>
                   </View>
                   {operation.endDate && (
-                    <View style={styles.dateItem}>
+                    <View style={[styles.dateItem, { borderColor: colors.border, backgroundColor: colors.background }]}>
                       <View style={styles.dateIconContainer}>
                         <Ionicons name="calendar" size={16} color={colors.primary} />
                       </View>
@@ -393,17 +441,28 @@ export function OperationPreviewModal({
                     </View>
                     <View style={styles.resourcesGrid}>
                       {operation.resources.map((resource, index) => (
-                        <View key={index} style={[styles.resourceChip, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
-                          <ThemedText style={[styles.resourceQuantity, { color: colors.primary }]}>
-                            {resource.quantity}x
-                          </ThemedText>
+                        <View key={index} style={[styles.resourceChip, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <View style={styles.resourceImageWrap}>
+                      {resourceImageMap.get(resource.resourceId) ? (
+                        <WebOptimizedImage
+                          source={{ uri: resourceImageMap.get(resource.resourceId)! }}
+                          style={styles.resourceImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.resourceImageFallback, { backgroundColor: colors.primary + '12' }]}>
+                          <Ionicons name="cube-outline" size={14} color={colors.primary} />
+                        </View>
+                      )}
+                    </View>
                           <ThemedText style={[styles.resourceName, { color: colors.text }]}>
                             {resource.resourceName}
                           </ThemedText>
-                          <View style={[styles.resourceCategoryTag, { backgroundColor: colors.primary + '20' }]}>
-                            <ThemedText style={[styles.resourceCategoryText, { color: colors.primary }]}>
-                              {resource.category}
-                            </ThemedText>
+                          <View style={styles.resourceTagRow}>
+                            <Tag size="sm">{resource.quantity}x</Tag>
+                            <Tag dot size="sm" dotColor={getCategoryColor(resource.category)}>
+                              {String(resource.category).toUpperCase()}
+                            </Tag>
                           </View>
                         </View>
                       ))}
@@ -488,7 +547,7 @@ export function OperationPreviewModal({
                 )}
 
                 {/* Metadata Footer */}
-                <View style={styles.metadataFooter}>
+                <View style={[styles.metadataFooter, { borderTopColor: colors.border }]}>
                   <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
                     Operation ID: {operation.id}
                   </ThemedText>
@@ -549,26 +608,12 @@ export function OperationPreviewModal({
               {operation.title}
             </ThemedText>
             <View style={styles.heroBadges}>
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: operation.status === 'active' ? '#10B981' : '#6B7280' }
-              ]}>
-                <Ionicons 
-                  name={operation.status === 'active' ? 'play-circle' : 'checkmark-circle'} 
-                  size={14} 
-                  color="#FFFFFF" 
-                  style={{ marginRight: 4 }}
-                />
-                <ThemedText style={styles.statusText}>
-                  {operation.status === 'active' ? 'Active' : 'Concluded'}
-                </ThemedText>
-              </View>
-              <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
-                <Ionicons name="construct" size={14} color={colors.primary} style={{ marginRight: 4 }} />
-                <ThemedText style={[styles.typeBadgeText, { color: colors.primary }]}>
-                  {operation.operationType}
-                </ThemedText>
-              </View>
+              <Tag dot size="sm" dotColor={getStatusColor()}>
+                {operation.status === 'active' ? 'ACTIVE' : 'CONCLUDED'}
+              </Tag>
+              <Tag dot size="sm" dotColor={colors.primary}>
+                {operation.operationType.toUpperCase()}
+              </Tag>
             </View>
           </View>
 
@@ -622,7 +667,7 @@ export function OperationPreviewModal({
           {/* Dates */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.datesRow}>
-            <View style={styles.dateItem}>
+            <View style={[styles.dateItem, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <View style={styles.dateIconContainer}>
                 <Ionicons name="calendar-outline" size={16} color={colors.primary} />
               </View>
@@ -636,7 +681,7 @@ export function OperationPreviewModal({
               </View>
             </View>
             {operation.endDate && (
-              <View style={styles.dateItem}>
+              <View style={[styles.dateItem, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <View style={styles.dateIconContainer}>
                   <Ionicons name="calendar" size={16} color={colors.primary} />
                 </View>
@@ -664,17 +709,35 @@ export function OperationPreviewModal({
               </View>
               <View style={styles.resourcesGrid}>
                 {operation.resources.map((resource, index) => (
-                  <View key={index} style={[styles.resourceChip, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
-                    <ThemedText style={[styles.resourceQuantity, { color: colors.primary }]}>
-                      {resource.quantity}x
-                    </ThemedText>
-                    <ThemedText style={[styles.resourceName, { color: colors.text }]}>
-                      {resource.resourceName}
-                    </ThemedText>
-                    <View style={[styles.resourceCategoryTag, { backgroundColor: colors.primary + '20' }]}>
-                      <ThemedText style={[styles.resourceCategoryText, { color: colors.primary }]}>
-                        {resource.category}
-                      </ThemedText>
+                  <View key={index} style={[styles.resourceChip, styles.resourceChipMobile, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <View style={styles.resourceBodyRow}>
+                      <View style={[styles.resourceImageWrap, styles.resourceImageWrapMobile]}>
+                        {resourceImageMap.get(resource.resourceId) ? (
+                          <WebOptimizedImage
+                            source={{ uri: resourceImageMap.get(resource.resourceId)! }}
+                            style={styles.resourceImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={[styles.resourceImageFallback, { backgroundColor: colors.primary + '12' }]}>
+                            <Ionicons name="cube-outline" size={18} color={colors.primary} />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.resourceMainContent}>
+                        <View style={styles.resourceTopRow}>
+                          <Tag size="sm">{resource.quantity}x</Tag>
+                          <Tag dot size="sm" dotColor={getCategoryColor(resource.category)}>
+                            {String(resource.category).toUpperCase()}
+                          </Tag>
+                        </View>
+                        <ThemedText style={[styles.resourceName, styles.resourceNameMobile, { color: colors.text }]} numberOfLines={2}>
+                          {resource.resourceName}
+                        </ThemedText>
+                        <ThemedText style={[styles.resourceMetaText, { color: colors.text + '99' }]}>
+                          Requested quantity
+                        </ThemedText>
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -759,7 +822,7 @@ export function OperationPreviewModal({
           )}
 
           {/* Metadata Footer */}
-          <View style={styles.metadataFooter}>
+          <View style={[styles.metadataFooter, { borderTopColor: colors.border }]}>
             <ThemedText style={[styles.metadataLabel, { color: colors.text + '80' }]}>
               Operation ID: {operation.id}
             </ThemedText>
@@ -783,10 +846,11 @@ export function OperationPreviewModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   overlayCloseButton: {
     position: 'absolute',
@@ -798,10 +862,13 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 800,
-    maxHeight: '90%',
-    borderRadius: 20,
+    maxWidth: 560,
+    height: '92%',
+    borderRadius: 16,
     overflow: 'hidden',
+    position: 'absolute',
+    right: 648,
+    top: 16,
     ...Platform.select({
       web: {
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
@@ -818,14 +885,15 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     backgroundColor: 'transparent',
   },
@@ -835,23 +903,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   headerText: {
     flex: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
   },
   closeButton: {
     padding: 8,
@@ -861,56 +929,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    paddingBottom: 32,
+    padding: 20,
+    paddingBottom: 28,
   },
   // Hero Section
   heroSection: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   heroTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    lineHeight: 36,
-    marginBottom: 16,
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 30,
+    marginBottom: 12,
+    letterSpacing: -0.3,
   },
   heroBadges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   statusText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 12,
+    fontWeight: '600',
   },
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   typeBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 12,
+    fontWeight: '600',
   },
   // Divider
   divider: {
     height: 1,
-    marginVertical: 20,
-    opacity: 0.2,
+    marginVertical: 16,
+    opacity: 0.35,
   },
   // Info Rows
   infoRow: {
@@ -919,32 +985,31 @@ const styles = StyleSheet.create({
   infoLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
     gap: 8,
   },
   labelText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
   valueText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     fontWeight: '400',
   },
   locationDetails: {
     gap: 4,
   },
   locationSubtext: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
   // Dates
   datesRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     flexWrap: 'wrap',
   },
   dateItem: {
@@ -953,11 +1018,15 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 200,
     gap: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   dateIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -966,99 +1035,169 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 0.2,
+    marginBottom: 2,
   },
   dateValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   // Section Headers
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: 12,
+    gap: 8,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: -0.3,
   },
   // Resources
   resourcesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   resourceChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    gap: 8,
+    gap: 6,
     minWidth: 140,
   },
+  resourceImageWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  resourceImage: {
+    width: '100%',
+    height: '100%',
+  },
+  resourceImageFallback: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resourceChipMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+    width: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 0,
+  },
+  resourceBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 10,
+  },
+  resourceMainContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  resourceTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  resourceQuantityBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   resourceQuantity: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   resourceName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
+  resourceTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  resourceNameMobile: {
+    flex: 0,
+    fontSize: 14,
+    lineHeight: 19,
+  },
   resourceCategoryTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 6,
   },
+  resourceCategoryTagMobile: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
   resourceCategoryText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+  },
+  resourceMetaText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  resourceImageWrapMobile: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
   },
   // Personnel
   teamLeaderHighlight: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    marginBottom: 16,
-    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 8,
   },
   teamLeaderName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     flex: 1,
   },
   teamLeaderRole: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
   personnelGrid: {
-    gap: 12,
+    gap: 10,
   },
   personnelCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
   },
   personnelAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1068,33 +1207,34 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   personnelName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   personnelEmail: {
-    fontSize: 13,
+    fontSize: 12,
   },
   roleTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   roleTagText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   // Metadata Footer
   metadataFooter: {
-    marginTop: 24,
-    paddingTop: 20,
-    gap: 6,
+    marginTop: 16,
+    paddingTop: 14,
+    gap: 4,
+    borderTopWidth: 1,
   },
   metadataLabel: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
   },
   // Footer
   footer: {

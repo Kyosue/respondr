@@ -91,7 +91,9 @@ export function HistoryOperationsTab({ operations }: HistoryOperationsTabProps) 
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="time-outline" size={48} color={colors.text} style={styles.emptyIcon} />
+            <View style={[styles.emptyIconWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Ionicons name="time-outline" size={32} color={colors.icon} />
+            </View>
             <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
               No Operation History
             </ThemedText>
@@ -170,18 +172,23 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 36,
     paddingHorizontal: 24,
     width: '100%',
   },
-  emptyIcon: {
-    opacity: 0.3,
-    marginBottom: 16,
+  emptyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 6,
     textAlign: 'center',
   },
   emptyMessage: {
@@ -189,5 +196,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
     lineHeight: 20,
+    maxWidth: 360,
   },
 });

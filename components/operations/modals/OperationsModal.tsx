@@ -1,11 +1,13 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { BarangayDropdown } from '@/components/ui/BarangayDropdown';
+import { MultiSelect } from '@/components/base/select/multi-select';
+import { Select, type SelectItemType } from '@/components/base/select/select';
 import { FormButton, FormDatePicker, FormInput } from '@/components/ui/FormComponents';
 import { WebOptimizedImage } from '@/components/ui/WebOptimizedImage';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources } from '@/contexts/ResourceContext';
+import { getBarangaysForMunicipality } from '@/data/barangaysData';
 import { Municipality } from '@/data/davaoOrientalData';
 import { getUsersWithFilters } from '@/firebase/auth';
 import { operationsService } from '@/firebase/operations';
@@ -26,9 +28,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './OperationsModal.styles';
-import { PersonnelSelectionModal } from './PersonnelSelectionModal';
 import { ResourceSelectionModal } from './ResourceSelectionModal';
 
 interface OperationsModalProps {
@@ -107,7 +109,6 @@ export function OperationsModal({
       setShowResourceModal(false);
       setSelectedPersonnel([]);
       setSelectedTeamLeader(undefined);
-      setShowPersonnelModal(false);
       onClose();
     }
   });
@@ -118,8 +119,7 @@ export function OperationsModal({
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
   const [selectedTeamLeader, setSelectedTeamLeader] = useState<string | undefined>(undefined);
-  const [showPersonnelModal, setShowPersonnelModal] = useState(false);
-  const [personnelMap, setPersonnelMap] = useState<Map<string, UserData>>(new Map());
+  const [availablePersonnel, setAvailablePersonnel] = useState<UserData[]>([]);
 
   // Populate form when editing
   useEffect(() => {
@@ -154,37 +154,27 @@ export function OperationsModal({
     resource.status === 'active' && resource.availableQuantity > 0
   );
 
-  // Fetch personnel data for display (operators and supervisors)
+  // Fetch selectable personnel list (operators and supervisors)
   useEffect(() => {
     const fetchPersonnelData = async () => {
-      if (selectedPersonnel.length > 0) {
-        try {
-          const [operators, supervisors] = await Promise.all([
-            getUsersWithFilters({
+      try {
+        const [operators, supervisors] = await Promise.all([
+          getUsersWithFilters({
             userType: 'operator',
             status: 'active'
-            }),
-            getUsersWithFilters({
-              userType: 'supervisor',
-              status: 'active'
-            })
-          ]);
-          const map = new Map<string, UserData>();
-          [...operators, ...supervisors].forEach(user => {
-            if (selectedPersonnel.includes(user.id)) {
-              map.set(user.id, user);
-            }
-          });
-          setPersonnelMap(map);
-        } catch (error) {
-          console.error('Error fetching personnel data:', error);
-        }
-      } else {
-        setPersonnelMap(new Map());
+          }),
+          getUsersWithFilters({
+            userType: 'supervisor',
+            status: 'active'
+          })
+        ]);
+        setAvailablePersonnel([...operators, ...supervisors]);
+      } catch (error) {
+        console.error('Error fetching personnel data:', error);
       }
     };
-    fetchPersonnelData();
-  }, [selectedPersonnel]);
+    if (visible) fetchPersonnelData();
+  }, [visible]);
 
   const handleInputChange = (field: keyof OperationData, value: any) => {
     setOperationData(prev => ({
@@ -198,18 +188,11 @@ export function OperationsModal({
     setShowResourceModal(false);
   };
 
-  const handlePersonnelModalConfirm = (result: { personnel: string[]; teamLeader?: string }) => {
-    setSelectedPersonnel(result.personnel);
-    setSelectedTeamLeader(result.teamLeader);
-    setShowPersonnelModal(false);
-  };
-
-  const handlePersonnelRemove = (userId: string) => {
-    setSelectedPersonnel(prev => prev.filter(id => id !== userId));
-    // Clear team leader if removed
-    if (selectedTeamLeader === userId) {
-      setSelectedTeamLeader(undefined);
-    }
+  const handlePersonnelSelectionChange = (keys: Set<string>) => {
+    const personnel = Array.from(keys);
+    setSelectedPersonnel(personnel);
+    if (selectedTeamLeader && personnel.includes(selectedTeamLeader)) return;
+    setSelectedTeamLeader(personnel[0]);
   };
 
   const handleResourceQuantityChange = (resourceId: string, quantity: number) => {
@@ -229,7 +212,7 @@ export function OperationsModal({
     setSelectedResources([]);
     setShowResourceModal(false);
     setSelectedPersonnel([]);
-    setShowPersonnelModal(false);
+    setSelectedTeamLeader(undefined);
   };
 
   const handleClose = rampHandleClose;
@@ -274,22 +257,26 @@ export function OperationsModal({
     try {
       if (isEditing) {
         // Update existing operation
+        const updatePayload: any = {
+          municipalityId: operationPayload.municipalityId,
+          operationType: operationPayload.operationType,
+          title: operationPayload.title,
+          description: operationPayload.description,
+          status: operationPayload.status,
+          startDate: operationPayload.startDate,
+          endDate: operationPayload.endDate,
+          exactLocation: operationPayload.exactLocation,
+          resources: operationPayload.resources,
+          assignedPersonnel: operationPayload.assignedPersonnel,
+          notes: operationPayload.notes,
+        };
+        if (operationPayload.teamLeader) {
+          updatePayload.teamLeader = operationPayload.teamLeader;
+        }
+
         await operationsService.updateOperation(
           operationId,
-          {
-            municipalityId: operationPayload.municipalityId,
-            operationType: operationPayload.operationType,
-            title: operationPayload.title,
-            description: operationPayload.description,
-            status: operationPayload.status,
-            startDate: operationPayload.startDate,
-            endDate: operationPayload.endDate,
-            exactLocation: operationPayload.exactLocation,
-            resources: operationPayload.resources,
-            assignedPersonnel: operationPayload.assignedPersonnel,
-            teamLeader: operationPayload.teamLeader,
-            notes: operationPayload.notes,
-          },
+          updatePayload,
           user?.id
         );
         onSubmit(operationPayload);
@@ -323,6 +310,17 @@ export function OperationsModal({
   };
 
   if (!municipality) return null;
+  const barangayItems: SelectItemType[] = getBarangaysForMunicipality(municipality.name).map((barangay) => ({
+    id: barangay.name,
+    label: barangay.name,
+  }));
+  const personnelItems: SelectItemType[] = availablePersonnel.map((person) => ({
+    id: person.id,
+    label: person.fullName,
+    supportingText: person.userType === 'supervisor' ? 'Supervisor' : 'Operator',
+    disabled: person.status !== 'active',
+    avatarUrl: person.avatarUrl,
+  }));
 
   // Platform-specific modal rendering
   if (isWeb) {
@@ -336,18 +334,12 @@ export function OperationsModal({
         animationType="fade"
       >
         <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
-          <TouchableOpacity 
-            style={styles.overlayCloseButton} 
-            onPress={handleClose}
-            activeOpacity={0.7}
-          />
           <Animated.View style={[
             styles.container,
             {
               opacity: fadeAnim,
               transform: [
-                { scale: scaleAnim },
-                { translateY: slideAnim }
+                { translateX: slideAnim }
               ]
             }
           ]}>
@@ -386,7 +378,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Operation Details</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <FormInput
                 label="Operation Type"
                 value={operationData.operationType || ''}
@@ -426,7 +418,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Timeline</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <FormDatePicker
                 label="Start Date"
                 value={operationData.startDate || new Date()}
@@ -445,19 +437,21 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Exact Location</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <BarangayDropdown
+            <View style={styles.formCard}>
+              <Select
+                isRequired
                 label="Barangay"
-                value={operationData.exactLocation?.barangay || ''}
-                onValueChange={(text) => handleInputChange('exactLocation', { 
-                  ...operationData.exactLocation, 
-                  barangay: text 
-                })}
-                municipalityName={municipality.name}
+                tooltip="Select the barangay where the operation happens"
+                hint="Specify the barangay where the operation will take place"
                 placeholder="Select barangay"
-                required
-                helperText="Specify the barangay where the operation will take place"
-                colors={colors}
+                items={barangayItems}
+                selectedId={operationData.exactLocation?.barangay || ''}
+                onSelectionChange={(text) =>
+                  handleInputChange('exactLocation', {
+                    ...operationData.exactLocation,
+                    barangay: text,
+                  })
+                }
               />
 
               <FormInput
@@ -482,7 +476,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Required Resources</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <View style={styles.resourceHeader}>
                 <ThemedText style={[styles.label, { color: colors.text }]}>
                   Select Resources ({selectedResources.length} selected)
@@ -565,102 +559,24 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Assigned Personnel</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.resourceHeader}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>
-                  Select Personnel ({selectedPersonnel.length} selected)
-                </ThemedText>
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.primary }]}
-                  onPress={() => setShowPersonnelModal(true)}
-                >
-                  <ThemedText style={styles.addButtonText}>
-                    {selectedPersonnel.length > 0 ? "Edit Personnel" : "Select Personnel"}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-
-              {/* Selected Personnel Summary */}
-              {selectedPersonnel.length > 0 && (
-                <View style={styles.selectedResourcesContainer}>
-                  <ScrollView 
-                    style={{ maxHeight: 200 }}
-                    showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled={true}
-                  >
-                    {selectedPersonnel.map((userId) => {
-                      const person = personnelMap.get(userId);
-                      const isTeamLeader = selectedTeamLeader === userId;
-                      const isSupervisor = person?.userType === 'supervisor';
-                      const getLastName = (fullName: string): string => {
-                        const parts = fullName.trim().split(/\s+/);
-                        return parts.length > 1 ? parts[parts.length - 1] : fullName;
-                      };
-                      const lastName = person ? getLastName(person.fullName) : '';
-                      const firstName = person ? person.fullName.replace(lastName, '').trim() : '';
-                      const displayName = person ? `${lastName}, ${firstName}` : 'Loading...';
-                      
-                      return (
-                        <View key={userId} style={[styles.selectedResource, { backgroundColor: colors.background }]}>
-                          <View style={[styles.selectedResourceImage, { backgroundColor: colors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
-                            <Ionicons name="person" size={16} color={colors.primary} />
-                          </View>
-                          <View style={styles.selectedResourceInfo}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                            <ThemedText style={[styles.selectedResourceName, { color: colors.text }]}>
-                              {displayName}
-                            </ThemedText>
-                              {isTeamLeader && (
-                                <View style={{
-                                  backgroundColor: colors.primary,
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 2,
-                                  borderRadius: 4
-                                }}>
-                                  <ThemedText style={{
-                                    fontSize: 10,
-                                    fontWeight: '700',
-                                    color: 'white',
-                                    textTransform: 'uppercase'
-                                  }}>
-                                    Leader
-                                  </ThemedText>
-                                </View>
-                              )}
-                              {isSupervisor && (
-                                <View style={{
-                                  backgroundColor: '#FF6B35',
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 2,
-                                  borderRadius: 4
-                                }}>
-                                  <ThemedText style={{
-                                    fontSize: 10,
-                                    fontWeight: '700',
-                                    color: 'white',
-                                    textTransform: 'uppercase'
-                                  }}>
-                                    Supervisor
-                                  </ThemedText>
-                                </View>
-                              )}
-                            </View>
-                            <ThemedText style={[styles.selectedResourceCategory, { color: colors.text, opacity: 0.7 }]}>
-                              {person?.email || 'Loading...'}
-                            </ThemedText>
-                          </View>
-                          <TouchableOpacity
-                            style={[styles.quantityButton, { backgroundColor: colors.error || '#EF4444' }]}
-                            onPress={() => handlePersonnelRemove(userId)}
-                          >
-                            <Ionicons name="close" size={16} color="white" />
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
+            <View style={styles.formCard}>
+              <MultiSelect
+                isRequired
+                label="Personnel"
+                tooltip="Assign active operators and supervisors"
+                hint="Select one or more personnel for this operation"
+                placeholder="Select personnel"
+                items={personnelItems}
+                selectedKeys={new Set(selectedPersonnel)}
+                onSelectionChange={handlePersonnelSelectionChange}
+                supportingText={`${availablePersonnel.length} available`}
+                onReset={() => handlePersonnelSelectionChange(new Set())}
+                onSelectAll={() =>
+                  handlePersonnelSelectionChange(
+                    new Set(personnelItems.filter((item) => !item.disabled).map((item) => item.id))
+                  )
+                }
+              />
             </View>
           </View>
 
@@ -673,7 +589,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Additional Notes</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <FormInput
                 label="Notes"
                 value={operationData.notes || ''}
@@ -700,15 +616,6 @@ export function OperationsModal({
           colors={colors}
         />
 
-        {/* Personnel Selection Modal */}
-        <PersonnelSelectionModal
-          visible={showPersonnelModal}
-          onClose={() => setShowPersonnelModal(false)}
-          onConfirm={handlePersonnelModalConfirm}
-          selectedPersonnel={selectedPersonnel}
-          selectedTeamLeader={selectedTeamLeader}
-          colors={colors}
-        />
       </Modal>
     );
   }
@@ -748,7 +655,15 @@ export function OperationsModal({
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid
+          extraScrollHeight={54}
+          extraHeight={180}
+          contentContainerStyle={{ paddingBottom: 52 }}
+        >
           {/* Basic Information */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -758,7 +673,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Operation Details</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <FormInput
                 label="Operation Type"
                 value={operationData.operationType || ''}
@@ -798,7 +713,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Timeline</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <FormDatePicker
                 label="Start Date"
                 value={operationData.startDate || new Date()}
@@ -817,19 +732,21 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Exact Location</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <BarangayDropdown
+            <View style={styles.formCard}>
+              <Select
+                isRequired
                 label="Barangay"
-                value={operationData.exactLocation?.barangay || ''}
-                onValueChange={(text) => handleInputChange('exactLocation', { 
-                  ...operationData.exactLocation, 
-                  barangay: text 
-                })}
-                municipalityName={municipality.name}
+                tooltip="Select the barangay where the operation happens"
+                hint="Specify the barangay where the operation will take place"
                 placeholder="Select barangay"
-                required
-                helperText="Specify the barangay where the operation will take place"
-                colors={colors}
+                items={barangayItems}
+                selectedId={operationData.exactLocation?.barangay || ''}
+                onSelectionChange={(text) =>
+                  handleInputChange('exactLocation', {
+                    ...operationData.exactLocation,
+                    barangay: text,
+                  })
+                }
               />
 
               <FormInput
@@ -854,7 +771,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Required Resources</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <View style={styles.resourceHeader}>
                 <ThemedText style={[styles.label, { color: colors.text }]}>
                   Select Resources ({selectedResources.length} selected)
@@ -937,102 +854,24 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Assigned Personnel</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.resourceHeader}>
-                <ThemedText style={[styles.label, { color: colors.text }]}>
-                  Select Personnel ({selectedPersonnel.length} selected)
-                </ThemedText>
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.primary }]}
-                  onPress={() => setShowPersonnelModal(true)}
-                >
-                  <ThemedText style={styles.addButtonText}>
-                    {selectedPersonnel.length > 0 ? "Edit Personnel" : "Select Personnel"}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-
-              {/* Selected Personnel Summary */}
-              {selectedPersonnel.length > 0 && (
-                <View style={styles.selectedResourcesContainer}>
-                  <ScrollView 
-                    style={{ maxHeight: 200 }}
-                    showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled={true}
-                  >
-                    {selectedPersonnel.map((userId) => {
-                      const person = personnelMap.get(userId);
-                      const isTeamLeader = selectedTeamLeader === userId;
-                      const isSupervisor = person?.userType === 'supervisor';
-                      const getLastName = (fullName: string): string => {
-                        const parts = fullName.trim().split(/\s+/);
-                        return parts.length > 1 ? parts[parts.length - 1] : fullName;
-                      };
-                      const lastName = person ? getLastName(person.fullName) : '';
-                      const firstName = person ? person.fullName.replace(lastName, '').trim() : '';
-                      const displayName = person ? `${lastName}, ${firstName}` : 'Loading...';
-                      
-                      return (
-                        <View key={userId} style={[styles.selectedResource, { backgroundColor: colors.background }]}>
-                          <View style={[styles.selectedResourceImage, { backgroundColor: colors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
-                            <Ionicons name="person" size={16} color={colors.primary} />
-                          </View>
-                          <View style={styles.selectedResourceInfo}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                            <ThemedText style={[styles.selectedResourceName, { color: colors.text }]}>
-                              {displayName}
-                            </ThemedText>
-                              {isTeamLeader && (
-                                <View style={{
-                                  backgroundColor: colors.primary,
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 2,
-                                  borderRadius: 4
-                                }}>
-                                  <ThemedText style={{
-                                    fontSize: 10,
-                                    fontWeight: '700',
-                                    color: 'white',
-                                    textTransform: 'uppercase'
-                                  }}>
-                                    Leader
-                                  </ThemedText>
-                                </View>
-                              )}
-                              {isSupervisor && (
-                                <View style={{
-                                  backgroundColor: '#FF6B35',
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 2,
-                                  borderRadius: 4
-                                }}>
-                                  <ThemedText style={{
-                                    fontSize: 10,
-                                    fontWeight: '700',
-                                    color: 'white',
-                                    textTransform: 'uppercase'
-                                  }}>
-                                    Supervisor
-                                  </ThemedText>
-                                </View>
-                              )}
-                            </View>
-                            <ThemedText style={[styles.selectedResourceCategory, { color: colors.text, opacity: 0.7 }]}>
-                              {person?.email || 'Loading...'}
-                            </ThemedText>
-                          </View>
-                          <TouchableOpacity
-                            style={[styles.quantityButton, { backgroundColor: colors.error || '#EF4444' }]}
-                            onPress={() => handlePersonnelRemove(userId)}
-                          >
-                            <Ionicons name="close" size={16} color="white" />
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
+            <View style={styles.formCard}>
+              <MultiSelect
+                isRequired
+                label="Personnel"
+                tooltip="Assign active operators and supervisors"
+                hint="Select one or more personnel for this operation"
+                placeholder="Select personnel"
+                items={personnelItems}
+                selectedKeys={new Set(selectedPersonnel)}
+                onSelectionChange={handlePersonnelSelectionChange}
+                supportingText={`${availablePersonnel.length} available`}
+                onReset={() => handlePersonnelSelectionChange(new Set())}
+                onSelectAll={() =>
+                  handlePersonnelSelectionChange(
+                    new Set(personnelItems.filter((item) => !item.disabled).map((item) => item.id))
+                  )
+                }
+              />
             </View>
           </View>
 
@@ -1045,7 +884,7 @@ export function OperationsModal({
               <ThemedText style={styles.sectionTitle}>Additional Notes</ThemedText>
             </View>
             
-            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.formCard}>
               <FormInput
                 label="Notes"
                 value={operationData.notes || ''}
@@ -1057,7 +896,7 @@ export function OperationsModal({
               />
             </View>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
         </ThemedView>
 
         {/* Resource Selection Modal */}
@@ -1070,15 +909,6 @@ export function OperationsModal({
           colors={colors}
         />
 
-        {/* Personnel Selection Modal */}
-        <PersonnelSelectionModal
-          visible={showPersonnelModal}
-          onClose={() => setShowPersonnelModal(false)}
-          onConfirm={handlePersonnelModalConfirm}
-          selectedPersonnel={selectedPersonnel}
-          selectedTeamLeader={selectedTeamLeader}
-          colors={colors}
-        />
       </SafeAreaView>
     </Modal>
   );
