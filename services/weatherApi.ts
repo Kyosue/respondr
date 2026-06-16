@@ -66,6 +66,8 @@ const DAVAO_ORIENTAL_COORDINATES = {
   tarragona: { lat: 7.0500, lon: 126.4500 },
 };
 
+export type WeatherDataSource = 'firebase' | 'openmeteo' | 'openweather' | 'weatherapi';
+
 export interface WeatherApiResponse {
   temperature: number; // Celsius
   humidity: number; // Percentage
@@ -73,6 +75,7 @@ export interface WeatherApiResponse {
   windSpeed: number; // km/h
   windDirection: number; // degrees (0-360)
   timestamp: Date;
+  source?: WeatherDataSource;
   location?: {
     lat: number;
     lon: number;
@@ -82,7 +85,8 @@ export interface WeatherApiResponse {
 
 // Firebase Realtime Database configuration
 const FIREBASE_RTDB_URL = 'https://respondr-da5cb-default-rtdb.firebaseio.com';
-const FIREBASE_RTDB_PATH = 'weather-data'; // Updated to match new Firebase structure
+/** Primary path used by the weather station device; legacy path kept for transition */
+const FIREBASE_RTDB_PATHS = ['weather', 'weather-data'] as const;
 
 // Helper function to get Firebase Auth token or return null for public access
 async function getFirebaseAuthToken(): Promise<string | null> {
@@ -106,6 +110,78 @@ async function buildFirebaseUrl(path: string): Promise<string> {
   }
   // Try without auth (if database rules allow public reads)
   return `${FIREBASE_RTDB_URL}/${path}.json`;
+}
+
+/** Fetch and merge RTDB records from all configured weather paths */
+async function fetchFirebaseRtdbRecords(): Promise<Record<string, unknown>> {
+  const merged: Record<string, unknown> = {};
+
+  for (const path of FIREBASE_RTDB_PATHS) {
+    try {
+      const url = await buildFirebaseUrl(path);
+      const response = await fetch(url);
+      if (!response.ok) {
+        continue;
+      }
+      const data = await response.json();
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        Object.assign(merged, data);
+      }
+    } catch {
+      // Try the next path
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Check whether a device ID matches an exact ID or municipality patterns
+ */
+export function deviceIdMatchesFilter(
+  deviceId: string | undefined,
+  exactDeviceId: string | null,
+  deviceIdPatterns: string[] | null
+): boolean {
+  if (exactDeviceId) {
+    if (!deviceId?.trim()) {
+      return false;
+    }
+    return deviceId.toUpperCase().trim() === exactDeviceId;
+  }
+
+  if (deviceIdPatterns) {
+    if (!deviceId?.trim()) {
+      return false;
+    }
+    const deviceIdUpper = deviceId.toUpperCase().trim();
+    return deviceIdPatterns.some((pattern) => {
+      const patternUpper = pattern.toUpperCase();
+      return (
+        deviceIdUpper === patternUpper ||
+        deviceIdUpper.startsWith(`${patternUpper}-`)
+      );
+    });
+  }
+
+  return true;
+}
+
+function parsedWeatherDataToApiResponse(jsonData: ParsedWeatherData): WeatherApiResponse {
+  return {
+    temperature: jsonData.temperature,
+    humidity: jsonData.humidity,
+    rainfall: jsonData.rainfallTotal || jsonData.rainfallPeriod || 0,
+    windSpeed: jsonData.windSpeedAvg || jsonData.windSpeedMax || 0,
+    windDirection: jsonData.windDirection,
+    timestamp: jsonData.timestamp,
+    source: 'firebase',
+    location: {
+      lat: 6.9551,
+      lon: 126.2167,
+      name: 'Weather Station',
+    },
+  };
 }
 
 // Real-time listener state
@@ -315,6 +391,102 @@ export function parseFirebaseWeatherDataToJSON(dataString: string): ParsedWeathe
 }
 
 /**
+ * Unwrap weather payload from key/data string (handles JSON wrapper with malformed newlines)
+ */
+function unwrapWeatherKeyPayload(value: string): string {
+  const trimmed = value.trim();
+
+  if (/device_id:/i.test(trimmed) && !trimmed.startsWith('{')) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    if (typeof parsed.data === 'string') {
+      return parsed.data;
+    }
+  } catch {
+    const match = trimmed.match(/"data"\s*:\s*"([\s\S]*?)"\s*\}?\s*$/);
+    if (match) {
+      return match[1].replace(/\\n/g, ' ').trim();
+    }
+  }
+
+  return trimmed;
+}
+
+/**
+ * Extract string payload from Firebase entry (supports key, data, or raw string)
+ */
+function getWeatherPayloadString(entry: unknown): string | null {
+  if (typeof entry === 'string') {
+    return unwrapWeatherKeyPayload(entry);
+  }
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+  const record = entry as Record<string, unknown>;
+  if (typeof record.key === 'string') {
+    return unwrapWeatherKeyPayload(record.key);
+  }
+  if (typeof record.data === 'string') {
+    return unwrapWeatherKeyPayload(record.data);
+  }
+  return null;
+}
+
+/**
+ * Parse a Firebase RTDB weather entry (direct JSON, key string, or data string)
+ */
+function parseFirebaseWeatherEntry(entry: unknown): ParsedWeatherData | null {
+  if (!entry) {
+    return null;
+  }
+
+  if (typeof entry === 'string') {
+    return parseFirebaseWeatherDataToJSON(entry);
+  }
+
+  if (typeof entry !== 'object') {
+    return null;
+  }
+
+  const record = entry as Record<string, unknown>;
+
+  if (record.device_id || record.temperature !== undefined) {
+    const timestamp = record.timestamp_ms
+      ? new Date(record.timestamp_ms as number | string)
+      : record.timestamp
+      ? new Date(record.timestamp as string | number)
+      : null;
+
+    if (timestamp && !isNaN(timestamp.getTime())) {
+      return {
+        temperature: Number(record.temperature) || 0,
+        humidity: Number(record.humidity) || 0,
+        windSpeedAvg: Number(record.wind_speed_avg ?? record.wind_speed) || 0,
+        windSpeedMax: Number(record.wind_speed_max ?? record.wind_speed) || 0,
+        windDirection: Number(record.wind_direction) || 0,
+        rainfallPeriod: Number(record.rainfall_period) || 0,
+        rainfallTotal: Number(record.rainfall_total ?? record.rainfall) || 0,
+        signalStrength: Number(record.signal_strength) || 0,
+        samples: Number(record.samples) || 0,
+        timestamp,
+        timestampMs: timestamp.getTime(),
+        deviceId: String(record.device_id || '').trim(),
+      };
+    }
+  }
+
+  const payloadString = getWeatherPayloadString(entry);
+  if (payloadString) {
+    return parseFirebaseWeatherDataToJSON(payloadString);
+  }
+
+  return null;
+}
+
+/**
  * Parse weather data string from Firebase Realtime Database
  * Converts to WeatherApiResponse format for compatibility
  */
@@ -346,132 +518,49 @@ export function parseFirebaseWeatherData(dataString: string): Partial<WeatherApi
  */
 export async function fetchWeatherFromFirebase(municipalityName?: string, exactDeviceId?: string): Promise<WeatherApiResponse | null> {
   try {
-    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch weather data: ${response.statusText}`);
+    const data = await fetchFirebaseRtdbRecords();
+    if (Object.keys(data).length === 0) {
+      return null;
     }
-    
-    const data = await response.json();
-    
-    // If exact device ID is provided, use it directly; otherwise use municipality patterns
+
     const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
-    const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
+    const deviceIdPatterns = !exactDeviceIdUpper && municipalityName
       ? getDeviceIdPatternsForMunicipality(municipalityName)
       : null;
-    
-    
-    // Find the most recent entry (latest timestamp) matching the device_id filter
-    let latestEntry: any = null;
+
+    let latestEntry: ParsedWeatherData | null = null;
     let latestTimestamp = 0;
-    let checkedEntries = 0;
-    let matchedEntries = 0;
-    
+
     for (const key in data) {
       const entry = data[key];
-      if (entry) {
-        // Handle new structure: direct JSON object with properties
-        // OR old structure: string in entry.key
-        let jsonData: ParsedWeatherData | null = null;
-        
-        if (entry.device_id || entry.temperature !== undefined) {
-          // New structure: direct JSON object
-          const timestamp = entry.timestamp_ms 
-            ? new Date(entry.timestamp_ms)
-            : entry.timestamp 
-            ? new Date(entry.timestamp)
-            : null;
-          
-          if (timestamp && !isNaN(timestamp.getTime())) {
-            jsonData = {
-              temperature: entry.temperature || 0,
-              humidity: entry.humidity || 0,
-              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-              windDirection: entry.wind_direction || 0,
-              rainfallPeriod: entry.rainfall_period || 0,
-              rainfallTotal: entry.rainfall_total || 0,
-              signalStrength: entry.signal_strength || 0,
-              samples: entry.samples || 0,
-              timestamp,
-              timestampMs: timestamp.getTime(),
-              deviceId: entry.device_id || '',
-            };
-          }
-        } else if (entry.key) {
-          // Old structure: string that needs parsing
-          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-        }
-        
-        if (jsonData && jsonData.timestamp) {
-          checkedEntries++;
-          
-          // Filter by device_id
-          if (exactDeviceIdUpper) {
-            // Exact device ID matching (for custom stations)
-            if (!jsonData.deviceId || jsonData.deviceId.toUpperCase().trim() !== exactDeviceIdUpper) {
-              continue; // Skip entries that don't match the exact device ID
-            }
-            matchedEntries++;
-          } else if (deviceIdPatterns) {
-            // Pattern matching (for base stations)
-            if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
-              // If municipality filter is set but device_id is missing, skip
-              continue;
-            }
-            
-            const deviceIdUpper = jsonData.deviceId.toUpperCase().trim();
-            const matches = deviceIdPatterns.some(pattern => {
-              const patternUpper = pattern.toUpperCase();
-              // Strict matching: exact match OR device_id starts with pattern followed by '-' or end of string
-              // Examples:
-              // - "WS-MATI-01" matches pattern "WS-MATI-01" (exact match)
-              // - "WS-MATI" matches pattern "WS-MATI" (exact match)
-              // - "WS-MATI-01" does NOT match pattern "WS-BAGANGA" (doesn't start with "WS-BAGANGA")
-              const isMatch = deviceIdUpper === patternUpper;
-              if (isMatch) {
-                matchedEntries++;
-              }
-              return isMatch;
-            });
-            if (!matches) {
-              continue; // Skip entries that don't match the device_id
-            }
-          }
-          
-          const timestamp = jsonData.timestamp.getTime();
-          if (timestamp > latestTimestamp) {
-            latestTimestamp = timestamp;
-            latestEntry = jsonData;
-          }
-        }
+      if (!entry) {
+        continue;
+      }
+
+      const jsonData = parseFirebaseWeatherEntry(entry);
+      if (!jsonData?.timestamp) {
+        continue;
+      }
+
+      if (!deviceIdMatchesFilter(jsonData.deviceId, exactDeviceIdUpper, deviceIdPatterns)) {
+        continue;
+      }
+
+      const timestamp = jsonData.timestamp.getTime();
+      if (timestamp > latestTimestamp) {
+        latestTimestamp = timestamp;
+        latestEntry = jsonData;
       }
     }
-    
-    if (!latestEntry || !latestEntry.timestamp) {
+
+    if (!latestEntry?.timestamp) {
       return null;
     }
-    
-    // Convert JSON data to WeatherApiResponse format
-    const result: WeatherApiResponse = {
-      temperature: latestEntry.temperature,
-      humidity: latestEntry.humidity,
-      rainfall: latestEntry.rainfallTotal || latestEntry.rainfallPeriod || 0,
-      windSpeed: latestEntry.windSpeedAvg || latestEntry.windSpeedMax || 0,
-      windDirection: latestEntry.windDirection,
-      timestamp: latestEntry.timestamp,
-      location: {
-        lat: 6.9551, // Mati coordinates (default)
-        lon: 126.2167,
-        name: 'Weather Station',
-      },
-    };
-    
-    return result;
-    } catch (error) {
-      return null;
-    }
+
+    return parsedWeatherDataToApiResponse(latestEntry);
+  } catch (error) {
+    return null;
+  }
 }
 
 /**
@@ -498,6 +587,7 @@ export async function fetchWeatherFromOpenMeteo(
       windSpeed: current.windspeed_10m * 3.6, // Convert m/s to km/h
       windDirection: current.winddirection_10m || 0, // degrees (0-360)
       timestamp: new Date(current.time),
+      source: 'openmeteo',
       location: { lat, lon, name: 'Weather Station' },
     };
     } catch (error) {
@@ -662,6 +752,7 @@ export async function fetchWeatherFromOpenWeatherMap(
       windSpeed: data.wind?.speed ? data.wind.speed * 3.6 : 0, // Convert m/s to km/h
       windDirection: data.wind?.deg || 0, // degrees (0-360)
       timestamp: new Date(data.dt * 1000),
+      source: 'openweather',
       location: { lat, lon, name: data.name },
     };
     } catch (error) {
@@ -698,11 +789,27 @@ export async function fetchWeatherFromWeatherAPI(
       windSpeed: current.wind_kph,
       windDirection: current.wind_degree || 0, // degrees (0-360)
       timestamp: new Date(current.last_updated),
+      source: 'weatherapi',
       location: { lat, lon, name: data.location.name },
     };
     } catch (error) {
       // WeatherAPI error
     return null;
+  }
+}
+
+export function getWeatherDataSourceLabel(source?: WeatherDataSource): string {
+  switch (source) {
+    case 'firebase':
+      return 'Weather Station';
+    case 'openmeteo':
+      return 'Open-Meteo (station offline)';
+    case 'openweather':
+      return 'OpenWeatherMap (station offline)';
+    case 'weatherapi':
+      return 'WeatherAPI (station offline)';
+    default:
+      return 'Unknown source';
   }
 }
 
@@ -837,120 +944,36 @@ export async function fetchWeatherData(
  */
 export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: string, exactDeviceId?: string): Promise<WeatherApiResponse[]> {
   try {
-    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch weather data: ${response.statusText}`);
+    const data = await fetchFirebaseRtdbRecords();
+    if (Object.keys(data).length === 0) {
+      return [];
     }
-    
-    const data = await response.json();
+
     const results: WeatherApiResponse[] = [];
-    let parsedCount = 0;
-    let skippedCount = 0;
-    let filteredCount = 0;
-    
-    // If exact device ID is provided, use it directly; otherwise use municipality patterns
     const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
-    const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
+    const deviceIdPatterns = !exactDeviceIdUpper && municipalityName
       ? getDeviceIdPatternsForMunicipality(municipalityName)
       : null;
-    
-    // Parse all entries from Firebase - handle both new (direct JSON) and old (string) formats
+
     for (const key in data) {
       const entry = data[key];
-      if (entry) {
-        // Handle new structure: direct JSON object with properties
-        // OR old structure: string in entry.key
-        let jsonData: ParsedWeatherData | null = null;
-        
-        if (entry.device_id || entry.temperature !== undefined) {
-          // New structure: direct JSON object
-          const timestamp = entry.timestamp_ms 
-            ? new Date(entry.timestamp_ms)
-            : entry.timestamp 
-            ? new Date(entry.timestamp)
-            : null;
-          
-          if (timestamp && !isNaN(timestamp.getTime())) {
-            jsonData = {
-              temperature: entry.temperature || 0,
-              humidity: entry.humidity || 0,
-              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-              windDirection: entry.wind_direction || 0,
-              rainfallPeriod: entry.rainfall_period || 0,
-              rainfallTotal: entry.rainfall_total || 0,
-              signalStrength: entry.signal_strength || 0,
-              samples: entry.samples || 0,
-              timestamp,
-              timestampMs: timestamp.getTime(),
-              deviceId: entry.device_id || '',
-            };
-          }
-        } else if (entry.key) {
-          // Old structure: string that needs parsing
-          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-        }
-        
-        if (jsonData && jsonData.timestamp) {
-          // Validate timestamp is not invalid
-          if (isNaN(jsonData.timestamp.getTime())) {
-            skippedCount++;
-            continue;
-          }
-          
-          // Filter by device_id if municipality is specified
-          if (deviceIdPatterns) {
-            if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
-              // If municipality filter is set but device_id is missing, skip
-              filteredCount++;
-              continue;
-            }
-            
-            const deviceIdUpper = jsonData.deviceId.toUpperCase().trim();
-            const matches = deviceIdPatterns.some(pattern => {
-              const patternUpper = pattern.toUpperCase();
-              // Strict matching: exact match OR device_id starts with pattern followed by '-' or end of string
-              // Examples:
-              // - "WS-MATI-01" matches pattern "WS-MATI" (starts with "WS-MATI" + "-")
-              // - "WS-MATI" matches pattern "WS-MATI" (exact match)
-              // - "WS-MATI-01" does NOT match pattern "WS-BAGANGA" (doesn't start with "WS-BAGANGA")
-              const isMatch = deviceIdUpper === patternUpper || 
-                             deviceIdUpper.startsWith(patternUpper + '-');
-              return isMatch;
-            });
-            if (!matches) {
-              filteredCount++;
-              continue; // Skip entries that don't match the device_id
-            }
-          }
-          
-          // Convert JSON data to WeatherApiResponse format
-          const weatherData: WeatherApiResponse = {
-            temperature: jsonData.temperature,
-            humidity: jsonData.humidity,
-            rainfall: jsonData.rainfallTotal || jsonData.rainfallPeriod || 0,
-            windSpeed: jsonData.windSpeedAvg || jsonData.windSpeedMax || 0,
-            windDirection: jsonData.windDirection,
-            timestamp: jsonData.timestamp,
-            location: {
-              lat: 6.9551, // Mati coordinates (default)
-              lon: 126.2167,
-              name: 'Weather Station',
-            },
-          };
-          results.push(weatherData);
-          parsedCount++;
-        } else {
-          skippedCount++;
-        }
+      if (!entry) {
+        continue;
       }
+
+      const jsonData = parseFirebaseWeatherEntry(entry);
+      if (!jsonData?.timestamp || isNaN(jsonData.timestamp.getTime())) {
+        continue;
+      }
+
+      if (!deviceIdMatchesFilter(jsonData.deviceId, exactDeviceIdUpper, deviceIdPatterns)) {
+        continue;
+      }
+
+      results.push(parsedWeatherDataToApiResponse(jsonData));
     }
-    
-    // Sort by timestamp (oldest first)
+
     results.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    
     return results;
   } catch (error) {
     return [];
@@ -1073,108 +1096,13 @@ export function subscribeToWeatherUpdates(
     
     try {
       if (isMati) {
-        // For Mati City: Check Firebase Realtime Database
-        const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch weather data: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        // If exact device ID is provided, use it directly; otherwise use municipality patterns
-        const exactDeviceIdUpper = exactDeviceId ? exactDeviceId.toUpperCase().trim() : null;
-        const deviceIdPatterns = !exactDeviceIdUpper && municipalityName 
-          ? getDeviceIdPatternsForMunicipality(municipalityName)
-          : null;
-        
-        // Find the most recent entry matching the device_id filter
-        let latestEntry: any = null;
-        let latestTimestamp = 0;
-        
-        for (const key in data) {
-          const entry = data[key];
-          if (entry) {
-            // Handle new structure: direct JSON object with properties
-            // OR old structure: string in entry.key
-            let jsonData: ParsedWeatherData | null = null;
-            
-            if (entry.device_id || entry.temperature !== undefined) {
-              // New structure: direct JSON object
-              const timestamp = entry.timestamp_ms 
-                ? new Date(entry.timestamp_ms)
-                : entry.timestamp 
-                ? new Date(entry.timestamp)
-                : null;
-              
-              if (timestamp && !isNaN(timestamp.getTime())) {
-                jsonData = {
-                  temperature: entry.temperature || 0,
-                  humidity: entry.humidity || 0,
-                  windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-                  windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-                  windDirection: entry.wind_direction || 0,
-                  rainfallPeriod: entry.rainfall_period || 0,
-                  rainfallTotal: entry.rainfall_total || 0,
-                  signalStrength: entry.signal_strength || 0,
-                  samples: entry.samples || 0,
-                  timestamp,
-                  timestampMs: timestamp.getTime(),
-                  deviceId: entry.device_id || '',
-                };
-              }
-            } else if (entry.key) {
-              // Old structure: string that needs parsing
-              jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-            }
-            
-            if (jsonData && jsonData.timestamp) {
-              // Filter by device_id if municipality is specified
-              if (deviceIdPatterns) {
-                if (!jsonData.deviceId || !jsonData.deviceId.trim()) {
-                  continue;
-                }
-                
-                const deviceIdUpper = jsonData.deviceId.toUpperCase().trim();
-                const matches = deviceIdPatterns.some(pattern => {
-                  const patternUpper = pattern.toUpperCase();
-                  return deviceIdUpper === patternUpper || 
-                         deviceIdUpper.startsWith(patternUpper + '-');
-                });
-                if (!matches) {
-                  continue;
-                }
-              }
-              
-              const timestamp = jsonData.timestamp.getTime();
-              if (timestamp > latestTimestamp) {
-                latestTimestamp = timestamp;
-                latestEntry = jsonData;
-              }
-            }
+        const latest = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
+        if (latest && isActive) {
+          const currentTimestamp = latest.timestamp.getTime();
+          if (currentTimestamp > lastTimestamp) {
+            lastTimestamp = currentTimestamp;
+            onUpdate(latest);
           }
-        }
-        
-        // Only update if we have new data (timestamp is newer than last known)
-        if (latestEntry && latestTimestamp > lastTimestamp && isActive) {
-          lastTimestamp = latestTimestamp;
-          
-          const result: WeatherApiResponse = {
-            temperature: latestEntry.temperature,
-            humidity: latestEntry.humidity,
-            rainfall: latestEntry.rainfallTotal || latestEntry.rainfallPeriod || 0,
-            windSpeed: latestEntry.windSpeedAvg || latestEntry.windSpeedMax || 0,
-            windDirection: latestEntry.windDirection,
-            timestamp: latestEntry.timestamp,
-            location: {
-              lat: 6.9551,
-              lon: 126.2167,
-              name: 'Weather Station',
-            },
-          };
-          
-          onUpdate(result);
         }
       } else {
         // For other municipalities: Poll Open-Meteo API
@@ -1321,14 +1249,10 @@ export async function scanForUnusedDeviceIds(
   existingStations: Array<{ municipality: { name: string }; deviceId?: string }>
 ): Promise<DeviceIdInfo[]> {
   try {
-    const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch weather data: ${response.statusText}`);
+    const data = await fetchFirebaseRtdbRecords();
+    if (Object.keys(data).length === 0) {
+      return [];
     }
-    
-    const data = await response.json();
     
     // Build a map of all device IDs found in Firebase
     const deviceIdMap = new Map<string, {
@@ -1348,38 +1272,7 @@ export async function scanForUnusedDeviceIds(
     for (const key in data) {
       const entry = data[key];
       if (entry) {
-        // Handle new structure: direct JSON object with properties
-        // OR old structure: string in entry.key
-        let jsonData: ParsedWeatherData | null = null;
-        
-        if (entry.device_id || entry.temperature !== undefined) {
-          // New structure: direct JSON object
-          const timestamp = entry.timestamp_ms 
-            ? new Date(entry.timestamp_ms)
-            : entry.timestamp 
-            ? new Date(entry.timestamp)
-            : null;
-          
-          if (timestamp && !isNaN(timestamp.getTime())) {
-            jsonData = {
-              temperature: entry.temperature || 0,
-              humidity: entry.humidity || 0,
-              windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-              windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-              windDirection: entry.wind_direction || 0,
-              rainfallPeriod: entry.rainfall_period || 0,
-              rainfallTotal: entry.rainfall_total || 0,
-              signalStrength: entry.signal_strength || 0,
-              samples: entry.samples || 0,
-              timestamp,
-              timestampMs: timestamp.getTime(),
-              deviceId: entry.device_id || '',
-            };
-          }
-        } else if (entry.key) {
-          // Old structure: string that needs parsing
-          jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-        }
+        const jsonData = parseFirebaseWeatherEntry(entry);
         
         if (jsonData && jsonData.deviceId && jsonData.timestamp) {
           const deviceId = jsonData.deviceId.trim().toUpperCase();
@@ -1493,11 +1386,9 @@ export async function checkStationsAvailability(
   // Check Mati City stations via Firebase
   if (matiStations.length > 0) {
     try {
-      const url = await buildFirebaseUrl(FIREBASE_RTDB_PATH);
-      const response = await fetch(url);
-      
-      if (response.ok) {
-        const data = await response.json();
+      const data = await fetchFirebaseRtdbRecords();
+
+      if (Object.keys(data).length > 0) {
         const now = Date.now();
         const oneHourAgo = now - (60 * 60 * 1000); // Consider active if data within last hour
         
@@ -1508,34 +1399,7 @@ export async function checkStationsAvailability(
         for (const key in data) {
           const entry = data[key];
           if (entry) {
-            let jsonData: ParsedWeatherData | null = null;
-            
-            if (entry.device_id || entry.temperature !== undefined) {
-              const timestamp = entry.timestamp_ms 
-                ? new Date(entry.timestamp_ms)
-                : entry.timestamp 
-                ? new Date(entry.timestamp)
-                : null;
-              
-              if (timestamp && !isNaN(timestamp.getTime())) {
-                jsonData = {
-                  temperature: entry.temperature || 0,
-                  humidity: entry.humidity || 0,
-                  windSpeedAvg: entry.wind_speed_avg || entry.wind_speed || 0,
-                  windSpeedMax: entry.wind_speed_max || entry.wind_speed || 0,
-                  windDirection: entry.wind_direction || 0,
-                  rainfallPeriod: entry.rainfall_period || 0,
-                  rainfallTotal: entry.rainfall_total || 0,
-                  signalStrength: entry.signal_strength || 0,
-                  samples: entry.samples || 0,
-                  timestamp,
-                  timestampMs: timestamp.getTime(),
-                  deviceId: entry.device_id || '',
-                };
-              }
-            } else if (entry.key) {
-              jsonData = parseFirebaseWeatherDataToJSON(entry.key);
-            }
+            const jsonData = parseFirebaseWeatherEntry(entry);
             
             if (jsonData && jsonData.deviceId && jsonData.timestamp) {
               const deviceId = jsonData.deviceId.trim().toUpperCase();
@@ -1555,7 +1419,6 @@ export async function checkStationsAvailability(
           let lastSeen: Date | undefined = undefined;
           
           if (station.deviceId) {
-            // Custom station: check exact device ID
             const deviceIdUpper = station.deviceId.toUpperCase().trim();
             const timestamp = deviceIdTimestamps.get(deviceIdUpper);
             if (timestamp) {
@@ -1563,18 +1426,16 @@ export async function checkStationsAvailability(
               isActive = timestamp >= oneHourAgo;
             }
           } else {
-            // Base station: check municipality patterns
             const patterns = getDeviceIdPatternsForMunicipality(station.municipality.name);
-            for (const pattern of patterns) {
-              const patternUpper = pattern.toUpperCase();
-              const timestamp = deviceIdTimestamps.get(patternUpper);
-              if (timestamp) {
-                if (!lastSeen || timestamp > lastSeen.getTime()) {
-                  lastSeen = new Date(timestamp);
-                }
-                if (timestamp >= oneHourAgo) {
-                  isActive = true;
-                }
+            for (const [deviceId, timestamp] of deviceIdTimestamps.entries()) {
+              if (!deviceIdMatchesFilter(deviceId, null, patterns)) {
+                continue;
+              }
+              if (!lastSeen || timestamp > lastSeen.getTime()) {
+                lastSeen = new Date(timestamp);
+              }
+              if (timestamp >= oneHourAgo) {
+                isActive = true;
               }
             }
           }

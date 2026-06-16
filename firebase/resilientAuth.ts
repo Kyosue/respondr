@@ -161,13 +161,22 @@ export class ResilientAuthService {
         undefined,
         'User sign out'
       );
-      
-      // Clear offline data
-      await this.offlineStorage.clearUserData();
+
+      await this.clearLocalUserCache();
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
     }
+  }
+
+  /** Persist profile locally for offline restore */
+  async cacheUserProfile(userData: UserData): Promise<void> {
+    await this.offlineStorage.saveUserData(userData);
+  }
+
+  /** Clear locally cached profile (SecureStore / AsyncStorage offline slot) */
+  async clearLocalUserCache(): Promise<void> {
+    await this.offlineStorage.clearUserData();
   }
 
   // Get current user data with offline support
@@ -207,8 +216,12 @@ export class ResilientAuthService {
         }
       }
 
-      // Fallback to offline storage
-      return await this.offlineStorage.getUserData();
+      // Fallback to offline storage only when it matches the authenticated user
+      const offlineUser = await this.offlineStorage.getUserData();
+      if (offlineUser?.id === userId) {
+        return offlineUser;
+      }
+      return null;
     } catch (error) {
       console.error('Error getting user data:', error);
       return null;

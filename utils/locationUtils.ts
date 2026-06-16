@@ -170,35 +170,16 @@ export function findNearestStation(
 }
 
 /**
- * Get location-based default station
- * Falls back to City of Mati if location is unavailable
+ * Get default weather station — always City of Mati when available
  */
 export async function getLocationBasedDefaultStation(
   stations: WeatherStation[]
 ): Promise<WeatherStation | null> {
-  // Try to get user's location
-  const location = await getCurrentLocation();
-  
-  if (location) {
-    // Find nearest station
-    const nearestStation = findNearestStation(
-      location.latitude,
-      location.longitude,
-      stations
-    );
-    
-    if (nearestStation) {
-      return nearestStation;
-    }
-  }
-  
-  // Fallback to City of Mati or first active station
-  const matiStation = stations.find(s => 
-    s.municipality.name === 'City of Mati' || 
-    s.municipality.name === 'Mati City' ||
-    s.municipality.name === 'Mati'
-  );
-  
-  return matiStation || stations.find(s => s.isActive) || stations[0] || null;
+  const matiStation = stations.find((s) => {
+    const name = s.municipality.name.toLowerCase();
+    return name === 'city of mati' || name === 'mati city' || name === 'mati';
+  });
+
+  return matiStation || stations.find((s) => s.isActive) || stations[0] || null;
 }
 

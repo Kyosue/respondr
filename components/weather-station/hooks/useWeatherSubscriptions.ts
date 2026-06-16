@@ -39,6 +39,7 @@ export function useWeatherSubscriptions(
           windSpeed: data.windSpeed,
           windDirection: data.windDirection || 0,
           lastUpdated: data.timestamp,
+          dataSource: data.source,
         });
         onConnectionChange(true);
         

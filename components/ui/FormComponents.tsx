@@ -84,9 +84,11 @@ export function FormInput({
 
 interface FormDatePickerProps {
   label: string;
-  value: Date;
+  value: Date | null;
   onDateChange: (date: Date) => void;
   minimumDate?: Date;
+  maximumDate?: Date;
+  placeholder?: string;
   required?: boolean;
 }
 
@@ -95,16 +97,28 @@ export function FormDatePicker({
   value,
   onDateChange,
   minimumDate,
+  maximumDate,
+  placeholder = 'Select date',
   required = false,
 }: FormDatePickerProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const formattedDate = value.toLocaleDateString('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric',
-  });
+  const formattedDate = value
+    ? value.toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+      })
+    : placeholder;
+  const pickerValue = value ?? minimumDate ?? new Date();
+
+  const toLocalDateInputValue = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
@@ -116,8 +130,8 @@ export function FormDatePicker({
   // Web-specific date input handler
   const handleWebDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
-      const newDate = new Date(e.target.value);
-      onDateChange(newDate);
+      const [year, month, day] = e.target.value.split('-').map(Number);
+      onDateChange(new Date(year, month - 1, day));
     }
   };
 
@@ -129,21 +143,24 @@ export function FormDatePicker({
       {Platform.OS === 'web' ? (
         <input
           type="date"
-          value={value.toISOString().split('T')[0]}
+          value={value ? toLocalDateInputValue(value) : ''}
           onChange={handleWebDateChange}
-          min={minimumDate ? minimumDate.toISOString().split('T')[0] : undefined}
+          min={minimumDate ? toLocalDateInputValue(minimumDate) : undefined}
+          max={maximumDate ? toLocalDateInputValue(maximumDate) : undefined}
           style={{
             border: `1px solid ${colors.inputBorder}`,
-            borderRadius: 10,
+            borderRadius: 8,
             padding: '12px 14px',
-            fontSize: 18,
+            fontSize: 16,
+            lineHeight: '22px',
             backgroundColor: colors.inputBackground,
-            color: colors.inputText || colors.text,
+            color: value ? (colors.inputText || colors.text) : `${colors.text}80`,
             width: '100%',
             boxSizing: 'border-box',
-            fontFamily: 'inherit',
+            fontFamily: 'Gabarito, sans-serif',
             outline: 'none',
-            minHeight: 50,
+            minHeight: 48,
+            cursor: 'pointer',
           }}
         />
       ) : (
@@ -161,7 +178,16 @@ export function FormDatePicker({
           >
             <View style={styles.dateButtonLeft}>
               <Ionicons name="calendar-outline" size={20} color={colors.icon} />
-              <ThemedText style={[styles.dateText, { color: colors.inputText || colors.text }]}>
+              <ThemedText
+                style={[
+                  styles.dateText,
+                  {
+                    color: value
+                      ? colors.inputText || colors.text
+                      : `${colors.text}80`,
+                  },
+                ]}
+              >
                 {formattedDate}
               </ThemedText>
             </View>
@@ -169,11 +195,12 @@ export function FormDatePicker({
       
           {showDatePicker && (
             <DateTimePicker
-              value={value}
+              value={pickerValue}
               mode="date"
               display="default"
               onChange={handleDateChange}
               minimumDate={minimumDate}
+              maximumDate={maximumDate}
             />
           )}
         </>
@@ -466,12 +493,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
+    fontFamily: 'Gabarito',
+    lineHeight: 20,
   },
   required: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
   },
   input: {
     borderWidth: 1,
@@ -501,10 +531,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: 8,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    minHeight: 50,
+    minHeight: 48,
   },
   dateButtonLeft: {
     flexDirection: 'row',
@@ -512,8 +542,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dateText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '500',
+    fontFamily: 'Gabarito',
+    lineHeight: 22,
   },
   imagePickerButton: {
     borderWidth: 1,

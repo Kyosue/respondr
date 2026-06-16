@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HistoricalDataPoint } from './HistoricalDataView';
+import { getWeatherDataSourceLabel, type WeatherDataSource } from '@/services/weatherApi';
 
 /**
  * Convert wind direction in degrees to cardinal direction
@@ -53,10 +54,12 @@ export interface WeatherData {
   windSpeed: number; // km/h
   windDirection: number; // degrees (0-360)
   lastUpdated: Date;
+  dataSource?: WeatherDataSource;
 }
 
 interface WeatherMetricsProps {
   historicalData: HistoricalDataPoint[];
+  dataSource?: WeatherDataSource;
   onMetricPress?: (metric: string) => void;
   onRefresh?: () => void;
 }
@@ -71,7 +74,7 @@ interface MetricItem {
   color: string;
 }
 
-export function WeatherMetrics({ historicalData, onMetricPress, onRefresh }: WeatherMetricsProps) {
+export function WeatherMetrics({ historicalData, dataSource, onMetricPress, onRefresh }: WeatherMetricsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
@@ -204,6 +207,18 @@ export function WeatherMetrics({ historicalData, onMetricPress, onRefresh }: Wea
 
   return (
     <View style={styles.container}>
+      {dataSource && (
+        <View style={[styles.sourceBadge, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}30` }]}>
+          <Ionicons
+            name={dataSource === 'firebase' ? 'hardware-chip-outline' : 'cloud-outline'}
+            size={14}
+            color={colors.primary}
+          />
+          <ThemedText style={[styles.sourceText, { color: colors.primary }]}>
+            Source: {getWeatherDataSourceLabel(dataSource)}
+          </ThemedText>
+        </View>
+      )}
       <View style={[styles.metricsContainer, isMobile && styles.metricsContainerMobile]}>
         {metrics.map((metric) => (
           <TouchableOpacity
@@ -271,6 +286,21 @@ export function WeatherMetrics({ historicalData, onMetricPress, onRefresh }: Wea
 const styles = StyleSheet.create({
   container: {
     marginBottom: 20,
+  },
+  sourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  sourceText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   metricsContainer: {
     flexDirection: 'row',

@@ -260,7 +260,8 @@ const WeatherStationScreen: React.FC = () => {
 
         {/* Current Weather Metrics */}
         <WeatherMetrics 
-          historicalData={historicalData} 
+          historicalData={historicalData}
+          dataSource={currentData?.dataSource}
           onMetricPress={handleMetricPress}
           onRefresh={handleRefresh}
         />
@@ -279,6 +280,7 @@ const WeatherStationScreen: React.FC = () => {
           data={historicalData}
           loading={isLoading}
           municipalityName={selectedStation?.municipality.name}
+          stationName={selectedStation?.name}
           onRefresh={handleRefresh}
         />
       </ScrollView>

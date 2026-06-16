@@ -57,6 +57,7 @@ export function useWeatherData(selectedStation: WeatherStation | null) {
           windSpeed: current.windSpeed,
           windDirection: current.windDirection || 0,
           lastUpdated: current.timestamp,
+          dataSource: current.source,
         });
         setIsConnected(true);
 

@@ -6,14 +6,18 @@ import { useScreenSize } from '@/hooks/useScreenSize';
 import { fetchAllHistoricalWeatherFromFirebase, subscribeToHistoricalWeatherUpdates } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HistoricalDataPoint } from './HistoricalDataView';
+import { ExportHistoricalDataModal } from './modals/ExportHistoricalDataModal';
+import { exportHistoricalWeatherToExcel } from './utils/exportHistoricalWeatherToExcel';
+import { filterHistoricalDataByDateRange } from './utils/filterHistoricalDataByDateRange';
 import { degreesToCardinal } from './WeatherMetrics';
 
 interface HistoricalDataTableProps {
   data?: HistoricalDataPoint[]; // Optional now, will fetch from Firebase if not provided
   loading?: boolean;
   municipalityName?: string; // Municipality name for device_id filtering when fetching from Firebase
+  stationName?: string;
   onRefresh?: () => void;
 }
 
@@ -21,6 +25,7 @@ export function HistoricalDataTable({
   data: propData, 
   loading: propLoading,
   municipalityName,
+  stationName,
   onRefresh,
 }: HistoricalDataTableProps) {
   const colorScheme = useColorScheme();
@@ -30,6 +35,8 @@ export function HistoricalDataTable({
   const [firebaseData, setFirebaseData] = useState<HistoricalDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(!propData);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const itemsPerPage = isMobile ? 10 : 15;
 
   // Use ref to store the latest onRefresh callback to avoid stale closures
@@ -153,6 +160,70 @@ export function HistoricalDataTable({
     }
   };
 
+  const handleExport = useCallback(
+    async (start: Date, end: Date) => {
+      if (sortedData.length === 0 || isExporting) {
+        return;
+      }
+
+      setIsExporting(true);
+      try {
+        const filtered = filterHistoricalDataByDateRange(sortedData, start, end);
+        await exportHistoricalWeatherToExcel(filtered, stationName, { start, end });
+        setShowExportModal(false);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to export historical data';
+        Alert.alert('Export failed', message);
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [sortedData, stationName, isExporting]
+  );
+
+  const canExport = sortedData.length > 0;
+
+  const renderExportModal = () => (
+    <ExportHistoricalDataModal
+      visible={showExportModal}
+      onClose={() => setShowExportModal(false)}
+      data={sortedData}
+      stationName={stationName}
+      isExporting={isExporting}
+      onExport={handleExport}
+    />
+  );
+
+  const renderExportButton = (compact = false) => (
+    <TouchableOpacity
+      style={[
+        compact ? styles.exportButtonMobile : styles.exportButton,
+        {
+          backgroundColor: canExport ? `${colors.primary}15` : `${colors.text}08`,
+          borderColor: canExport ? colors.primary : colors.border,
+          opacity: canExport ? 1 : 0.5,
+        },
+      ]}
+      onPress={() => setShowExportModal(true)}
+      disabled={!canExport}
+    >
+      <Ionicons
+        name="download-outline"
+        size={compact ? 16 : 18}
+        color={canExport ? colors.primary : colors.text}
+      />
+      <ThemedText
+        style={[
+          compact ? styles.exportButtonTextMobile : styles.exportButtonText,
+          { color: canExport ? colors.primary : colors.text },
+        ]}
+      >
+        Export Excel
+      </ThemedText>
+    </TouchableOpacity>
+  );
+
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     const maxVisible = 5;
@@ -244,7 +315,7 @@ export function HistoricalDataTable({
               <View style={[styles.iconContainerMobile, { backgroundColor: `${colors.primary}15` }]}>
                 <Ionicons name="time" size={18} color={colors.primary} />
               </View>
-              <View>
+              <View style={styles.titleContentMobile}>
             <ThemedText style={[styles.sectionTitleMobile, { color: colors.text }]}>
                   Historical Data
             </ThemedText>
@@ -254,6 +325,7 @@ export function HistoricalDataTable({
           </View>
             </View>
           </View>
+          {renderExportButton(true)}
         </View>
 
         {/* Compact Data List */}
@@ -387,6 +459,7 @@ export function HistoricalDataTable({
             </View>
           </View>
         )}
+        {renderExportModal()}
       </ThemedView>
     );
   }
@@ -409,6 +482,7 @@ export function HistoricalDataTable({
           </ThemedText>
           </View>
         </View>
+        {renderExportButton()}
       </View>
 
       {/* Table */}
@@ -619,6 +693,7 @@ export function HistoricalDataTable({
           </View>
         </View>
       )}
+      {renderExportModal()}
     </ThemedView>
   );
 }
@@ -636,6 +711,10 @@ const styles = StyleSheet.create({
   },
   headerSectionMobile: {
     marginBottom: 16,
+    gap: 12,
+  },
+  titleContentMobile: {
+    flex: 1,
   },
   titleContainerMobile: {
     marginBottom: 12,
@@ -1019,6 +1098,38 @@ const styles = StyleSheet.create({
     fontFamily: 'Gabarito',
     opacity: 0.5,
     lineHeight: 20,
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  exportButtonMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  exportButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    lineHeight: 20,
+  },
+  exportButtonTextMobile: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Gabarito',
+    lineHeight: 18,
   },
 });
 

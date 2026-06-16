@@ -274,6 +274,7 @@ export default function HomeScreen() {
           windSpeed: current.windSpeed,
           windDirection: current.windDirection || 0,
           lastUpdated: current.timestamp,
+          dataSource: current.source,
         });
 
         // Update station status with API data
@@ -756,6 +757,7 @@ export default function HomeScreen() {
                     data={historicalData}
                     loading={isLoading}
                     municipalityName={selectedStation?.municipality.name}
+                    stationName={selectedStation?.name}
                     onRefresh={handleRefresh}
                   />
                 </View>

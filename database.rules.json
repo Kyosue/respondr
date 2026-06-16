@@ -2,6 +2,10 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "weather": {
+      ".read": "auth != null",
+      ".write": false
+    },
     "weather-data": {
       ".read": "auth != null",
       ".write": false

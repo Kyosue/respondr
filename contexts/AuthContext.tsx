@@ -38,17 +38,22 @@ const setUserData = async (userData: UserData) => {
   }
 };
 
-const getUserData = async (): Promise<UserData | null> => {
+const getUserData = async (expectedUserId?: string): Promise<UserData | null> => {
   try {
+    let data: string | null = null;
     if (Platform.OS === 'web') {
-      // Use localStorage for web
-      const data = localStorage.getItem('userData');
-      return data ? JSON.parse(data) : null;
+      data = localStorage.getItem('userData');
     } else {
-      // Use SecureStore for mobile platforms
-      const data = await SecureStore.getItemAsync('userData');
-      return data ? JSON.parse(data) : null;
+      data = await SecureStore.getItemAsync('userData');
     }
+    if (!data) {
+      return null;
+    }
+    const parsed = JSON.parse(data) as UserData;
+    if (expectedUserId && parsed.id !== expectedUserId) {
+      return null;
+    }
+    return parsed;
   } catch (error) {
     console.error('Error retrieving user data:', error);
     return null;
@@ -95,14 +100,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
-    // Load cached user first; then set a single timeout (longer if cache exists).
+    // Read cache only to tune restore timeout — do not set user until Firebase confirms session
     const loadCachedUser = async (): Promise<UserData | null> => {
       try {
-        const cachedUser = await getUserData();
-        if (cachedUser) {
-          setUser(cachedUser);
-        }
-        return cachedUser;
+        return await getUserData();
       } catch (error) {
         return null;
       }
@@ -112,25 +113,60 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const timeoutMs = cachedUser
         ? AUTH_RESTORE_TIMEOUT_WITH_CACHE_MS
         : AUTH_RESTORE_TIMEOUT_MS;
-      timeoutIdRef.current = setTimeout(resolveLoading, timeoutMs);
+      timeoutIdRef.current = setTimeout(() => {
+        // Firebase may still be restoring a persisted session — don't end loading early
+        if (auth.currentUser) {
+          return;
+        }
+        resolveLoading();
+      }, timeoutMs);
     });
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       try {
         if (fbUser) {
           setFirebaseUser(fbUser);
-          const userData = await authService.getCurrentUserData(fbUser);
-          if (userData) {
-            setUser(userData);
-            await setUserData(userData);
+
+          // Drop stale profile cache from a different account
+          const anyCachedUser = await getUserData();
+          if (anyCachedUser && anyCachedUser.id !== fbUser.uid) {
+            await clearUserData();
+            await authService.clearLocalUserCache();
+          }
+
+          // Restore matching profile immediately so refresh does not log the user out
+          const cachedForUid = await getUserData(fbUser.uid);
+          if (cachedForUid) {
+            setUser(cachedForUid);
+          }
+
+          try {
+            const userData = await authService.getCurrentUserData(fbUser);
+            if (userData && userData.id === fbUser.uid) {
+              setUser(userData);
+              await setUserData(userData);
+              await authService.cacheUserProfile(userData);
+            } else if (!cachedForUid) {
+              setUser(null);
+            }
+          } catch (error) {
+            console.error('Failed to refresh user profile:', error);
+            if (!cachedForUid) {
+              setUser(null);
+            }
           }
         } else {
           setFirebaseUser(null);
           setUser(null);
           await clearUserData();
+          await authService.clearLocalUserCache();
         }
       } catch (error) {
         console.error('Auth state change error:', error);
+        if (!auth.currentUser) {
+          setUser(null);
+          await clearUserData();
+        }
       } finally {
         resolveLoading();
       }
@@ -147,8 +183,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = (userData: UserData) => {
     setUser(userData);
-    // Store user data using platform-specific storage
     setUserData(userData);
+    void authService.cacheUserProfile(userData);
   };
 
   const logout = async () => {
@@ -165,14 +201,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const updateUserData = (userData: UserData) => {
     setUser(userData);
-    // Update storage using platform-specific storage
     setUserData(userData);
+    void authService.cacheUserProfile(userData);
   };
 
   const value: AuthContextType = {
     user,
     firebaseUser,
-    isAuthenticated: !!user,
+    isAuthenticated: !!(firebaseUser ?? user),
     isLoading,
     login,
     logout,

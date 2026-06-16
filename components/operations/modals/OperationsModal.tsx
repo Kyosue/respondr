@@ -16,7 +16,6 @@ import { useHybridRamp } from '@/hooks/useHybridRamp';
 import { ResourceCategory } from '@/types/Resource';
 import { UserData } from '@/types/UserData';
 import { getModalConfig } from '@/utils/modalUtils';
-import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
@@ -29,6 +28,7 @@ import {
   View
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './OperationsModal.styles';
 import { ResourceSelectionModal } from './ResourceSelectionModal';
@@ -69,6 +69,94 @@ interface OperationResource {
   category: ResourceCategory;
   quantity: number;
   status: 'requested' | 'allocated' | 'in_use' | 'returned';
+}
+
+type UntitledIconName =
+  | 'x-close'
+  | 'info-circle'
+  | 'calendar'
+  | 'marker-pin'
+  | 'package'
+  | 'users'
+  | 'file'
+  | 'minus'
+  | 'plus';
+
+function UntitledIcon({
+  name,
+  size = 20,
+  color,
+}: {
+  name: UntitledIconName;
+  size?: number;
+  color: string;
+}) {
+  const common = {
+    stroke: color,
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+
+  switch (name) {
+    case 'x-close':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M18 6 6 18M6 6l12 12" {...common} />
+        </Svg>
+      );
+    case 'info-circle':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M12 16v-4m0-4h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" {...common} />
+        </Svg>
+      );
+    case 'calendar':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M21 10H3m13-8v4M8 2v4m-.2 16h8.4c1.68 0 2.52 0 3.162-.327a3 3 0 0 0 1.311-1.311C21 19.72 21 18.88 21 17.2V8.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C18.72 4 17.88 4 16.2 4H7.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C3 6.28 3 7.12 3 8.8v8.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C5.28 22 6.12 22 7.8 22Z" {...common} />
+        </Svg>
+      );
+    case 'marker-pin':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M12 12.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" {...common} />
+          <Path d="M12 22c2-4 8-6.582 8-12a8 8 0 1 0-16 0c0 5.418 6 8 8 12Z" {...common} />
+        </Svg>
+      );
+    case 'package':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M20.5 7.278 12 12m0 0L3.5 7.278M12 12v9.5m9-5.441V7.942c0-.343 0-.514-.05-.667a1 1 0 0 0-.215-.364c-.109-.119-.258-.202-.558-.368l-7.4-4.111c-.284-.158-.425-.237-.575-.267a1 1 0 0 0-.403 0c-.15.03-.292.11-.576.267l-7.4 4.11c-.3.167-.45.25-.558.369a1 1 0 0 0-.215.364C3 7.428 3 7.599 3 7.942v8.117c0 .342 0 .514.05.666a1 1 0 0 0 .215.364c.109.119.258.202.558.368l7.4 4.111c.284.158.425.237.576.268.133.027.27.027.402 0 .15-.031.292-.11.576-.268l7.4-4.11c.3-.167.45-.25.558-.369a.999.999 0 0 0 .215-.364c.05-.152.05-.324.05-.666ZM16.5 9.5l-9-5" {...common} />
+        </Svg>
+      );
+    case 'users':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M22 21v-2a4.002 4.002 0 0 0-3-3.874M15.5 3.291a4.001 4.001 0 0 1 0 7.418M17 21c0-1.864 0-2.796-.305-3.53a4 4 0 0 0-2.164-2.165C13.796 15 12.864 15 11 15H8c-1.864 0-2.796 0-3.53.305a4 4 0 0 0-2.166 2.164C2 18.204 2 19.136 2 21M13.5 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" {...common} />
+        </Svg>
+      );
+    case 'file':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M8 14v4m8-6v6M12 8v10m8-11.2v10.4c0 1.68 0 2.52-.327 3.162a3 3 0 0 1-1.311 1.311C17.72 22 16.88 22 15.2 22H8.8c-1.68 0-2.52 0-3.162-.327a3 3 0 0 1-1.311-1.311C4 19.72 4 18.88 4 17.2V6.8c0-1.68 0-2.52.327-3.162a3 3 0 0 1 1.311-1.311C6.28 2 7.12 2 8.8 2h6.4c1.68 0 2.52 0 3.162.327a3 3 0 0 1 1.311 1.311C20 4.28 20 5.12 20 6.8Z" {...common} />
+        </Svg>
+      );
+    case 'minus':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M5 12h14" {...common} />
+        </Svg>
+      );
+    case 'plus':
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+          <Path d="M12 5v14m-7-7h14" {...common} />
+        </Svg>
+      );
+    default:
+      return null;
+  }
 }
 
 export function OperationsModal({ 
@@ -347,7 +435,7 @@ export function OperationsModal({
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-              <Ionicons name="close" size={20} color={colors.text} />
+              <UntitledIcon name="x-close" size={20} color={colors.text} />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
               <ThemedText type="subtitle" style={styles.title}>
@@ -373,7 +461,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="info-circle" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Operation Details</ThemedText>
             </View>
@@ -413,7 +501,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="calendar" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Timeline</ThemedText>
             </View>
@@ -432,7 +520,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="marker-pin" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Exact Location</ThemedText>
             </View>
@@ -471,7 +559,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="cube-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="package" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Required Resources</ThemedText>
             </View>
@@ -512,7 +600,7 @@ export function OperationsModal({
                               />
                             ) : (
                               <View style={[styles.selectedResourceImage, { backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' }]}>
-                                <Ionicons name="cube-outline" size={16} color={colors.text} />
+                                <UntitledIcon name="package" size={16} color={colors.text} />
                               </View>
                             )}
                           </View>
@@ -529,7 +617,7 @@ export function OperationsModal({
                               style={[styles.quantityButton, { backgroundColor: colors.border }]}
                               onPress={() => handleResourceQuantityChange(resource.resourceId, resource.quantity - 1)}
                             >
-                              <Ionicons name="remove" size={16} color={colors.text} />
+                              <UntitledIcon name="minus" size={16} color={colors.text} />
                             </TouchableOpacity>
                             <ThemedText style={[styles.quantityText, { color: colors.text }]}>
                               {resource.quantity}
@@ -538,7 +626,7 @@ export function OperationsModal({
                               style={[styles.quantityButton, { backgroundColor: colors.border }]}
                               onPress={() => handleResourceQuantityChange(resource.resourceId, resource.quantity + 1)}
                             >
-                              <Ionicons name="add" size={16} color={colors.text} />
+                              <UntitledIcon name="plus" size={16} color={colors.text} />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -554,7 +642,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="people-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="users" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Assigned Personnel</ThemedText>
             </View>
@@ -584,7 +672,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="file" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Additional Notes</ThemedText>
             </View>
@@ -634,7 +722,7 @@ export function OperationsModal({
           <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={handleClose} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-              <Ionicons name="close" size={20} color={colors.text} />
+              <UntitledIcon name="x-close" size={20} color={colors.text} />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
               <ThemedText type="subtitle" style={styles.title}>
@@ -668,7 +756,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="info-circle" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Operation Details</ThemedText>
             </View>
@@ -708,7 +796,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="calendar" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Timeline</ThemedText>
             </View>
@@ -727,7 +815,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="marker-pin" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Exact Location</ThemedText>
             </View>
@@ -766,7 +854,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="cube-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="package" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Required Resources</ThemedText>
             </View>
@@ -807,7 +895,7 @@ export function OperationsModal({
                               />
                             ) : (
                               <View style={[styles.selectedResourceImage, { backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' }]}>
-                                <Ionicons name="cube-outline" size={16} color={colors.text} />
+                                <UntitledIcon name="package" size={16} color={colors.text} />
                               </View>
                             )}
                           </View>
@@ -824,7 +912,7 @@ export function OperationsModal({
                               style={[styles.quantityButton, { backgroundColor: colors.border }]}
                               onPress={() => handleResourceQuantityChange(resource.resourceId, resource.quantity - 1)}
                             >
-                              <Ionicons name="remove" size={16} color={colors.text} />
+                              <UntitledIcon name="minus" size={16} color={colors.text} />
                             </TouchableOpacity>
                             <ThemedText style={[styles.quantityText, { color: colors.text }]}>
                               {resource.quantity}
@@ -833,7 +921,7 @@ export function OperationsModal({
                               style={[styles.quantityButton, { backgroundColor: colors.border }]}
                               onPress={() => handleResourceQuantityChange(resource.resourceId, resource.quantity + 1)}
                             >
-                              <Ionicons name="add" size={16} color={colors.text} />
+                              <UntitledIcon name="plus" size={16} color={colors.text} />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -849,7 +937,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="people-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="users" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Assigned Personnel</ThemedText>
             </View>
@@ -879,7 +967,7 @@ export function OperationsModal({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+                <UntitledIcon name="file" size={20} color="#007AFF" />
               </View>
               <ThemedText style={styles.sectionTitle}>Additional Notes</ThemedText>
             </View>
