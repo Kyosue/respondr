@@ -3,7 +3,6 @@ import { degreesToCardinal } from '../WeatherMetrics';
 import { toISODateString } from './filterHistoricalDataByDateRange';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { saveAs } from 'file-saver';
 import { Platform } from 'react-native';
 import * as XLSX from 'xlsx';
 
@@ -81,7 +80,15 @@ export async function exportHistoricalWeatherToExcel(
   if (Platform.OS === 'web') {
     const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([buffer], { type: EXCEL_MIME });
-    saveAs(blob, filename);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     return;
   }
 
