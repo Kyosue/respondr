@@ -2,12 +2,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
+import { getWeatherDataSourceLabel, type WeatherDataSource } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HistoricalDataPoint } from './HistoricalDataView';
-import { getWeatherDataSourceLabel, type WeatherDataSource } from '@/services/weatherApi';
 
 /**
  * Convert wind direction in degrees to cardinal direction
