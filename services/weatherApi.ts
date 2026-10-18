@@ -68,6 +68,9 @@ const DAVAO_ORIENTAL_COORDINATES = {
 
 export type WeatherDataSource = 'firebase' | 'openmeteo' | 'openweather' | 'weatherapi';
 
+/** Switch from station observations to forecast data after three days without a new reading. */
+export const STATION_DATA_STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+
 export interface WeatherApiResponse {
   temperature: number; // Celsius
   humidity: number; // Percentage
@@ -81,6 +84,12 @@ export interface WeatherApiResponse {
     lon: number;
     name: string;
   };
+}
+
+function isStationReadingFresh(data: WeatherApiResponse | null, now = Date.now()): data is WeatherApiResponse {
+  if (!data) return false;
+  const timestamp = data.timestamp?.getTime();
+  return typeof timestamp === 'number' && Number.isFinite(timestamp) && now - timestamp < STATION_DATA_STALE_AFTER_MS;
 }
 
 // Firebase Realtime Database configuration
@@ -185,13 +194,6 @@ function parsedWeatherDataToApiResponse(jsonData: ParsedWeatherData): WeatherApi
 }
 
 // Real-time listener state
-interface WeatherListenerState {
-  lastTimestamp: number;
-  unsubscribe: (() => void) | null;
-}
-
-const listenerStates = new Map<string, WeatherListenerState>();
-
 /**
  * Map municipality name to device_id patterns
  * Now returns only specific patterns (WS-MATI-01) instead of broad patterns (WS-MATI)
@@ -803,7 +805,7 @@ export function getWeatherDataSourceLabel(source?: WeatherDataSource): string {
     case 'firebase':
       return 'Weather Station';
     case 'openmeteo':
-      return 'Open-Meteo (station offline)';
+      return 'Open-Meteo fallback';
     case 'openweather':
       return 'OpenWeatherMap (station offline)';
     case 'weatherapi':
@@ -852,8 +854,9 @@ export function getMunicipalityCoordinates(municipalityName: string): { lat: num
 
 /**
  * Unified weather fetch function
- * - Mati City: Uses Firebase Realtime Database as primary source
- * - Other municipalities: Uses Open-Meteo as primary source
+ * - Mati City and configured device stations: Use recent Firebase readings first
+ * - Stations with no reading in three days: Fall back to Open-Meteo
+ * - Other municipalities: Use Open-Meteo as primary source
  * @param municipalityName Optional municipality name to filter by device_id patterns
  * @param exactDeviceId Optional exact device ID to match (for custom stations)
  * @param useApi API source to use
@@ -864,15 +867,18 @@ export async function fetchWeatherData(
   useApi: 'firebase' | 'openmeteo' | 'openweather' | 'weatherapi' | 'auto' = 'auto'
 ): Promise<WeatherApiResponse | null> {
   const isMati = isMatiCity(municipalityName);
+  const hasStationSource = isMati || Boolean(exactDeviceId);
   
-  // For Mati City: Firebase is primary source
-  if (isMati) {
+  // A configured device ID identifies a physical station even outside Mati.
+  // Use its readings while fresh, then fall back to Open-Meteo after three days.
+  if (hasStationSource) {
     if (useApi === 'auto' || useApi === 'firebase') {
       const data = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
-      if (data) return data;
+      if (data && (useApi === 'firebase' || isStationReadingFresh(data))) return data;
+      if (useApi === 'firebase') return data;
     }
     
-    // Fallback to external APIs if Firebase fails
+    // A missing or stale station reading immediately selects the weather API fallback.
     if (useApi === 'auto' || useApi === 'openmeteo') {
       const coords = getMunicipalityCoordinates(municipalityName || 'mati');
       if (coords) {
@@ -909,7 +915,7 @@ export async function fetchWeatherData(
     // Fallback to Firebase if Open-Meteo fails
     if (useApi === 'auto' || useApi === 'firebase') {
       const data = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
-      if (data) return data;
+      if (data && (useApi === 'firebase' || isStationReadingFresh(data))) return data;
     }
     
     // Additional fallbacks
@@ -981,9 +987,7 @@ export async function fetchAllHistoricalWeatherFromFirebase(municipalityName?: s
 }
 
 /**
- * Fetch historical weather data
- * - Mati City: Uses Firebase Realtime Database as primary source
- * - Other municipalities: Uses Open-Meteo as primary source
+ * Fetch historical weather data from the same preferred source as current conditions.
  */
 export async function fetchHistoricalWeatherData(
   municipalityName?: string,
@@ -991,12 +995,15 @@ export async function fetchHistoricalWeatherData(
   days: number = 7
 ): Promise<WeatherApiResponse[]> {
   const isMati = isMatiCity(municipalityName);
+  const hasStationSource = isMati || Boolean(exactDeviceId);
   
-  // For Mati City: Firebase is primary source
-  if (isMati) {
+  // Keep historical charts on the same source as current conditions when a
+  // configured station has stopped reporting.
+  if (hasStationSource) {
     const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
+    const latestStationData = allData[allData.length - 1] || null;
     
-    if (allData.length > 0) {
+    if (allData.length > 0 && (days <= 0 || isStationReadingFresh(latestStationData))) {
       // Filter by days if needed
       if (days > 0) {
         const cutoffDate = new Date();
@@ -1006,7 +1013,8 @@ export async function fetchHistoricalWeatherData(
       return allData;
     }
     
-    // Fallback to Open-Meteo API if Firebase fails
+    // Fall through to Open-Meteo when the station has no data or its latest
+    // reading is at least three days old.
     const coords = getMunicipalityCoordinates(municipalityName || 'mati');
     if (coords) {
       const endDate = new Date();
@@ -1018,6 +1026,13 @@ export async function fetchHistoricalWeatherData(
       if (historicalData.length > 0) {
         return historicalData;
       }
+    }
+
+    // Preserve available station history if the fallback API is unavailable.
+    if (allData.length > 0 && days > 0) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      return allData.filter(entry => entry.timestamp >= cutoffDate);
     }
   } else {
     // For other municipalities: Open-Meteo is primary source
@@ -1036,7 +1051,7 @@ export async function fetchHistoricalWeatherData(
     
     // Fallback to Firebase if Open-Meteo fails
     const allData = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
-    if (allData.length > 0) {
+    if (allData.length > 0 && isStationReadingFresh(allData[allData.length - 1])) {
       // Filter by days if needed
       if (days > 0) {
         const cutoffDate = new Date();
@@ -1051,15 +1066,14 @@ export async function fetchHistoricalWeatherData(
 }
 
 /**
- * Subscribe to real-time weather data updates
- * - Mati City: Uses Firebase Realtime Database
- * - Other municipalities: Polls Open-Meteo API periodically
+ * Fetch weather data once for the selected station. A page or screen refresh
+ * runs this again and re-evaluates station freshness.
  * 
  * @param municipalityName Optional municipality name to filter by device_id
  * @param exactDeviceId Optional exact device ID to match (for custom stations)
- * @param onUpdate Callback function called when new weather data is detected
+ * @param onUpdate Callback function called with the selected weather data
  * @param onError Optional error callback
- * @returns Unsubscribe function to stop listening
+ * @returns Cleanup function that prevents a pending fetch from updating the caller
  */
 export function subscribeToWeatherUpdates(
   municipalityName: string | undefined,
@@ -1067,19 +1081,13 @@ export function subscribeToWeatherUpdates(
   onUpdate: (data: WeatherApiResponse) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const listenerKey = `${municipalityName || 'all'}_${exactDeviceId || ''}`;
   let isActive = true;
-  let lastTimestamp = 0;
-  let checkInterval: ReturnType<typeof setInterval> | null = null;
-  const isMati = isMatiCity(municipalityName);
   
-  // Initial fetch to get current data and set baseline timestamp
+  // Perform one source decision when the selected station is loaded.
   const initialFetch = async () => {
     try {
-      // Use unified fetch function which handles Mati vs other municipalities
       const current = await fetchWeatherData(municipalityName, exactDeviceId);
       if (current && isActive) {
-        lastTimestamp = current.timestamp.getTime();
         onUpdate(current);
       }
     } catch (error) {
@@ -1089,78 +1097,18 @@ export function subscribeToWeatherUpdates(
       }
     }
   };
-  
-  // Check for new data
-  const checkForUpdates = async () => {
-    if (!isActive) return;
-    
-    try {
-      if (isMati) {
-        const latest = await fetchWeatherFromFirebase(municipalityName, exactDeviceId);
-        if (latest && isActive) {
-          const currentTimestamp = latest.timestamp.getTime();
-          if (currentTimestamp > lastTimestamp) {
-            lastTimestamp = currentTimestamp;
-            onUpdate(latest);
-          }
-        }
-      } else {
-        // For other municipalities: Poll Open-Meteo API
-        const current = await fetchWeatherData(municipalityName, exactDeviceId);
-        if (current && isActive) {
-          const currentTimestamp = current.timestamp.getTime();
-          // Update if timestamp is newer (or if it's the first update)
-          if (currentTimestamp > lastTimestamp || lastTimestamp === 0) {
-            lastTimestamp = currentTimestamp;
-            onUpdate(current);
-          }
-        }
-      }
-    } catch (error) {
-      // Error checking for updates
-      if (onError && isActive) {
-        onError(error instanceof Error ? error : new Error('Update check failed'));
-      }
-    }
-  };
-  
-  // Start initial fetch
   initialFetch();
-  
-  // Set up polling interval (check every 10 seconds for new data)
-  // This is more efficient than 10-minute polling and detects changes quickly
-  checkInterval = setInterval(checkForUpdates, 30 * 1000); // 10 seconds
-  
-  // Store listener state
-  listenerStates.set(listenerKey, {
-    lastTimestamp,
-    unsubscribe: () => {
-      isActive = false;
-      if (checkInterval) {
-        clearInterval(checkInterval);
-        checkInterval = null;
-      }
-      listenerStates.delete(listenerKey);
-    }
-  });
-  
-  // Return unsubscribe function
-  return () => {
-    const state = listenerStates.get(listenerKey);
-    if (state && state.unsubscribe) {
-      state.unsubscribe();
-    }
-  };
+  return () => { isActive = false; };
 }
 
 /**
- * Subscribe to real-time historical weather data updates from Firebase Realtime Database
- * Automatically detects and processes new historical entries
+ * Fetch the selected historical data once. Refreshing the page or screen
+ * repeats the source selection and fetch.
  * 
  * @param municipalityName Optional municipality name to filter by device_id
- * @param onUpdate Callback function called when new historical data is detected
+ * @param onUpdate Callback function called with the selected historical data
  * @param onError Optional error callback
- * @returns Unsubscribe function to stop listening
+ * @returns Cleanup function that prevents a pending fetch from updating the caller
  */
 export function subscribeToHistoricalWeatherUpdates(
   municipalityName: string | undefined,
@@ -1168,17 +1116,13 @@ export function subscribeToHistoricalWeatherUpdates(
   onUpdate: (data: WeatherApiResponse[]) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const listenerKey = `historical_${municipalityName || 'all'}_${exactDeviceId || ''}`;
   let isActive = true;
-  let lastDataCount = 0;
-  let checkInterval: ReturnType<typeof setInterval> | null = null;
   
-  // Initial fetch to get current data
+  // Initial history follows the same source choice as current conditions.
   const initialFetch = async () => {
     try {
-      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
+      const historical = await fetchHistoricalWeatherData(municipalityName, exactDeviceId, 7);
       if (isActive) {
-        lastDataCount = historical.length;
         onUpdate(historical);
       }
     } catch (error) {
@@ -1188,41 +1132,8 @@ export function subscribeToHistoricalWeatherUpdates(
       }
     }
   };
-  
-  // Check for new data
-  const checkForUpdates = async () => {
-    if (!isActive) return;
-    
-    try {
-      const historical = await fetchAllHistoricalWeatherFromFirebase(municipalityName, exactDeviceId);
-      
-      // Only update if we have new entries (count increased)
-      if (historical.length > lastDataCount && isActive) {
-        lastDataCount = historical.length;
-        onUpdate(historical);
-      }
-    } catch (error) {
-      // Error checking for updates
-      if (onError && isActive) {
-        onError(error instanceof Error ? error : new Error('Update check failed'));
-      }
-    }
-  };
-  
-  // Start initial fetch
   initialFetch();
-  
-  // Set up polling interval (check every 10 seconds for new data)
-  checkInterval = setInterval(checkForUpdates, 30 * 1000); // 10 seconds
-  
-  // Return unsubscribe function
-  return () => {
-    isActive = false;
-    if (checkInterval) {
-      clearInterval(checkInterval);
-      checkInterval = null;
-    }
-  };
+  return () => { isActive = false; };
 }
 
 /**
@@ -1361,8 +1272,8 @@ export async function scanForUnusedDeviceIds(
 
 /**
  * Check availability of all stations
- * - Mati City: Checks Firebase Realtime Database for device IDs
- * - Other municipalities: Checks Open-Meteo API availability
+ * - Mati City and configured device stations: Check Firebase Realtime Database
+ * - Other municipalities: Check Open-Meteo API availability
  * @param stations Array of weather stations to check
  * @returns Map of station IDs to their availability status and last seen timestamp
  */
@@ -1371,26 +1282,25 @@ export async function checkStationsAvailability(
 ): Promise<Map<string, { isActive: boolean; lastSeen?: Date }>> {
   const availabilityMap = new Map<string, { isActive: boolean; lastSeen?: Date }>();
   
-  // Separate stations by municipality type
-  const matiStations: typeof stations = [];
+  // Physical devices report through Firebase, including custom stations outside Mati.
+  const deviceStations: typeof stations = [];
   const otherStations: typeof stations = [];
   
   for (const station of stations) {
-    if (isMatiCity(station.municipality.name)) {
-      matiStations.push(station);
+    if (isMatiCity(station.municipality.name) || station.deviceId) {
+      deviceStations.push(station);
     } else {
       otherStations.push(station);
     }
   }
   
-  // Check Mati City stations via Firebase
-  if (matiStations.length > 0) {
+  // Check device stations via Firebase
+  if (deviceStations.length > 0) {
     try {
       const data = await fetchFirebaseRtdbRecords();
 
       if (Object.keys(data).length > 0) {
         const now = Date.now();
-        const oneHourAgo = now - (60 * 60 * 1000); // Consider active if data within last hour
         
         // Build a map of device IDs to their latest timestamps
         const deviceIdTimestamps = new Map<string, number>();
@@ -1413,8 +1323,8 @@ export async function checkStationsAvailability(
           }
         }
         
-        // Check each Mati station's availability
-        for (const station of matiStations) {
+        // Check each device station's availability
+        for (const station of deviceStations) {
           let isActive = false;
           let lastSeen: Date | undefined = undefined;
           
@@ -1423,7 +1333,7 @@ export async function checkStationsAvailability(
             const timestamp = deviceIdTimestamps.get(deviceIdUpper);
             if (timestamp) {
               lastSeen = new Date(timestamp);
-              isActive = timestamp >= oneHourAgo;
+              isActive = timestamp >= now - STATION_DATA_STALE_AFTER_MS;
             }
           } else {
             const patterns = getDeviceIdPatternsForMunicipality(station.municipality.name);
@@ -1434,7 +1344,7 @@ export async function checkStationsAvailability(
               if (!lastSeen || timestamp > lastSeen.getTime()) {
                 lastSeen = new Date(timestamp);
               }
-              if (timestamp >= oneHourAgo) {
+              if (timestamp >= now - STATION_DATA_STALE_AFTER_MS) {
                 isActive = true;
               }
             }
@@ -1443,14 +1353,14 @@ export async function checkStationsAvailability(
           availabilityMap.set(station.id, { isActive, lastSeen });
         }
       } else {
-        // Firebase fetch failed, mark Mati stations as inactive
-        matiStations.forEach(station => {
+        // Firebase fetch failed, mark device stations as inactive
+        deviceStations.forEach(station => {
           availabilityMap.set(station.id, { isActive: false });
         });
       }
     } catch (error) {
-      // On error, mark Mati stations as inactive
-      matiStations.forEach(station => {
+      // On error, mark device stations as inactive
+      deviceStations.forEach(station => {
         availabilityMap.set(station.id, { isActive: false });
       });
     }

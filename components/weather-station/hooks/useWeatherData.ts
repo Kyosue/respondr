@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { calculateRainfallAnalytics, RainfallAnalytics } from '@/services/pagasaAdvisoryService';
 import { fetchWeatherData as fetchApiWeather, fetchHistoricalWeatherData } from '@/services/weatherApi';
 import { WeatherStation } from '@/types/WeatherStation';
@@ -15,6 +15,7 @@ export function useWeatherData(selectedStation: WeatherStation | null) {
   const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetchRequestId = useRef(0);
 
   const transformHistoricalData = (historical: any[]): HistoricalDataPoint[] => {
     return historical.map(h => ({
@@ -33,6 +34,8 @@ export function useWeatherData(selectedStation: WeatherStation | null) {
   };
 
   const fetchWeatherData = useCallback(async (stationId: string, isRefresh: boolean = false) => {
+    const requestId = ++fetchRequestId.current;
+
     if (isRefresh) {
       setIsRefreshing(true);
     } else {
@@ -47,6 +50,7 @@ export function useWeatherData(selectedStation: WeatherStation | null) {
       
       // Fetch current weather data
       const current = await fetchApiWeather(municipalityName, exactDeviceId);
+      if (requestId !== fetchRequestId.current) return;
       
       if (current) {
         // Set current weather data
@@ -63,6 +67,7 @@ export function useWeatherData(selectedStation: WeatherStation | null) {
 
         // Fetch historical data (last 7 days)
         const historical = await fetchHistoricalWeatherData(municipalityName, exactDeviceId, 7);
+        if (requestId !== fetchRequestId.current) return;
         
         if (historical.length > 0) {
           const transformedHistorical = transformHistoricalData(historical);
@@ -83,17 +88,22 @@ export function useWeatherData(selectedStation: WeatherStation | null) {
       }
     } catch (error) {
       // Error fetching weather data - clear data to prevent showing stale data
-      setCurrentData(null);
-      setHistoricalData([]);
-      setRainfallAnalytics(null);
-      setIsConnected(false);
+      if (requestId === fetchRequestId.current) {
+        setCurrentData(null);
+        setHistoricalData([]);
+        setRainfallAnalytics(null);
+        setIsConnected(false);
+      }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (requestId === fetchRequestId.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [selectedStation]);
 
   const clearData = () => {
+    fetchRequestId.current += 1;
     setCurrentData(null);
     setHistoricalData([]);
     setRainfallAnalytics(null);

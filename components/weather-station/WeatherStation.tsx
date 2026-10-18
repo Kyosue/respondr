@@ -22,7 +22,6 @@ import {
   useWeatherStations,
   useWeatherData,
   useAdvisoryNotifications,
-  useWeatherSubscriptions,
   useStationSelection,
 } from './hooks';
 
@@ -44,7 +43,6 @@ const WeatherStationScreen: React.FC = () => {
   // Station management
   const {
     stations,
-    updateStationStatus,
     reloadCustomStations,
   } = useWeatherStations();
 
@@ -64,9 +62,6 @@ const WeatherStationScreen: React.FC = () => {
     isRefreshing,
     fetchWeatherData,
     clearData,
-    updateCurrentData,
-    updateHistoricalData,
-    setIsConnected,
   } = useWeatherData(selectedStation);
 
   // Advisory notifications
@@ -75,20 +70,21 @@ const WeatherStationScreen: React.FC = () => {
     selectedStation
   );
 
-  // Real-time subscriptions
-  useWeatherSubscriptions(
-    selectedStation,
-    updateCurrentData,
-    updateHistoricalData,
-    setIsConnected,
-    (stationId, updates) => {
-      updateStationStatus(stationId, updates);
-    }
-  );
-
   // UI state
   const [showAddModal, setShowAddModal] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+
+  const weatherStatusLabel = currentData?.dataSource
+    ? isConnected
+      ? currentData.dataSource === 'firebase'
+        ? 'STATION CONNECTED'
+        : currentData.dataSource === 'openmeteo'
+          ? 'OPEN-METEO ACTIVE'
+          : 'WEATHER API ACTIVE'
+      : 'NO LIVE CONNECTION'
+    : isLoading
+      ? 'CONNECTING TO WEATHER'
+      : 'NO LIVE CONNECTION';
 
   // Handlers
   const handleRefresh = () => {
@@ -98,6 +94,11 @@ const WeatherStationScreen: React.FC = () => {
   };
 
   const handleSelectStation = (station: WeatherStation) => {
+    if (selectedStation?.id === station.id) {
+      fetchWeatherData(station.id, true);
+      return;
+    }
+
     // Clear existing data immediately when switching stations
     clearData();
     resetAdvisoryTracking();
@@ -184,7 +185,7 @@ const WeatherStationScreen: React.FC = () => {
             <View style={[styles.heroStatus, isMobile && styles.heroStatusMobile]}>
               <View style={styles.heroStatusTop}>
                 <View style={[styles.liveDot, { backgroundColor: isConnected ? '#5DE0A1' : '#F6B85A' }]} />
-                <ThemedText style={styles.heroStatusLabel}>{isConnected ? 'STATION CONNECTED' : isLoading ? 'CONNECTING TO STATION' : 'NO LIVE CONNECTION'}</ThemedText>
+                <ThemedText style={styles.heroStatusLabel}>{weatherStatusLabel}</ThemedText>
               </View>
               <ThemedText style={styles.heroStatusLocation} numberOfLines={1}>{selectedStation?.municipality.name || 'No station selected'}</ThemedText>
               {selectedStation?.locationName ? <ThemedText style={styles.heroStatusSub}>{selectedStation.locationName}</ThemedText> : null}

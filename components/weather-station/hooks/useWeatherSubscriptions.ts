@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { subscribeToHistoricalWeatherUpdates, subscribeToWeatherUpdates } from '@/services/weatherApi';
+import { isMatiCity, STATION_DATA_STALE_AFTER_MS, subscribeToHistoricalWeatherUpdates, subscribeToWeatherUpdates } from '@/services/weatherApi';
 import { WeatherStation } from '@/types/WeatherStation';
 import { HistoricalDataPoint } from '../HistoricalDataView';
 import { WeatherData } from '../WeatherMetrics';
@@ -12,7 +12,7 @@ export function useWeatherSubscriptions(
   onCurrentDataUpdate: (data: WeatherData) => void,
   onHistoricalDataUpdate: (data: HistoricalDataPoint[]) => void,
   onConnectionChange: (connected: boolean) => void,
-  onStationStatusUpdate: (stationId: string, updates: { isActive: boolean; lastSeen: Date; apiAvailable: boolean }) => void
+  onStationStatusUpdate: (stationId: string, updates: { isActive: boolean; lastSeen?: Date; apiAvailable: boolean }) => void
 ) {
   const selectedStationRef = useRef(selectedStation);
   
@@ -25,6 +25,7 @@ export function useWeatherSubscriptions(
 
     const municipalityName = selectedStation.municipality.name;
     const exactDeviceId = selectedStation.deviceId;
+    const hasStationSource = isMatiCity(municipalityName) || Boolean(exactDeviceId);
     
     // Set up real-time listener for current weather data
     const unsubscribeCurrent = subscribeToWeatherUpdates(
@@ -43,14 +44,29 @@ export function useWeatherSubscriptions(
         });
         onConnectionChange(true);
         
-        // Update station status
+        // Only Firebase readings indicate physical station activity. Forecast
+        // data keeps weather available without making an offline station appear online.
         const currentStation = selectedStationRef.current;
         if (currentStation) {
-          onStationStatusUpdate(currentStation.id, {
-            isActive: true,
-            lastSeen: data.timestamp,
-            apiAvailable: true,
-          });
+          if (!hasStationSource) {
+            onStationStatusUpdate(currentStation.id, {
+              isActive: true,
+              lastSeen: data.timestamp,
+              apiAvailable: true,
+            });
+          } else if (data.source === 'firebase') {
+            const isFresh = Date.now() - data.timestamp.getTime() < STATION_DATA_STALE_AFTER_MS;
+            onStationStatusUpdate(currentStation.id, {
+              isActive: isFresh,
+              lastSeen: data.timestamp,
+              apiAvailable: isFresh,
+            });
+          } else {
+            onStationStatusUpdate(currentStation.id, {
+              isActive: false,
+              apiAvailable: false,
+            });
+          }
         }
       },
       (error) => {
