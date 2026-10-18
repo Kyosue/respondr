@@ -2,22 +2,22 @@ import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 15,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 16,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowColor: '#173648',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
       },
       android: {
         elevation: 2,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: '0 5px 18px rgba(16,42,61,0.06)',
       },
     }),
   },
@@ -25,19 +25,19 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   title: {
-    fontSize: 20, // H2
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 3,
     fontFamily: 'Gabarito',
-    lineHeight: 28,
+    lineHeight: 24,
   },
   subtitle: {
-    fontSize: 14, // Body
+    fontSize: 14,
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   dataCountBadge: {
     flexDirection: 'row',
@@ -45,29 +45,29 @@ export const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 5,
   },
   dataCountText: {
-    fontSize: 14, // Body
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '800',
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   filterSection: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   filterLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 10,
+    marginBottom: 7,
   },
   filterLabel: {
-    fontSize: 12, // Small
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '800',
     fontFamily: 'Gabarito',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     lineHeight: 16,
   },
   filterScroll: {
@@ -81,31 +81,31 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 5,
     borderWidth: StyleSheet.hairlineWidth,
   },
   filterButtonText: {
-    fontSize: 14, // Body
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   chartCard: {
-    borderRadius: 16,
+    borderRadius: 9,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 16,
     width: '100%',
     ...Platform.select({
       web: {
-        padding: 20,
-        paddingHorizontal: 20,
+        padding: 15,
+        paddingHorizontal: 15,
         backgroundColor: 'transparent',
         maxWidth: '100%',
       },
       default: {
-        padding: 12,
+        padding: 10,
       },
     }),
   },
@@ -153,20 +153,20 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   intervalButtonText: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
   },
   chartTitle: {
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: 4,
     fontFamily: 'Gabarito',
-    fontSize: 18, // H3
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 21,
   },
   chartSubtitle: {
     fontFamily: 'Gabarito',
     opacity: 0.7,
-    fontSize: 14, // Body
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 16,
   },
   chartContainer: {
     alignItems: 'center',
@@ -254,13 +254,13 @@ export const styles = StyleSheet.create({
     gap: 4,
   },
   tooltipValue: {
-    fontSize: 18, // H3
+    fontSize: 20, // H3
     fontWeight: '700',
     fontFamily: 'Gabarito',
     lineHeight: 24,
   },
   tooltipTime: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
     fontFamily: 'Gabarito',
     lineHeight: 16,
   },
@@ -268,7 +268,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     marginTop: 12,
   },
   legendItem: {
@@ -282,9 +282,9 @@ export const styles = StyleSheet.create({
     borderRadius: 5,
   },
   legendText: {
-    fontSize: 14, // Body
+    fontSize: 14,
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -297,7 +297,7 @@ export const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: 140,
-    borderRadius: 8,
+    borderRadius: 7,
     borderWidth: 1,
     borderLeftWidth: 3,
     padding: 10,
@@ -312,7 +312,7 @@ export const styles = StyleSheet.create({
         elevation: 1,
       },
       web: {
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: '0 3px 10px rgba(16,42,61,0.04)',
       },
     }),
   },
@@ -347,10 +347,10 @@ export const styles = StyleSheet.create({
     minWidth: 0,
   },
   statLabel: {
-    fontSize: 14, // Body
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   statTrend: {
     flexDirection: 'row',
@@ -361,7 +361,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   statTrendText: {
-    fontSize: 12, // Small
+    fontSize: 14,
     fontFamily: 'Gabarito',
     lineHeight: 16,
   },
@@ -374,18 +374,18 @@ export const styles = StyleSheet.create({
     gap: 3,
   },
   statCurrentValue: {
-    fontSize: 20, // H2
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     fontFamily: 'Gabarito',
-    lineHeight: 28,
+    lineHeight: 27,
   },
   statUnit: {
-    fontSize: 14, // Body
+    fontSize: 14,
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   statCurrentLabel: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
     fontFamily: 'Gabarito',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -407,7 +407,7 @@ export const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   statRangeLabel: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
     fontFamily: 'Gabarito',
     marginBottom: 2,
     textTransform: 'uppercase',

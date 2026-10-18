@@ -25,6 +25,8 @@ export function WeatherAnalyticsDashboard({
 }: WeatherAnalyticsDashboardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const filterActive = '#164E63';
+  const filterIdle = colorScheme === 'dark' ? '#1B2E37' : '#EAF2F0';
   const { isMobile } = useScreenSize();
   const { width } = Dimensions.get('window');
   const [selectedRange, setSelectedRange] = useState<TimeRange>('24h');
@@ -735,16 +737,16 @@ export function WeatherAnalyticsDashboard({
       <View style={styles.header}>
         <View>
           <ThemedText style={[styles.title, { color: colors.text }]}>
-            Analytics Dashboard
+            Observation trends
           </ThemedText>
           <ThemedText style={[styles.subtitle, { color: colors.text, opacity: 0.7 }]}>
-            Overall trends and insights
+            Read station patterns across the selected reporting window
           </ThemedText>
         </View>
-        <View style={[styles.dataCountBadge, { backgroundColor: `${colors.primary}15` }]}>
-          <Ionicons name="stats-chart" size={14} color={colors.primary} />
-          <ThemedText style={[styles.dataCountText, { color: colors.primary }]}>
-            {filteredData.length} points
+        <View style={[styles.dataCountBadge, { backgroundColor: filterIdle }]}>
+          <Ionicons name="stats-chart" size={14} color="#167D79" />
+          <ThemedText style={[styles.dataCountText, { color: colorScheme === 'dark' ? '#8FE0D4' : '#176A67' }]}>
+            {filteredData.length} readings
           </ThemedText>
         </View>
       </View>
@@ -772,9 +774,9 @@ export function WeatherAnalyticsDashboard({
                 {
                   backgroundColor:
                     selectedRange === range.value
-                      ? colors.primary
-                      : `${colors.primary}15`,
-                  borderColor: colors.border,
+                      ? filterActive
+                      : filterIdle,
+                  borderColor: selectedRange === range.value ? filterActive : colors.border,
                 },
               ]}
             >
@@ -782,7 +784,7 @@ export function WeatherAnalyticsDashboard({
                 style={[
                   styles.filterButtonText,
                   {
-                    color: selectedRange === range.value ? '#FFFFFF' : colors.primary,
+                    color: selectedRange === range.value ? '#FFFFFF' : colors.text,
                   },
                 ]}
               >
@@ -816,22 +818,22 @@ export function WeatherAnalyticsDashboard({
                 {
                   backgroundColor:
                     metricFilter === filter.value
-                      ? colors.primary
-                      : `${colors.primary}15`,
-                  borderColor: colors.border,
+                      ? filterActive
+                      : filterIdle,
+                  borderColor: metricFilter === filter.value ? filterActive : colors.border,
                 },
               ]}
             >
               <Ionicons
                 name={filter.icon as any}
                 size={14}
-                color={metricFilter === filter.value ? '#FFFFFF' : colors.primary}
+                color={metricFilter === filter.value ? '#FFFFFF' : '#167D79'}
               />
               <ThemedText
                 style={[
                   styles.filterButtonText,
                   {
-                    color: metricFilter === filter.value ? '#FFFFFF' : colors.primary,
+                    color: metricFilter === filter.value ? '#FFFFFF' : colors.text,
                   },
                 ]}
               >
@@ -851,10 +853,10 @@ export function WeatherAnalyticsDashboard({
         <View style={styles.chartHeader}>
           <View style={styles.chartHeaderLeft}>
             <ThemedText style={[styles.chartTitle, { color: colors.text }]}>
-              Trend Analysis
+              Observation trend
             </ThemedText>
             <ThemedText style={[styles.chartSubtitle, { color: colors.text, opacity: 0.6 }]}>
-              {selectedRange} view
+              {selectedRange} reporting window · {filteredData.length} readings
             </ThemedText>
           </View>
           
@@ -877,9 +879,9 @@ export function WeatherAnalyticsDashboard({
                       {
                         backgroundColor:
                           selectedInterval === interval.value
-                            ? colors.primary
-                            : `${colors.primary}15`,
-                        borderColor: colors.border,
+                            ? filterActive
+                            : filterIdle,
+                        borderColor: selectedInterval === interval.value ? filterActive : colors.border,
                       },
                     ]}
                   >
@@ -888,7 +890,7 @@ export function WeatherAnalyticsDashboard({
                         styles.filterButtonText,
                         styles.intervalButtonText,
                         {
-                          color: selectedInterval === interval.value ? '#FFFFFF' : colors.primary,
+                          color: selectedInterval === interval.value ? '#FFFFFF' : colors.text,
                         },
                       ]}
                     >

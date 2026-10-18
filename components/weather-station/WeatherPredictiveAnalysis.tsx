@@ -456,6 +456,8 @@ export function WeatherPredictiveAnalysis({
 }: WeatherPredictiveAnalysisProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const horizonActive = '#164E63';
+  const horizonIdle = colorScheme === 'dark' ? '#1B2E37' : '#EAF2F0';
   const { isMobile } = useScreenSize();
   const [selectedHorizon, setSelectedHorizon] = useState<PredictionHorizon>('6h');
 
@@ -656,10 +658,10 @@ export function WeatherPredictiveAnalysis({
         <View style={styles.header}>
           <View>
             <ThemedText style={[styles.title, { color: colors.text }]}>
-              Predictive Analysis
+              Forecast signals
             </ThemedText>
             <ThemedText style={[styles.subtitle, { color: colors.text, opacity: 0.7 }]}>
-              Multiple linear regression forecasting
+              More station readings improve the short-term outlook
             </ThemedText>
           </View>
         </View>
@@ -730,15 +732,15 @@ export function WeatherPredictiveAnalysis({
       <View style={styles.header}>
         <View>
           <ThemedText style={[styles.title, { color: colors.text }]}>
-            Predictive Analysis
+            Forecast signals
           </ThemedText>
           <ThemedText style={[styles.subtitle, { color: colors.text, opacity: 0.7 }]}>
-            Multiple linear regression forecasting
+            Short-term estimates based on recent station observations
           </ThemedText>
         </View>
-        <View style={[styles.qualityBadge, { backgroundColor: `${colors.primary}15` }]}>
-          <Ionicons name="stats-chart" size={14} color={colors.primary} />
-          <ThemedText style={[styles.qualityText, { color: colors.primary }]}>
+        <View style={[styles.qualityBadge, { backgroundColor: horizonIdle }]}>
+          <Ionicons name="stats-chart" size={14} color="#167D79" />
+          <ThemedText style={[styles.qualityText, { color: colorScheme === 'dark' ? '#8FE0D4' : '#176A67' }]}>
             {Math.round(averageModelQuality * 100)}% fit
           </ThemedText>
         </View>
@@ -767,9 +769,9 @@ export function WeatherPredictiveAnalysis({
                 {
                   backgroundColor:
                     selectedHorizon === horizon.value
-                      ? colors.primary
-                      : `${colors.primary}15`,
-                  borderColor: colors.border,
+                      ? horizonActive
+                      : horizonIdle,
+                  borderColor: selectedHorizon === horizon.value ? horizonActive : colors.border,
                 },
               ]}
             >
@@ -777,7 +779,7 @@ export function WeatherPredictiveAnalysis({
                 style={[
                   styles.filterButtonText,
                   {
-                    color: selectedHorizon === horizon.value ? '#FFFFFF' : colors.primary,
+                    color: selectedHorizon === horizon.value ? '#FFFFFF' : colors.text,
                   },
                 ]}
               >

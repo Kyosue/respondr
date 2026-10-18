@@ -4,7 +4,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { WeatherStation } from '@/types/WeatherStation';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo } from 'react';
 import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -90,284 +89,106 @@ export function WeatherStationSwitcher({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="location" size={20} color={colors.primary} />
-          <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
-            Weather Stations
-          </ThemedText>
+      <View style={[styles.header, isMobile && styles.headerMobile]}>
+        <View style={styles.headingGroup}>
+          <View style={styles.headingIcon}><Ionicons name="radio-outline" size={17} color="#8FE0D4" /></View>
+          <View>
+            <ThemedText style={[styles.eyebrow, { color: colorScheme === 'dark' ? '#9FCBC3' : '#52716F' }]}>WEATHER NETWORK</ThemedText>
+            <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Monitoring sites</ThemedText>
+          </View>
         </View>
-        <View style={styles.headerRight}>
-          <ThemedText style={[styles.stationCount, { color: colors.text, opacity: 0.6 }]}>
-            {activeStations.length} active
-          </ThemedText>
+        <View style={styles.headerActions}>
+          <View style={[styles.onlineBadge, { backgroundColor: colorScheme === 'dark' ? '#18372F' : '#E8F4EF' }]}>
+            <View style={styles.onlineDot} />
+            <ThemedText style={styles.onlineText}>{activeStations.length} / {stations.length} ONLINE</ThemedText>
+          </View>
           {showAddButton && onAddStation && (
-            <TouchableOpacity
-              onPress={onAddStation}
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={18} color="#FFFFFF" />
-              <ThemedText style={styles.addButtonText}>Add</ThemedText>
+            <TouchableOpacity onPress={onAddStation} style={styles.addButton} activeOpacity={0.85}>
+              <Ionicons name="add" size={17} color="#FFFFFF" />
+              <ThemedText style={styles.addButtonText}>Add station</ThemedText>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <View style={styles.scrollContainer}>
-        {/* Left gradient fade */}
-        <LinearGradient
-          colors={[colors.surface, 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.fadeGradient, styles.fadeGradientLeft]}
-          pointerEvents="none"
-        />
-        
-        {/* Right gradient fade */}
-        <LinearGradient
-          colors={['transparent', colors.surface]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.fadeGradient, styles.fadeGradientRight]}
-          pointerEvents="none"
-        />
-        
+      <ThemedText style={[styles.helperText, { color: colors.text, opacity: 0.62 }]}>Select a site to inspect its current conditions and reports.</ThemedText>
+
+      {stations.length > 0 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={!isMobile}
           contentContainerStyle={styles.stationsScroll}
           {...(Platform.OS === 'web' && !isMobile && {
-            // @ts-ignore - CSS scrollbar properties for web
-            style: {
-              scrollbarWidth: 'thin',
-              scrollbarColor: `${colors.text}20 transparent`,
-            } as any,
+            style: { scrollbarWidth: 'thin', scrollbarColor: `${colors.text}25 transparent` } as any,
           })}
         >
-        {/* Active Stations */}
-        {activeStations.map((station) => {
-          const isSelected = selectedStation?.id === station.id;
-          return (
-            <TouchableOpacity
-              key={station.id}
-              onPress={() => onSelectStation(station)}
-              style={[
-                styles.stationChip,
-                {
-                  backgroundColor: isSelected
-                    ? colors.primary
-                    : `${colors.primary}15`,
-                  borderColor: isSelected
-                    ? colors.primary
-                    : colors.border,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <View
+          {[...activeStations, ...inactiveStations].map((station) => {
+            const isSelected = selectedStation?.id === station.id;
+            const isActive = station.isActive;
+            return (
+              <TouchableOpacity
+                key={station.id}
+                onPress={() => onSelectStation(station)}
                 style={[
-                  styles.statusDot,
+                  styles.stationCard,
                   {
-                    backgroundColor: isSelected
-                      ? '#FFFFFF'
-                      : colors.success || '#4CAF50',
+                    backgroundColor: isSelected ? '#102A3D' : colors.background,
+                    borderColor: isSelected ? '#102A3D' : colors.border,
                   },
                 ]}
-              />
-              <ThemedText
-                style={[
-                  styles.stationName,
-                  {
-                    color: isSelected ? '#FFFFFF' : colors.text,
-                    fontWeight: isSelected ? '600' : '500',
-                  },
-                ]}
-                numberOfLines={1}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
               >
-                {getStationDisplayName(station.id)}
-              </ThemedText>
-              {isSelected && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Inactive Stations (if any) */}
-        {inactiveStations.length > 0 && (
-          <>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            {inactiveStations.map((station) => {
-              const isSelected = selectedStation?.id === station.id;
-              return (
-                <TouchableOpacity
-                  key={station.id}
-                  onPress={() => onSelectStation(station)}
-                  style={[
-                    styles.stationChip,
-                    styles.inactiveChip,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.error
-                        : `${colors.error}15`,
-                      borderColor: isSelected
-                        ? colors.error
-                        : colors.border,
-                    },
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      {
-                        backgroundColor: isSelected
-                          ? '#FFFFFF'
-                          : colors.error,
-                      },
-                    ]}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.stationName,
-                      {
-                        color: isSelected ? '#FFFFFF' : colors.text,
-                        opacity: isSelected ? 1 : 0.6,
-                        fontWeight: isSelected ? '600' : '500',
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {getStationDisplayName(station.id)}
-                  </ThemedText>
-                  {isSelected && (
-                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </>
-        )}
+                <View style={styles.stationCardTop}>
+                  <View style={[styles.stationState, { backgroundColor: isActive ? '#E3F3EC' : '#FFF1E6' }]}>
+                    <View style={[styles.statusDot, { backgroundColor: isActive ? '#16805F' : '#C67A2E' }]} />
+                    <ThemedText style={[styles.stationStateText, { color: isActive ? '#17684F' : '#A56323' }]}>{isActive ? 'ONLINE' : 'OFFLINE'}</ThemedText>
+                  </View>
+                  {isSelected && <Ionicons name="checkmark-circle" size={19} color="#8FE0D4" />}
+                </View>
+                <ThemedText style={[styles.stationName, { color: isSelected ? '#FFFFFF' : colors.text }]} numberOfLines={1}>
+                  {getStationDisplayName(station.id)}
+                </ThemedText>
+                <ThemedText style={[styles.stationLocation, { color: isSelected ? '#B8CBD3' : colors.text, opacity: isSelected ? 0.86 : 0.58 }]} numberOfLines={1}>
+                  {station.locationName || station.municipality.name}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
-      </View>
+      ) : (
+        <View style={[styles.emptyState, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Ionicons name="radio-outline" size={18} color={colors.primary} />
+          <ThemedText style={[styles.emptyText, { color: colors.text, opacity: 0.65 }]}>No weather stations are configured yet.</ThemedText>
+        </View>
+      )}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  scrollContainer: {
-    marginTop: 4,
-    position: 'relative',
-  },
-  fadeGradient: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 20,
-    zIndex: 1,
-    ...Platform.select({
-      web: {
-        pointerEvents: 'none',
-      },
-    }),
-  },
-  fadeGradientLeft: {
-    left: 0,
-  },
-  fadeGradientRight: {
-    right: 0,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 22,
-  },
-  stationCount: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  stationsScroll: {
-    gap: 8,
-    paddingLeft: 20, // Space from left blur gradient
-    paddingRight: 4,
-    paddingBottom: Platform.select({
-      web: 8,
-      default: 0,
-    }),
-  },
-  stationChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    minWidth: 100,
-  },
-  inactiveChip: {
-    opacity: 0.7,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  stationName: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  divider: {
-    width: 1,
-    height: 24,
-    marginHorizontal: 4,
-  },
+  container: { borderRadius: 11, padding: 16, borderWidth: StyleSheet.hairlineWidth, marginBottom: 15 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  headerMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
+  headingGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headingIcon: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#173648' },
+  eyebrow: { color: '#52716F', fontSize: 14, fontWeight: '800', letterSpacing: 1, marginBottom: 2 },
+  headerTitle: { fontSize: 16, fontWeight: '800', lineHeight: 22 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  onlineBadge: { minHeight: 30, paddingHorizontal: 9, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16805F' },
+  onlineText: { color: '#17684F', fontSize: 14, fontWeight: '800', letterSpacing: 0.35 },
+  helperText: { fontSize: 14, lineHeight: 20, marginTop: 9, marginBottom: 11 },
+  addButton: { minHeight: 34, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#164E63', flexDirection: 'row', alignItems: 'center', gap: 5 },
+  addButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  stationsScroll: { gap: 9, paddingRight: 3, paddingBottom: Platform.select({ web: 5, default: 0 }) },
+  stationCard: { width: 174, minHeight: 98, padding: 11, borderRadius: 8, borderWidth: 1, justifyContent: 'space-between' },
+  stationCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  stationState: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
+  stationStateText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  stationName: { fontSize: 14, fontWeight: '800', lineHeight: 20 },
+  stationLocation: { fontSize: 14, marginTop: 3 },
+  emptyState: { minHeight: 54, borderWidth: 1, borderRadius: 7, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  emptyText: { fontSize: 14 },
 });
-

@@ -4,7 +4,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useScreenSize } from '@/hooks/useScreenSize';
 import { getWeatherDataSourceLabel, type WeatherDataSource } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HistoricalDataPoint } from './HistoricalDataView';
@@ -224,58 +223,53 @@ export function WeatherMetrics({ historicalData, dataSource, onMetricPress, onRe
           <TouchableOpacity
             key={metric.key}
             activeOpacity={0.8}
-            style={[styles.metricCard, isMobile && styles.metricCardMobile]}
+            style={[styles.metricCard, isMobile && styles.metricCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => handlePress(metric)}
             disabled={!onMetricPress}
           >
-            <LinearGradient
-              colors={metric.gradient as any}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.gradientCard, isMobile && styles.gradientCardMobile]}
-            >
+            <View style={[styles.gradientCard, isMobile && styles.gradientCardMobile]}>
               <View style={styles.metricContent}>
                 {isMobile ? (
                   <>
                     <View style={styles.mobileTopRow}>
-                      <View style={[styles.iconBackground, styles.iconBackgroundMobile, { backgroundColor: `${metric.color}20` }]}>
-                        <Ionicons name={metric.icon} size={20} color="#FFFFFF" />
+                      <View style={[styles.iconBackground, styles.iconBackgroundMobile, { backgroundColor: `${metric.color}18` }]}>
+                        <Ionicons name={metric.icon} size={20} color={metric.color} />
                       </View>
                       <View style={styles.mobileValueContainer}>
-                        <ThemedText style={styles.metricValueMobile}>
+                        <ThemedText style={[styles.metricValueMobile, { color: colors.text }]}>
                           {metric.value}
                         </ThemedText>
-                        <ThemedText style={styles.metricUnitMobile}>
+                        <ThemedText style={[styles.metricUnitMobile, { color: colors.text, opacity: 0.6 }]}>
                           {metric.unit}
                         </ThemedText>
                       </View>
                     </View>
-                    <ThemedText style={styles.metricLabelMobile} numberOfLines={2}>
+                    <ThemedText style={[styles.metricLabelMobile, { color: colors.text, opacity: 0.72 }]} numberOfLines={2}>
                       {metric.label}
                     </ThemedText>
                   </>
                 ) : (
                   <View style={styles.metricRow}>
-                    <View style={[styles.iconBackground, { backgroundColor: `${metric.color}20` }]}>
-                      <Ionicons name={metric.icon} size={24} color="#FFFFFF" />
+                    <View style={[styles.iconBackground, { backgroundColor: `${metric.color}18` }]}>
+                      <Ionicons name={metric.icon} size={23} color={metric.color} />
                     </View>
                     <View style={styles.metricTextContainer}>
                       <View style={styles.valueRow}>
-                        <ThemedText style={styles.metricValue}>
+                        <ThemedText style={[styles.metricValue, { color: colors.text }]}>
                           {metric.value}
                         </ThemedText>
-                        <ThemedText style={styles.metricUnit}>
+                        <ThemedText style={[styles.metricUnit, { color: colors.text, opacity: 0.58 }]}>
                           {metric.unit}
                         </ThemedText>
                       </View>
-                      <ThemedText style={styles.metricLabel}>
+                      <ThemedText style={[styles.metricLabel, { color: colors.text, opacity: 0.72 }]}>
                         {metric.label}
                       </ThemedText>
                     </View>
                   </View>
                 )}
               </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -299,7 +293,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sourceText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   metricsContainer: {
@@ -313,13 +307,9 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     minWidth: 140,
-    borderRadius: 16,
+    borderRadius: 11,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   metricCardMobile: {
     width: '48%',
@@ -327,14 +317,13 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   gradientCard: {
-    padding: 16,
-    borderRadius: 16,
-    minHeight: 90,
+    padding: 15,
+    minHeight: 82,
     justifyContent: 'center',
   },
   gradientCardMobile: {
     padding: 12,
-    minHeight: 100,
+    minHeight: 94,
     justifyContent: 'flex-start',
   },
   metricContent: {
@@ -363,7 +352,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
     flexShrink: 0,
   },
   iconBackgroundMobile: {
@@ -384,45 +373,35 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: '800',
     fontFamily: 'Gabarito',
     lineHeight: 30,
   },
   metricValueMobile: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: '800',
     fontFamily: 'Gabarito',
     lineHeight: 26,
   },
   metricUnit: {
     fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.9,
     fontWeight: '500',
     lineHeight: 20,
   },
   metricUnitMobile: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    opacity: 0.9,
+    fontSize: 14,
     fontWeight: '500',
     lineHeight: 18,
   },
   metricLabel: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     fontFamily: 'Gabarito',
     lineHeight: 18,
   },
   metricLabelMobile: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     fontFamily: 'Gabarito',
     lineHeight: 16,
   },

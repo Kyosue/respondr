@@ -200,8 +200,8 @@ export function HistoricalDataTable({
       style={[
         compact ? styles.exportButtonMobile : styles.exportButton,
         {
-          backgroundColor: canExport ? `${colors.primary}15` : `${colors.text}08`,
-          borderColor: canExport ? colors.primary : colors.border,
+          backgroundColor: canExport ? '#164E63' : `${colors.text}08`,
+          borderColor: canExport ? '#164E63' : colors.border,
           opacity: canExport ? 1 : 0.5,
         },
       ]}
@@ -211,12 +211,12 @@ export function HistoricalDataTable({
       <Ionicons
         name="download-outline"
         size={compact ? 16 : 18}
-        color={canExport ? colors.primary : colors.text}
+        color={canExport ? '#FFFFFF' : colors.text}
       />
       <ThemedText
         style={[
           compact ? styles.exportButtonTextMobile : styles.exportButtonText,
-          { color: canExport ? colors.primary : colors.text },
+          { color: canExport ? '#FFFFFF' : colors.text },
         ]}
       >
         Export Excel
@@ -316,11 +316,12 @@ export function HistoricalDataTable({
                 <Ionicons name="time" size={18} color={colors.primary} />
               </View>
               <View style={styles.titleContentMobile}>
-            <ThemedText style={[styles.sectionTitleMobile, { color: colors.text }]}>
-                  Historical Data
-            </ThemedText>
+                <ThemedText style={[styles.historyEyebrow, { color: colors.primary }]}>OBSERVATION ARCHIVE</ThemedText>
+                <ThemedText style={[styles.sectionTitleMobile, { color: colors.text }]}>
+                  Station history
+                </ThemedText>
                 <ThemedText style={[styles.recordCountMobile, { color: colors.text, opacity: 0.6 }]}>
-                  {totalItems} records
+                  {stationName || municipalityName || 'Selected station'} · {totalItems} records
             </ThemedText>
           </View>
             </View>
@@ -359,6 +360,7 @@ export function HistoricalDataTable({
                 <View style={styles.mobileRowCompact}>
                   {/* Time Column */}
                   <View style={styles.timeColumn}>
+                    <Ionicons name="time-outline" size={13} color={colors.primary} />
                     <ThemedText style={[styles.timeTextCompact, { color: colors.text, opacity: 0.9 }]}>
                       {point.timestamp.toLocaleTimeString('en-US', { 
                         hour: '2-digit', 
@@ -369,35 +371,40 @@ export function HistoricalDataTable({
 
                   {/* Metrics Row - Compact */}
                   <View style={styles.metricsRowCompact}>
-                    <View style={styles.metricCompact}>
+                    <View style={[styles.metricCompact, { backgroundColor: colorScheme === 'dark' ? '#18242D' : '#F5F8F8' }]}>
+                      <ThemedText style={[styles.metricLabelCompact, { color: colors.text, opacity: 0.55 }]}>TEMP</ThemedText>
                       <Ionicons name="thermometer" size={14} color="#F44336" />
                       <ThemedText style={[styles.metricTextCompact, { color: colors.text }]}>
-                        {point.temperature.toFixed(1)}°
+                        {point.temperature.toFixed(1)}°C
                       </ThemedText>
                     </View>
 
-                    <View style={styles.metricCompact}>
+                    <View style={[styles.metricCompact, { backgroundColor: colorScheme === 'dark' ? '#18242D' : '#F5F8F8' }]}>
+                      <ThemedText style={[styles.metricLabelCompact, { color: colors.text, opacity: 0.55 }]}>HUMIDITY</ThemedText>
                       <Ionicons name="water" size={14} color="#2196F3" />
                       <ThemedText style={[styles.metricTextCompact, { color: colors.text }]}>
                         {point.humidity.toFixed(0)}%
                       </ThemedText>
                     </View>
 
-                    <View style={styles.metricCompact}>
+                    <View style={[styles.metricCompact, { backgroundColor: colorScheme === 'dark' ? '#18242D' : '#F5F8F8' }]}>
+                      <ThemedText style={[styles.metricLabelCompact, { color: colors.text, opacity: 0.55 }]}>RAINFALL</ThemedText>
                       <Ionicons name="rainy" size={14} color="#00BCD4" />
                       <ThemedText style={[styles.metricTextCompact, { color: colors.text }]}>
-                        {point.rainfall.toFixed(1)}
+                        {point.rainfall.toFixed(1)} mm
                       </ThemedText>
                     </View>
 
-                    <View style={styles.metricCompact}>
+                    <View style={[styles.metricCompact, { backgroundColor: colorScheme === 'dark' ? '#18242D' : '#F5F8F8' }]}>
+                      <ThemedText style={[styles.metricLabelCompact, { color: colors.text, opacity: 0.55 }]}>WIND SPEED</ThemedText>
                       <Ionicons name="flag" size={14} color={colors.success || '#4CAF50'} />
                       <ThemedText style={[styles.metricTextCompact, { color: colors.text }]}>
-                        {point.windSpeed.toFixed(0)}
+                        {point.windSpeed.toFixed(0)} km/h
                       </ThemedText>
                     </View>
 
-                    <View style={styles.metricCompact}>
+                    <View style={[styles.metricCompact, { backgroundColor: colorScheme === 'dark' ? '#18242D' : '#F5F8F8' }]}>
+                      <ThemedText style={[styles.metricLabelCompact, { color: colors.text, opacity: 0.55 }]}>WIND DIR.</ThemedText>
                       <Ionicons name="compass" size={14} color="#FF9800" />
                       <ThemedText style={[styles.metricTextCompact, { color: colors.text }]}>
                         {degreesToCardinal(point.windDirection || 0)}
@@ -421,7 +428,7 @@ export function HistoricalDataTable({
                 style={[
                   styles.paginationButtonMobile,
                   {
-                    backgroundColor: currentPage === 1 ? 'transparent' : `${colors.primary}15`,
+                    backgroundColor: currentPage === 1 ? 'transparent' : '#EAF2F0',
                     opacity: currentPage === 1 ? 0.4 : 1,
                   },
                 ]}
@@ -431,7 +438,7 @@ export function HistoricalDataTable({
                 <Ionicons
                   name="chevron-back"
                   size={18}
-                  color={colors.primary}
+                  color="#164E63"
                 />
               </TouchableOpacity>
 
@@ -443,7 +450,7 @@ export function HistoricalDataTable({
                 style={[
                   styles.paginationButtonMobile,
                   {
-                    backgroundColor: currentPage === totalPages ? 'transparent' : `${colors.primary}15`,
+                    backgroundColor: currentPage === totalPages ? 'transparent' : '#EAF2F0',
                     opacity: currentPage === totalPages ? 0.4 : 1,
                   },
                 ]}
@@ -453,7 +460,7 @@ export function HistoricalDataTable({
                 <Ionicons
                   name="chevron-forward"
                   size={18}
-                  color={colors.primary}
+                  color="#164E63"
                 />
               </TouchableOpacity>
             </View>
@@ -474,11 +481,12 @@ export function HistoricalDataTable({
             <Ionicons name="time" size={20} color={colors.primary} />
           </View>
           <View style={styles.titleContent}>
-          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-            Historical Data
-          </ThemedText>
+            <ThemedText style={[styles.historyEyebrow, { color: colors.primary }]}>OBSERVATION ARCHIVE</ThemedText>
+            <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+              Station history
+            </ThemedText>
             <ThemedText style={[styles.recordCount, { color: colors.text, opacity: 0.6 }]}>
-            {totalItems} records
+            {stationName || municipalityName || 'Selected station'} · {totalItems} records
           </ThemedText>
           </View>
         </View>
@@ -488,40 +496,40 @@ export function HistoricalDataTable({
       {/* Table */}
       <View style={[styles.tableContainer, { borderColor: colors.border }]}>
         {/* Table Header */}
-        <View style={[styles.tableHeader, { borderBottomColor: colors.border, backgroundColor: `${colors.primary}05` }]}>
+        <View style={[styles.tableHeader, { borderBottomColor: '#25485C', backgroundColor: '#102A3D' }]}>
           <View style={[styles.tableHeaderCell, styles.tableHeaderCellTime]}>
-            <Ionicons name="time-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+            <Ionicons name="time-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
               Date & Time
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="thermometer-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+            <Ionicons name="thermometer-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
               Temperature
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="water-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+            <Ionicons name="water-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
               Humidity
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="rainy-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+            <Ionicons name="rainy-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
               Rainfall
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="flag-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+            <Ionicons name="flag-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
               Wind Speed
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="compass-outline" size={14} color={colors.text} style={{ opacity: 0.8, marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: colors.text }]}>
+            <Ionicons name="compass-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
               Wind Direction
             </ThemedText>
           </View>
@@ -618,7 +626,7 @@ export function HistoricalDataTable({
               style={[
                 styles.paginationButton,
                 {
-                  backgroundColor: currentPage === 1 ? 'transparent' : `${colors.primary}20`,
+                  backgroundColor: currentPage === 1 ? 'transparent' : '#EAF2F0',
                   borderColor: colors.border,
                   opacity: currentPage === 1 ? 0.5 : 1,
                 },
@@ -629,7 +637,7 @@ export function HistoricalDataTable({
               <Ionicons
                 name="chevron-back"
                 size={16}
-                color={currentPage === 1 ? colors.text : colors.primary}
+                color={currentPage === 1 ? colors.text : '#164E63'}
               />
             </TouchableOpacity>
 
@@ -651,8 +659,8 @@ export function HistoricalDataTable({
                   style={[
                     styles.paginationPageButton,
                     {
-                      backgroundColor: isActive ? colors.primary : 'transparent',
-                      borderColor: isActive ? colors.primary : colors.border,
+                      backgroundColor: isActive ? '#164E63' : 'transparent',
+                      borderColor: isActive ? '#164E63' : colors.border,
                     },
                   ]}
                   onPress={() => handlePageChange(page as number)}
@@ -676,7 +684,7 @@ export function HistoricalDataTable({
               style={[
                 styles.paginationButton,
                 {
-                  backgroundColor: currentPage === totalPages ? 'transparent' : `${colors.primary}20`,
+                  backgroundColor: currentPage === totalPages ? 'transparent' : '#EAF2F0',
                   borderColor: colors.border,
                   opacity: currentPage === totalPages ? 0.5 : 1,
                 },
@@ -687,7 +695,7 @@ export function HistoricalDataTable({
               <Ionicons
                 name="chevron-forward"
                 size={16}
-                color={currentPage === totalPages ? colors.text : colors.primary}
+                color={currentPage === totalPages ? colors.text : '#164E63'}
               />
             </TouchableOpacity>
           </View>
@@ -700,24 +708,28 @@ export function HistoricalDataTable({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    padding: 20,
-    marginBottom: 20,
+    padding: 15,
+    marginBottom: 15,
   },
   cardMobile: {
     padding: 12,
     marginBottom: 12,
   },
   headerSectionMobile: {
-    marginBottom: 16,
-    gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 14,
   },
   titleContentMobile: {
     flex: 1,
+    minWidth: 0,
   },
   titleContainerMobile: {
-    marginBottom: 12,
+    flex: 1,
   },
   titleRowMobile: {
     flexDirection: 'row',
@@ -732,33 +744,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   recordCountMobile: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Gabarito',
     lineHeight: 16,
     marginTop: 2,
   },
+  historyEyebrow: { fontSize: 14, fontWeight: '800', letterSpacing: 0.9, lineHeight: 16, marginBottom: 2 },
   sectionTitleMobile: {
-    fontSize: 18, // H3
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     fontFamily: 'Gabarito',
-    lineHeight: 24,
+    lineHeight: 21,
   },
   titleContent: {
     flex: 1,
   },
   recordCount: {
-    fontSize: 14, // Body
+    fontSize: 14,
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
     marginTop: 2,
   },
   scrollViewMobile: {
     maxHeight: 400,
   },
   mobileItemCompact: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
   },
   dateHeaderCompact: {
     paddingVertical: 4,
@@ -768,38 +783,46 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   dateHeaderTextCompact: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Gabarito',
     lineHeight: 16,
   },
   mobileRowCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  timeColumn: {
-    minWidth: 50,
-  },
-  timeTextCompact: {
-    fontSize: 14, // Body
-    fontWeight: '600',
-    fontFamily: 'Gabarito',
-    lineHeight: 20,
-  },
-  metricsRowCompact: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
     gap: 8,
   },
-  metricCompact: {
+  timeColumn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    flex: 1,
-    justifyContent: 'center',
+    gap: 5,
+  },
+  timeTextCompact: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Gabarito',
+    lineHeight: 16,
+  },
+  metricsRowCompact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  metricCompact: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    width: '31%',
+    minHeight: 48,
+    justifyContent: 'space-around',
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  metricLabelCompact: {
+    fontSize: 14,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   metricTextCompact: {
     fontSize: 14, // Body
@@ -817,7 +840,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   paginationCounterTextMobile: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Gabarito',
     lineHeight: 16,
   },
@@ -848,7 +871,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomColor: '#E2E9E9',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -864,9 +887,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     fontFamily: 'Gabarito',
-    lineHeight: 28,
+    lineHeight: 24,
   },
   scrollView: {
     flex: 1,
@@ -917,7 +940,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   dateHeaderText: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
     fontWeight: '700',
     fontFamily: 'Gabarito',
     lineHeight: 16,
@@ -958,13 +981,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metricValue: {
-    fontSize: 18, // H3
+    fontSize: 20, // H3
     fontWeight: '700',
     fontFamily: 'Gabarito',
     lineHeight: 24,
   },
   metricLabel: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
     fontFamily: 'Gabarito',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -972,7 +995,7 @@ const styles = StyleSheet.create({
   },
   tableContainer: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 7,
     overflow: 'hidden',
     flex: 1,
     minHeight: 400,
@@ -985,9 +1008,9 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 2,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderBottomWidth: 1,
     alignItems: 'center',
   },
   tableHeaderCell: {
@@ -999,21 +1022,20 @@ const styles = StyleSheet.create({
     flex: 1.5,
   },
   tableHeaderText: {
-    fontSize: 14, // Body
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.55,
     fontFamily: 'Gabarito',
-    opacity: 0.8,
-    lineHeight: 20,
+    lineHeight: 16,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 13,
     borderBottomWidth: 1,
     alignItems: 'center',
-    minHeight: 56,
+    minHeight: 48,
   },
   tableCell: {
     flex: 1,
@@ -1026,10 +1048,10 @@ const styles = StyleSheet.create({
   tableCellText: {
     fontSize: 14,
     fontFamily: 'Gabarito',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   todayBadge: {
-    fontSize: 12, // Small
+    fontSize: 14, // Small
     fontWeight: '600',
     marginTop: 2,
     fontFamily: 'Gabarito',
@@ -1039,9 +1061,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 5,
   },
   paginationFooter: {
     flexDirection: 'row',
@@ -1126,7 +1148,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   exportButtonTextMobile: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Gabarito',
     lineHeight: 18,
