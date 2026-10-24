@@ -77,6 +77,8 @@ export function WeatherMetrics({ historicalData, dataSource, onMetricPress, onRe
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { isMobile } = useScreenSize();
+  const isDark = colorScheme === 'dark';
+  const cardStyle = { backgroundColor: isDark ? '#171A21' : '#FFFFFF', borderColor: isDark ? '#2A2F3A' : '#EAECF0' };
   
   // Use ref to store the latest onRefresh callback to avoid stale closures
   const onRefreshRef = useRef(onRefresh);
@@ -223,7 +225,7 @@ export function WeatherMetrics({ historicalData, dataSource, onMetricPress, onRe
           <TouchableOpacity
             key={metric.key}
             activeOpacity={0.8}
-            style={[styles.metricCard, isMobile && styles.metricCardMobile, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[styles.metricCard, isMobile && styles.metricCardMobile, cardStyle]}
             onPress={() => handlePress(metric)}
             disabled={!onMetricPress}
           >
@@ -232,8 +234,8 @@ export function WeatherMetrics({ historicalData, dataSource, onMetricPress, onRe
                 {isMobile ? (
                   <>
                     <View style={styles.mobileTopRow}>
-                      <View style={[styles.iconBackground, styles.iconBackgroundMobile, { backgroundColor: `${metric.color}18` }]}>
-                        <Ionicons name={metric.icon} size={20} color={metric.color} />
+                      <View style={[styles.iconBackground, styles.iconBackgroundMobile, { backgroundColor: `${metric.color}14` }]}>
+                        <Ionicons name={metric.icon} size={18} color={metric.color} />
                       </View>
                       <View style={styles.mobileValueContainer}>
                         <ThemedText style={[styles.metricValueMobile, { color: colors.text }]}>
@@ -250,8 +252,8 @@ export function WeatherMetrics({ historicalData, dataSource, onMetricPress, onRe
                   </>
                 ) : (
                   <View style={styles.metricRow}>
-                    <View style={[styles.iconBackground, { backgroundColor: `${metric.color}18` }]}>
-                      <Ionicons name={metric.icon} size={23} color={metric.color} />
+                    <View style={[styles.iconBackground, { backgroundColor: `${metric.color}14` }]}>
+                      <Ionicons name={metric.icon} size={20} color={metric.color} />
                     </View>
                     <View style={styles.metricTextContainer}>
                       <View style={styles.valueRow}>
@@ -307,9 +309,9 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     minWidth: 140,
-    borderRadius: 11,
+    borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
   metricCardMobile: {
     width: '48%',
@@ -347,9 +349,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   iconBackground: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.04)',
@@ -372,14 +374,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   metricValue: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
     fontFamily: 'Gabarito',
     lineHeight: 30,
   },
   metricValueMobile: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     fontFamily: 'Gabarito',
     lineHeight: 26,
   },
@@ -394,14 +396,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   metricLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '400',
     fontFamily: 'Gabarito',
     lineHeight: 18,
   },
   metricLabelMobile: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '400',
     fontFamily: 'Gabarito',
     lineHeight: 16,
   },

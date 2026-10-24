@@ -15,6 +15,7 @@ interface HistoricalDataViewProps {
   municipalityName?: string; // Municipality name for device_id filtering
   stationName?: string;
   onRefresh?: () => void;
+  hideExport?: boolean;
 }
 
 export function HistoricalDataView({
@@ -23,6 +24,7 @@ export function HistoricalDataView({
   municipalityName,
   stationName,
   onRefresh,
+  hideExport,
 }: HistoricalDataViewProps) {
   // If no data is provided or data is empty, let HistoricalDataTable fetch from Firebase
   // Pass data directly without any filtering or sampling
@@ -33,6 +35,7 @@ export function HistoricalDataView({
       municipalityName={municipalityName}
       stationName={stationName}
       onRefresh={onRefresh}
+      hideExport={hideExport}
     />
   );
 }

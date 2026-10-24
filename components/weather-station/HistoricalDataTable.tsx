@@ -19,6 +19,7 @@ interface HistoricalDataTableProps {
   municipalityName?: string; // Municipality name for device_id filtering when fetching from Firebase
   stationName?: string;
   onRefresh?: () => void;
+  hideExport?: boolean; // public pages don't offer data export
 }
 
 export function HistoricalDataTable({ 
@@ -27,9 +28,12 @@ export function HistoricalDataTable({
   municipalityName,
   stationName,
   onRefresh,
+  hideExport = false,
 }: HistoricalDataTableProps) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // dashboard card tokens
+  const colors = { ...Colors[colorScheme ?? 'light'], surface: colorScheme === 'dark' ? '#171A21' : '#FFFFFF', border: colorScheme === 'dark' ? '#2A2F3A' : '#EAECF0' };
+  const headBg = colorScheme === 'dark' ? '#1E222B' : '#F7F8FA';
   const { isMobile } = useScreenSize();
   const [currentPage, setCurrentPage] = useState(1);
   const [firebaseData, setFirebaseData] = useState<HistoricalDataPoint[]>([]);
@@ -195,7 +199,7 @@ export function HistoricalDataTable({
     />
   );
 
-  const renderExportButton = (compact = false) => (
+  const renderExportButton = (compact = false) => hideExport ? null : (
     <TouchableOpacity
       style={[
         compact ? styles.exportButtonMobile : styles.exportButton,
@@ -316,7 +320,7 @@ export function HistoricalDataTable({
                 <Ionicons name="time" size={18} color={colors.primary} />
               </View>
               <View style={styles.titleContentMobile}>
-                <ThemedText style={[styles.historyEyebrow, { color: colors.primary }]}>OBSERVATION ARCHIVE</ThemedText>
+                <ThemedText style={[styles.historyEyebrow, { color: colors.text }]}>Observation archive</ThemedText>
                 <ThemedText style={[styles.sectionTitleMobile, { color: colors.text }]}>
                   Station history
                 </ThemedText>
@@ -481,7 +485,7 @@ export function HistoricalDataTable({
             <Ionicons name="time" size={20} color={colors.primary} />
           </View>
           <View style={styles.titleContent}>
-            <ThemedText style={[styles.historyEyebrow, { color: colors.primary }]}>OBSERVATION ARCHIVE</ThemedText>
+            <ThemedText style={[styles.historyEyebrow, { color: colors.text }]}>Observation archive</ThemedText>
             <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
               Station history
             </ThemedText>
@@ -496,40 +500,40 @@ export function HistoricalDataTable({
       {/* Table */}
       <View style={[styles.tableContainer, { borderColor: colors.border }]}>
         {/* Table Header */}
-        <View style={[styles.tableHeader, { borderBottomColor: '#25485C', backgroundColor: '#102A3D' }]}>
+        <View style={[styles.tableHeader, { borderBottomColor: colors.border, backgroundColor: headBg }]}>
           <View style={[styles.tableHeaderCell, styles.tableHeaderCellTime]}>
-            <Ionicons name="time-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
+            <Ionicons name="time-outline" size={14} color={colors.text} style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text, opacity: 0.7 }]}>
               Date & Time
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="thermometer-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
+            <Ionicons name="thermometer-outline" size={14} color={colors.text} style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text, opacity: 0.7 }]}>
               Temperature
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="water-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
+            <Ionicons name="water-outline" size={14} color={colors.text} style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text, opacity: 0.7 }]}>
               Humidity
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="rainy-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
+            <Ionicons name="rainy-outline" size={14} color={colors.text} style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text, opacity: 0.7 }]}>
               Rainfall
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="flag-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
+            <Ionicons name="flag-outline" size={14} color={colors.text} style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text, opacity: 0.7 }]}>
               Wind Speed
             </ThemedText>
           </View>
           <View style={styles.tableHeaderCell}>
-            <Ionicons name="compass-outline" size={14} color="#B9D0D8" style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.tableHeaderText, { color: '#FFFFFF' }]}>
+            <Ionicons name="compass-outline" size={14} color={colors.text} style={{ marginRight: 6 }} />
+            <ThemedText style={[styles.tableHeaderText, { color: colors.text, opacity: 0.7 }]}>
               Wind Direction
             </ThemedText>
           </View>
@@ -708,9 +712,9 @@ export function HistoricalDataTable({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 15,
+    padding: 16,
     marginBottom: 15,
   },
   cardMobile: {
@@ -749,7 +753,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 2,
   },
-  historyEyebrow: { fontSize: 14, fontWeight: '800', letterSpacing: 0.9, lineHeight: 16, marginBottom: 2 },
+  historyEyebrow: { fontSize: 12, fontFamily: 'Gabarito', opacity: 0.62, lineHeight: 16, marginBottom: 2 },
   sectionTitleMobile: {
     fontSize: 16,
     fontWeight: '800',
