@@ -294,6 +294,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    ...Platform.select({ web: { outlineStyle: 'none', transition: 'border-color 0.2s ease' } as any }),
   },
   inputIcon: {
     position: 'absolute',
@@ -306,6 +307,7 @@ const styles = StyleSheet.create({
     right: 16,
     top: 18,
     zIndex: 1,
+    ...Platform.select({ web: { cursor: 'pointer' } as any }),
   },
   errorText: {
     fontSize: 14,

@@ -111,7 +111,7 @@ export default function LoginScreen() {
                 </ThemedText>
               </View>
               
-              <View style={styles.formContainer}>
+              <View style={[styles.formContainer, Platform.OS === 'web' && [styles.webCard, { backgroundColor: colors.surface, borderColor: colors.border }]]}>
                 <LoginForm 
                   onSubmit={handleLogin}
                   isLoading={isLoading}
@@ -270,6 +270,12 @@ const styles = StyleSheet.create({
     padding: Platform.OS === 'ios' ? 24 : 0,
     marginVertical: 16,
   },
+  webCard: {
+    maxWidth: 440,
+    padding: 32,
+    borderWidth: 1,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+  } as any,
   footerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',

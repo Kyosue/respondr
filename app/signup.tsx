@@ -146,7 +146,7 @@ export default function SignupScreen() {
               </ThemedText>
             </View>
             
-            <View style={styles.formContainer}>
+            <View style={[styles.formContainer, Platform.OS === 'web' && [styles.webCard, { backgroundColor: colors.surface, borderColor: colors.border }]]}>
               <SignupForm 
                 key={formKey}
                 onSubmit={handleSignup}
@@ -290,6 +290,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 300,
   },
+  webCard: {
+    maxWidth: 440,
+    padding: 32,
+    borderWidth: 1,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+  } as any,
   formContainer: {
     width: '100%',
     maxWidth: 400,
